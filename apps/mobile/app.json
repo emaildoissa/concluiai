@@ -44,6 +44,12 @@
         "projectId": "be8b0ab2-f847-496b-b97f-c98aadac1f2d"
       }
     },
-    "owner": "emaildoissa"
+    "owner": "emaildoissa",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/be8b0ab2-f847-496b-b97f-c98aadac1f2d"
+    }
   }
 }
