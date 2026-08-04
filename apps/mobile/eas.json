@@ -14,6 +14,11 @@
       "channel": "preview",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://sbwctlmdlzgrttycdhbo.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNid2N0bG1kbHpncnR0eWNkaGJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0NzQ3NTYsImV4cCI6MjEwMTA1MDc1Nn0.__OXG-jh74wVzuhHWmJulZ8qu57RU5slLH-jxkOztCc",
+        "EXPO_PUBLIC_API_URL": "https://concluiai-api.automacao.free.nf"
       }
     },
     "production": {
