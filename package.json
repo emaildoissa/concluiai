@@ -1,0 +1,27 @@
+{
+  "name": "concluiai",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,mobile,web -c blue,magenta,green \"npm run dev:api\" \"npm run start --prefix apps/mobile\" \"npm run dev:web\"",
+    "dev:api": "npm run dev --workspace=@concluiai/api",
+    "dev:web": "npm run dev --workspace=@concluiai/web",
+    "dev:mobile": "npm run start --prefix apps/mobile",
+    "dev:mobile:tunnel": "npm run tunnel --prefix apps/mobile",
+    "build:api": "npm run build --workspace=@concluiai/api",
+    "build:web": "npm run build --workspace=@concluiai/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "seed:user": "node scripts/seed-user.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.4"
+  }
+}

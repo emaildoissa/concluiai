@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  costallegra-backend:
+    image: emaildoissa/costallegra-backend:latest
+    container_name: costallegra-backend
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.costallegra-backend.rule=Host(`costallegra-api.automacao.free.nf`)
+      - traefik.http.routers.costallegra-backend.entrypoints=websecure
+      - traefik.http.routers.costallegra-backend.tls=true
+      - traefik.http.routers.costallegra-backend.tls.certresolver=letsencryptresolver
+      - traefik.http.services.costallegra-backend.loadbalancer.server.port=8080
+    environment:
+      APP_PORT: '8080'
+      APP_ENV: 'production'
+      APP_PUBLIC_URL: 'https://costallegra-api.automacao.free.nf'
+      APP_CORS_ORIGINS: '*'
+      DATABASE_URL: 'postgresql://postgres:[SUA_SENHA]@aws-1-us-west-2.pooler.supabase.com:6543/postgres'
+      HOLD_TTL_MINUTES: '60'
+    networks:
+      - interna
+
+networks:
+  interna:
+    external: true
+    name: interna
+s

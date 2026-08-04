@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  concluiai-backend:
+    image: emaildoissa/concluiai-backend:latest
+    container_name: concluiai-backend
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.concluiai-backend.rule=Host(`concluiai-api.automacao.free.nf`)
+      - traefik.http.routers.concluiai-backend.entrypoints=websecure
+      - traefik.http.routers.concluiai-backend.tls=true
+      - traefik.http.routers.concluiai-backend.tls.certresolver=letsencryptresolver
+      - traefik.http.services.concluiai-backend.loadbalancer.server.port=4000
+    environment:
+      PORT: '4000'
+      NODE_ENV: 'production'
+      SUPABASE_URL: 'https://sbwctlmdlzgrttycdhbo.supabase.co'
+      SUPABASE_SERVICE_ROLE_KEY: '${SUPABASE_SERVICE_ROLE_KEY}'
+      SUPABASE_ANON_KEY: '${SUPABASE_ANON_KEY}'
+      GEMINI_API_KEY: '${GEMINI_API_KEY}'
+      GEMINI_MODEL: 'gemini-2.5-flash'
+      API_KEY: '${API_KEY}'
+      WHATSAPP_PROVIDER: 'evolution'
+      WHATSAPP_API_URL: 'https://evolution.automacao.free.nf'
+      WHATSAPP_TOKEN: '${WHATSAPP_TOKEN}'
+      WHATSAPP_INSTANCE: 'celularteste'
+    networks:
+      - interna
+
+networks:
+  interna:
+    external: true
+    name: interna

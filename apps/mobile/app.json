@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Concluí Operador",
+    "slug": "concluiai-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "concluiai",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0f172a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "A câmera é usada para fotografar a evidência de cada tarefa.",
+        "NSLocationWhenInUseUsageDescription": "A localização é anexada à foto como prova de execução da tarefa."
+      }
+    },
+    "android": {
+      "package": "com.concluiai.operador",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permita o uso da câmera para fotografar a evidência das tarefas."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permita o uso da localização para anexar o GPS à foto."
+        }
+      ]
+    ]
+  }
+}
