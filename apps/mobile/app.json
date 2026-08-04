@@ -38,6 +38,12 @@
           "locationWhenInUsePermission": "Permita o uso da localização para anexar o GPS à foto."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "be8b0ab2-f847-496b-b97f-c98aadac1f2d"
+      }
+    },
+    "owner": "emaildoissa"
   }
 }
