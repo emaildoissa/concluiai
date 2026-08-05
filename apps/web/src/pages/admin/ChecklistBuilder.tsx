@@ -28,6 +28,7 @@ export function ChecklistBuilder() {
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [editing, setEditing] = useState<Checklist | null>(null);
   const [open, setOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const fetchChecklists = async () => {
     try {
@@ -80,7 +81,8 @@ export function ChecklistBuilder() {
   }
 
   async function save() {
-    if (!editing?.name.trim()) return;
+    if (!editing?.name.trim() || saving) return;
+    setSaving(true);
     const normalized = {
       ...editing,
       items: editing.items
@@ -92,12 +94,13 @@ export function ChecklistBuilder() {
       await apiPost('/api/checklists', normalized);
       await apiPost('/api/tasks/generate-today', {});
       await fetchChecklists();
+      setOpen(false);
+      setEditing(null);
     } catch (err) {
       console.error('Erro ao salvar no Supabase', err);
       alert(`Falha ao salvar checklist: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setOpen(false);
-      setEditing(null);
+      setSaving(false);
     }
   }
 
@@ -171,7 +174,7 @@ export function ChecklistBuilder() {
       </div>
 
       {open && editing && (
-        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+        <div className="modal-backdrop" onClick={() => { if (!saving) setOpen(false); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>{list.some((c) => c.id === editing.id) ? 'Editar' : 'Novo'} checklist</h3>
             <div className="form-grid">
@@ -335,13 +338,14 @@ export function ChecklistBuilder() {
               </div>
 
               <div className="row" style={{ justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
+                <button type="button" className="btn btn-ghost" onClick={() => { if (!saving) setOpen(false); }} disabled={saving}>
                   Cancelar
                 </button>
-                <button type="button" className="btn btn-primary" onClick={save}>
-                  Salvar checklist
+                <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+                  {saving ? 'Salvando…' : 'Salvar checklist'}
                 </button>
               </div>
+              {saving && <div className="muted" style={{ textAlign: 'right', marginTop: 8 }}>Salvando e gerando tarefas… aguarde.</div>}
             </div>
           </div>
         </div>

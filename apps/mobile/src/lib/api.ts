@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import type { AnalyzeResult } from './types';
 
+const ANALYZE_TIMEOUT_MS = 75_000;
+
 export async function analyzeEvidence(evidenceId: string): Promise<AnalyzeResult> {
   const {
     data: { session },
@@ -15,13 +17,18 @@ export async function analyzeEvidence(evidenceId: string): Promise<AnalyzeResult
     throw new Error('Defina EXPO_PUBLIC_API_URL no .env (veja .env.example).');
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ANALYZE_TIMEOUT_MS);
+
   const res = await fetch(`${baseUrl}/api/evidence/${evidenceId}/analyze`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${session.access_token}`,
     },
-  });
+    body: JSON.stringify({}),
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
 
   const json = (await res.json().catch(() => ({}))) as Partial<AnalyzeResult> & { error?: string };
 

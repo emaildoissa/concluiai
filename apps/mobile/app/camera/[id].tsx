@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
 import { analyzeEvidence } from '../../src/lib/api';
@@ -39,6 +40,7 @@ export default function CameraScreen() {
   const router = useRouter();
   const { profile, session } = useAuth();
   const cameraRef = useRef<CameraView>(null);
+  const insets = useSafeAreaInsets();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -124,7 +126,14 @@ export default function CameraScreen() {
         .eq('id', id);
 
       setPhase('analyzing');
-      const result = await analyzeEvidence(evidence.id);
+
+      let result: AnalyzeResult | null = null;
+      try {
+        result = await analyzeEvidence(evidence.id);
+      } catch (e) {
+        console.warn('[camera] análise indisponível (evidência já registrada):', e);
+      }
+
       setVerdict(result);
       setPhase('done');
     } catch (e: any) {
@@ -194,6 +203,30 @@ export default function CameraScreen() {
     );
   }
 
+  // ---------- Enviada com sucesso (análise pendente/indisponível) ----------
+  if (phase === 'done' && !verdict) {
+    return (
+      <View style={[styles.center, { backgroundColor: '#f0fdf4' }]}>
+        <Text style={[styles.verdictTitle, { color: '#16a34a' }]}>Foto enviada!</Text>
+        <Text style={styles.verdictReason}>
+          A evidência foi registrada. A conferência da IA será processada em instantes — veja o
+          resultado no Histórico.
+        </Text>
+        {!gpsCaptured ? (
+          <Text style={styles.gpsWarning}>
+            Atenção: a localização (GPS) não foi capturada nesta foto.
+          </Text>
+        ) : null}
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.buttonText}>Voltar</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   // ---------- Enviando / analisando ----------
   if (phase === 'uploading' || phase === 'analyzing') {
     return (
@@ -212,7 +245,7 @@ export default function CameraScreen() {
       <View style={styles.container}>
         <Image source={{ uri: photoUri }} style={styles.preview} resizeMode="cover" />
         {errorMsg ? <Text style={styles.error}>{errorMsg}</Text> : null}
-        <View style={styles.actionsRow}>
+        <View style={[styles.actionsRow, { paddingBottom: 20 + insets.bottom }]}>
           <Pressable
             style={({ pressed }) => [styles.button, styles.buttonGhost, pressed && styles.buttonPressed]}
             onPress={() => {
@@ -252,7 +285,7 @@ export default function CameraScreen() {
           <Text style={styles.error}>{errorMsg}</Text>
         </View>
       ) : null}
-      <View style={styles.captureArea}>
+      <View style={[styles.captureArea, { bottom: 40 + insets.bottom }]}>
         <Text style={styles.hint}>Enquadre o objeto da tarefa e tire a foto</Text>
         <Pressable style={styles.captureButton} onPress={capture}>
           <View style={styles.captureInner} />

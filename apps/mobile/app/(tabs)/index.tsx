@@ -21,7 +21,7 @@ const SECTIONS: { key: TodayGroup; title: string; color: string }[] = [
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
 export default function TodayScreen() {
@@ -59,13 +59,18 @@ export default function TodayScreen() {
       return;
     }
 
-    const now = Date.now();
     const mapped: TodayTask[] = (data ?? []).map((row: any) => {
       const status = row.status as TodayTask['status'];
       let group: TodayGroup;
       if (status === 'completed') group = 'completed';
       else if (status === 'rejected') group = 'pending';
-      else group = new Date(row.due_at).getTime() < now ? 'late' : 'pending';
+      else {
+        const due = new Date(row.due_at);
+        const dueWall = due.getUTCHours() * 60 + due.getUTCMinutes();
+        const localNow = new Date();
+        const nowWall = localNow.getHours() * 60 + localNow.getMinutes();
+        group = nowWall > dueWall ? 'late' : 'pending';
+      }
 
       return {
         instance_id: row.id,

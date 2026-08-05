@@ -39,6 +39,7 @@ export function MultistoreDashboard() {
   const [evidences, setEvidences] = useState<EvidenceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -88,32 +89,41 @@ export function MultistoreDashboard() {
 
   async function generateTasks() {
     setMsg('');
+    setBusy('generate');
     try {
       const r = await apiPost<{ created: number; message?: string }>('/api/tasks/generate-today', {});
       setMsg(r.message || `Tarefas geradas: ${r.created}`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setBusy(null);
     }
   }
 
   async function runAlerts() {
     setMsg('');
+    setBusy('alerts');
     try {
       const r = await apiPost<{ alerted: number }>('/api/tasks/run-alerts', {});
       setMsg(`Alertas disparados: ${r.alerted}`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setBusy(null);
     }
   }
 
   async function recalcScore() {
     setMsg('');
+    setBusy('score');
     try {
       const r = await apiPost<{ unitsProcessed: number; message?: string }>('/api/score/recalculate', {});
       setMsg(r.message || `Scores recalculados em ${r.unitsProcessed} unidades`);
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -150,14 +160,14 @@ export function MultistoreDashboard() {
           <p>Visão consolidada de todas as unidades em tempo quase real.</p>
         </div>
         <div className="row">
-          <button type="button" className="btn btn-sm" onClick={() => void generateTasks()}>
-            Gerar tarefas de hoje
+          <button type="button" className="btn btn-sm" onClick={() => void generateTasks()} disabled={busy !== null}>
+            {busy === 'generate' ? 'Gerando…' : 'Gerar tarefas de hoje'}
           </button>
-          <button type="button" className="btn btn-sm" onClick={() => void runAlerts()}>
-            Rodar alertas
+          <button type="button" className="btn btn-sm" onClick={() => void runAlerts()} disabled={busy !== null}>
+            {busy === 'alerts' ? 'Rodando…' : 'Rodar alertas'}
           </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={() => void recalcScore()}>
-            Recalcular score
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => void recalcScore()} disabled={busy !== null}>
+            {busy === 'score' ? 'Recalculando…' : 'Recalcular score'}
           </button>
         </div>
       </div>

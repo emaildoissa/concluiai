@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import { supabase } from '../../src/lib/supabase';
-import type { EvidenceRow, TaskInstanceRow } from '../../src/lib/types';
+import { useAuth } from '../../src/lib/auth';
+import { analyzeEvidence } from '../../src/lib/api';
+import type { AnalyzeResult, EvidenceRow, TaskInstanceRow } from '../../src/lib/types';
 
 function formatDue(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', {
@@ -10,6 +13,7 @@ function formatDue(iso: string): string {
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'UTC',
   });
 }
 
@@ -25,9 +29,12 @@ const STATUS_LABEL: Record<string, string> = {
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { profile } = useAuth();
   const [task, setTask] = useState<TaskInstanceRow | null>(null);
   const [evidence, setEvidence] = useState<EvidenceRow | null>(null);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -65,6 +72,81 @@ export default function TaskDetailScreen() {
     load();
   }, [load]);
 
+  async function getGps() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      return {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+        accuracy_m: pos.coords.accuracy ?? null,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function completeWithoutPhoto() {
+    if (!id || !profile) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      let gps: { latitude: number; longitude: number; accuracy_m: number | null } | null = null;
+      if (item.requires_gps) gps = await getGps();
+
+      if (gps) {
+        await supabase.from('evidences').insert({
+          task_instance_id: id,
+          operator_id: profile.id,
+          photo_url: null,
+          latitude: gps.latitude,
+          longitude: gps.longitude,
+          accuracy_m: gps.accuracy_m,
+          review_status: 'approved',
+        });
+      }
+
+      const { error: updateError } = await supabase
+        .from('task_instances')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) throw updateError;
+
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      setActionError('Falha ao concluir a tarefa. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function checkResult() {
+    if (!evidence?.id) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const result: AnalyzeResult = await analyzeEvidence(evidence.id);
+      setEvidence((prev) =>
+        prev
+          ? {
+              ...prev,
+              review_status: result.approved ? 'approved' : 'rejected',
+              ai_reason: result.reason,
+              ai_confidence: result.confidence,
+            }
+          : prev,
+      );
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      setActionError('Ainda não foi possível confirmar — verifique a conexão e tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -82,7 +164,13 @@ export default function TaskDetailScreen() {
   }
 
   const item = task.checklist_items;
-  const canRedo = task.status === 'rejected' || task.status === 'pending' || task.status === 'late' || task.status === 'in_progress';
+  const canRedo =
+    (task.status === 'rejected' || task.status === 'pending' || task.status === 'late' || task.status === 'in_progress') &&
+    item.requires_photo;
+  const canCompleteNoPhoto =
+    !item.requires_photo &&
+    (task.status === 'pending' || task.status === 'late' || task.status === 'in_progress');
+  const canCheckResult = item.requires_photo && evidence?.review_status === 'pending';
 
   return (
     <View style={styles.container}>
@@ -106,6 +194,8 @@ export default function TaskDetailScreen() {
         <Text style={styles.infoValue}>{item.requires_photo ? 'Sim' : 'Não'}</Text>
       </View>
 
+      {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
+
       {evidence?.review_status === 'rejected' ? (
         <View style={styles.rejectedCard}>
           <Text style={styles.rejectedTitle}>Motivo da recusa (IA)</Text>
@@ -127,14 +217,37 @@ export default function TaskDetailScreen() {
         </View>
       ) : null}
 
+      {busy ? <ActivityIndicator style={{ marginTop: 24 }} /> : null}
+
+      {canCheckResult ? (
+        <Pressable
+          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+          onPress={checkResult}
+          disabled={busy}
+        >
+          <Text style={styles.buttonText}>Consultar resultado da IA</Text>
+        </Pressable>
+      ) : null}
+
       {canRedo ? (
         <Pressable
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
           onPress={() => router.push(`/camera/${task.id}`)}
+          disabled={busy}
         >
           <Text style={styles.buttonText}>
             {task.status === 'rejected' ? 'Tirar foto novamente' : 'Tirar foto'}
           </Text>
+        </Pressable>
+      ) : null}
+
+      {canCompleteNoPhoto ? (
+        <Pressable
+          style={({ pressed }) => [styles.button, styles.buttonSuccess, pressed && styles.buttonPressed]}
+          onPress={completeWithoutPhoto}
+          disabled={busy}
+        >
+          <Text style={styles.buttonText}>Concluir sem foto</Text>
         </Pressable>
       ) : null}
     </View>
@@ -229,12 +342,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 8,
   },
+  actionError: {
+    color: '#dc2626',
+    fontSize: 14,
+    marginTop: 16,
+  },
   button: {
     marginTop: 24,
     backgroundColor: '#f59e0b',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+  },
+  buttonSuccess: {
+    backgroundColor: '#16a34a',
   },
   buttonPressed: {
     opacity: 0.85,
