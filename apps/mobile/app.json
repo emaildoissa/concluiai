@@ -7,7 +7,10 @@
     "scheme": "concluiai",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0f172a"
     },
     "ios": {
@@ -19,6 +22,10 @@
     },
     "android": {
       "package": "com.concluiai.operador",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a",
+        "foregroundImage": "./assets/icon.png"
+      },
       "permissions": [
         "CAMERA",
         "ACCESS_COARSE_LOCATION",
@@ -26,6 +33,14 @@
       ]
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0f172a",
+          "image": "./assets/icon.png",
+          "imageWidth": 200
+        }
+      ],
       [
         "expo-camera",
         {
@@ -37,7 +52,8 @@
         {
           "locationWhenInUsePermission": "Permita o uso da localização para anexar o GPS à foto."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
