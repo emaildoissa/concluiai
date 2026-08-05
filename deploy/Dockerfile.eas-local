@@ -1,0 +1,28 @@
+FROM erayalakese/eas-like-local-builder:latest
+
+USER root
+
+ENV ANDROID_HOME=/opt/android-sdk
+ENV NDK_HOME=/opt/android-ndk-r26b
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Atualiza Node para 20 (hub exige >=20) e eas-cli
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+  && apt-get install -y nodejs > /dev/null \
+  && rm -f /usr/local/bin/node /usr/local/bin/npm /usr/local/bin/npx \
+  && rm -rf /usr/local/lib/node_modules/eas-cli /usr/local/bin/eas \
+  && hash -r \
+  && npm install -g eas-cli@latest --silent \
+  && mkdir -p $ANDROID_HOME/ndk \
+  && ln -sfn /opt/android-ndk-r26b $ANDROID_HOME/ndk/r26b \
+  && ln -sfn /opt/android-ndk-r26b $ANDROID_HOME/ndk/26.1.10909125
+
+# Instala as plataformas/build-tools exigidas pelo Expo SDK 54 (compileSdk 36)
+RUN yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 \
+  && $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+     "platforms;android-36" \
+     "build-tools;36.0.0" \
+     "platforms;android-35" \
+     "build-tools;35.0.0" > /dev/null
+
+WORKDIR /app
