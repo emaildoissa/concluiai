@@ -24,17 +24,27 @@ function formatTime(iso: string): string {
   return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
 }
 
+interface ChecklistGroup {
+  name: string;
+  shift: string | null;
+  tasks: TodayTask[];
+  late: number;
+  pending: number;
+  completed: number;
+}
+
 export default function TodayScreen() {
   const router = useRouter();
   const { profile } = useAuth();
-  const [tasks, setTasks] = useState<TodayTask[]>([]);
+  const [groups, setGroups] = useState<ChecklistGroup[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     if (!profile?.unit_id) {
-      setTasks([]);
+      setGroups([]);
       setError(null);
       setLoading(false);
       setRefreshing(false);
@@ -45,7 +55,7 @@ export default function TodayScreen() {
     const { data, error: queryError } = await supabase
       .from('task_instances')
       .select(
-        'id, scheduled_date, due_at, status, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time)',
+        'id, scheduled_date, due_at, status, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time, checklist:checklists(name, shift))',
       )
       .eq('unit_id', profile.unit_id)
       .eq('scheduled_date', today)
@@ -72,6 +82,10 @@ export default function TodayScreen() {
         group = nowWall > dueWall ? 'late' : 'pending';
       }
 
+      const checklist = Array.isArray(row.checklist_items?.checklist)
+        ? row.checklist_items.checklist[0]
+        : row.checklist_items?.checklist;
+
       return {
         instance_id: row.id,
         title: row.checklist_items?.title ?? 'Tarefa',
@@ -80,10 +94,29 @@ export default function TodayScreen() {
         due_at: row.due_at,
         status,
         group,
+        checklist_name: checklist?.name ?? 'Checklist',
+        checklist_shift: checklist?.shift ?? null,
       };
     });
 
-    setTasks(mapped);
+    const map = new Map<string, ChecklistGroup>();
+    for (const t of mapped) {
+      let g = map.get(t.checklist_name);
+      if (!g) {
+        g = { name: t.checklist_name, shift: t.checklist_shift, tasks: [], late: 0, pending: 0, completed: 0 };
+        map.set(t.checklist_name, g);
+      }
+      g.tasks.push(t);
+      if (t.group === 'late') g.late += 1;
+      else if (t.group === 'pending') g.pending += 1;
+      else g.completed += 1;
+    }
+
+    const sorted = [...map.values()].sort((a, b) =>
+      (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase()),
+    );
+
+    setGroups(sorted);
     setError(null);
     setLoading(false);
     setRefreshing(false);
@@ -95,6 +128,15 @@ export default function TodayScreen() {
       loadTasks();
     }, [loadTasks]),
   );
+
+  const toggle = (name: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
@@ -127,44 +169,81 @@ export default function TodayScreen() {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadTasks(); }} />}
     >
-      {SECTIONS.map((section) => {
-        const items = tasks.filter((t) => t.group === section.key);
-        if (items.length === 0) return null;
-
+      {groups.map((group) => {
+        const isOpen = expanded.has(group.name);
         return (
-          <View key={section.key} style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.dot, { backgroundColor: section.color }]} />
-              <Text style={styles.sectionTitle}>
-                {section.title} ({items.length})
+          <View key={group.name} style={styles.section}>
+            <Pressable
+              style={({ pressed }) => [styles.checklistCard, pressed && styles.cardPressed]}
+              onPress={() => toggle(group.name)}
+            >
+              <View style={styles.cardTop}>
+                <Text style={styles.cardTitle}>{group.name}</Text>
+                <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
+              </View>
+              <Text style={styles.cardSubtitle}>
+                {group.shift ? `${group.shift} · ` : ''}
+                {group.tasks.length} itens
               </Text>
-            </View>
-
-            {items.map((task) => (
-              <Pressable
-                key={task.instance_id}
-                style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-                onPress={() => router.push(`/task/${task.instance_id}`)}
-              >
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle}>{task.title}</Text>
-                  <Text style={styles.cardTime}>{formatTime(task.due_at)}</Text>
-                </View>
-                {task.is_critical ? (
-                  <View style={styles.criticalBadge}>
-                    <Text style={styles.criticalBadgeText}>CRÍTICA</Text>
+              <View style={styles.badges}>
+                {group.late > 0 ? (
+                  <View style={[styles.badge, { backgroundColor: '#fef2f2' }]}>
+                    <Text style={[styles.badgeText, { color: '#dc2626' }]}>{group.late} atrasada{group.late > 1 ? 's' : ''}</Text>
                   </View>
                 ) : null}
-                {task.status === 'rejected' ? (
-                  <Text style={styles.rejectedText}>Recusada pela IA — refaça</Text>
+                {group.pending > 0 ? (
+                  <View style={[styles.badge, { backgroundColor: '#fffbeb' }]}>
+                    <Text style={[styles.badgeText, { color: '#b45309' }]}>{group.pending} pendente{group.pending > 1 ? 's' : ''}</Text>
+                  </View>
                 ) : null}
-              </Pressable>
-            ))}
+                {group.completed > 0 ? (
+                  <View style={[styles.badge, { backgroundColor: '#f0fdf4' }]}>
+                    <Text style={[styles.badgeText, { color: '#15803d' }]}>{group.completed} finalizada{group.completed > 1 ? 's' : ''}</Text>
+                  </View>
+                ) : null}
+              </View>
+            </Pressable>
+
+            {isOpen ? (
+              <View style={styles.expanded}>
+                {SECTIONS.map((section) => {
+                  const items = group.tasks.filter((t) => t.group === section.key);
+                  if (items.length === 0) return null;
+                  return (
+                    <View key={section.key} style={styles.innerSection}>
+                      <Text style={[styles.innerSectionTitle, { color: section.color }]}>
+                        {section.title} ({items.length})
+                      </Text>
+                      {items.map((task) => (
+                        <Pressable
+                          key={task.instance_id}
+                          style={({ pressed }) => [styles.taskCard, pressed && styles.cardPressed]}
+                          onPress={() => router.push(`/task/${task.instance_id}`)}
+                        >
+                          <View style={styles.taskCardRow}>
+                            <Text style={styles.taskTitle}>{task.title}</Text>
+                            <Text style={styles.taskTime}>{formatTime(task.due_at)}</Text>
+                          </View>
+                          {task.is_critical ? (
+                            <View style={styles.criticalBadge}>
+                              <Text style={styles.criticalBadgeText}>CRÍTICA</Text>
+                            </View>
+                          ) : null}
+                          {task.status === 'rejected' ? (
+                            <Text style={styles.rejectedText}>Recusada pela IA — refaça</Text>
+                          ) : null}
+                        </Pressable>
+                      ))}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         );
       })}
 
-      {tasks.length === 0 ? (
+      {groups.length === 0 ? (
         <Text style={styles.empty}>
           {profile?.unit_id
             ? 'Nenhuma tarefa para hoje.'
@@ -187,29 +266,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  card: {
+  checklistCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
+    padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -225,13 +287,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardTitle: {
-    fontSize: 15,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+    flex: 1,
+    marginRight: 8,
+    textTransform: 'capitalize',
+  },
+  chevron: {
+    fontSize: 18,
+    color: '#64748b',
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 4,
+    textTransform: 'capitalize',
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  badge: {
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  expanded: {
+    marginTop: 8,
+  },
+  innerSection: {
+    paddingHorizontal: 6,
+  },
+  innerSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 12,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
+  taskCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#e2e8f0',
+  },
+  taskCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  taskTitle: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#0f172a',
     flex: 1,
     marginRight: 8,
   },
-  cardTime: {
+  taskTime: {
     fontSize: 13,
     color: '#64748b',
   },
@@ -241,11 +363,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    marginTop: 8,
+    marginTop: 6,
   },
   criticalBadgeText: {
     color: '#b91c1c',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   rejectedText: {

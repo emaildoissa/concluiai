@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
 import { analyzeEvidence } from '../../src/lib/api';
@@ -38,6 +39,7 @@ export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { profile } = useAuth();
+  const insets = useSafeAreaInsets();
   const [task, setTask] = useState<TaskInstanceRow | null>(null);
   const [evidence, setEvidence] = useState<EvidenceRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,7 +220,11 @@ export default function TaskDetailScreen() {
   const canCheckResult = needPhoto && evidence?.review_status === 'pending';
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingTop: insets.top, paddingBottom: 24 + insets.bottom }}
+      keyboardShouldPersistTaps="handled"
+    >
       <Text style={styles.title}>{item.title}</Text>
       {item.is_critical ? (
         <View style={styles.criticalBadge}>

@@ -43,6 +43,8 @@ export interface TodayTask {
   due_at: string;
   status: TaskStatus;
   group: TodayGroup;
+  checklist_name: string;
+  checklist_shift: string | null;
 }
 
 export interface AnalyzeResult {
