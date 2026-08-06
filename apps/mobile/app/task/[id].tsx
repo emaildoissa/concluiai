@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { supabase } from '../../src/lib/supabase';
@@ -35,6 +43,8 @@ export default function TaskDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
+  const [notes, setNotes] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -43,7 +53,7 @@ export default function TaskDetailScreen() {
     const { data: taskData, error } = await supabase
       .from('task_instances')
       .select(
-        'id, scheduled_date, due_at, status, completed_at, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time)',
+        'id, scheduled_date, due_at, status, completed_at, checked, notes, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time, execution_mode)',
       )
       .eq('id', id)
       .single();
@@ -54,7 +64,10 @@ export default function TaskDetailScreen() {
       return;
     }
 
-    setTask(taskData as unknown as TaskInstanceRow);
+    const row = taskData as unknown as TaskInstanceRow;
+    setTask(row);
+    setChecked(row.checked ?? false);
+    setNotes(row.notes ?? '');
 
     const { data: evData } = await supabase
       .from('evidences')
@@ -122,6 +135,31 @@ export default function TaskDetailScreen() {
     }
   }
 
+  async function completeByCheck() {
+    if (!id) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      const { error: updateError } = await supabase
+        .from('task_instances')
+        .update({
+          checked: true,
+          notes: notes.trim() || null,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setChecked(true);
+      await load();
+    } catch (e: any) {
+      console.error(e);
+      setActionError('Falha ao confirmar a tarefa. Tente novamente.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function checkResult() {
     if (!evidence?.id) return;
     setBusy(true);
@@ -164,16 +202,23 @@ export default function TaskDetailScreen() {
   }
 
   const item = task.checklist_items;
+  const mode = item.execution_mode ?? (item.requires_photo ? 'photo' : 'check');
+  const allowCheck = mode === 'check' || mode === 'both';
+  const needPhoto = mode === 'photo';
+  const photoOptional = mode === 'both';
   const canRedo =
     (task.status === 'rejected' || task.status === 'pending' || task.status === 'late' || task.status === 'in_progress') &&
-    item.requires_photo;
-  const canCompleteNoPhoto =
-    !item.requires_photo &&
+    (needPhoto || photoOptional);
+  const canCheck =
+    allowCheck &&
     (task.status === 'pending' || task.status === 'late' || task.status === 'in_progress');
-  const canCheckResult = item.requires_photo && evidence?.review_status === 'pending';
+  const canCompleteNoPhoto =
+    !needPhoto && !photoOptional && !canCheck &&
+    (task.status === 'pending' || task.status === 'late' || task.status === 'in_progress');
+  const canCheckResult = needPhoto && evidence?.review_status === 'pending';
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>{item.title}</Text>
       {item.is_critical ? (
         <View style={styles.criticalBadge}>
@@ -191,8 +236,42 @@ export default function TaskDetailScreen() {
         <Text style={styles.infoValue}>{formatDue(task.due_at)}</Text>
 
         <Text style={styles.infoLabel}>Exige foto</Text>
-        <Text style={styles.infoValue}>{item.requires_photo ? 'Sim' : 'Não'}</Text>
+        <Text style={styles.infoValue}>
+          {mode === 'photo' ? 'Sim (obrigatória)' : mode === 'both' ? 'Opcional' : 'Não'}
+        </Text>
       </View>
+
+      {allowCheck ? (
+        <View style={styles.checkCard}>
+          <Pressable
+            style={({ pressed }) => [styles.checkRow, pressed && styles.checkPressed]}
+            onPress={() => setChecked((v) => !v)}
+            disabled={task.status === 'completed'}
+          >
+            <View style={[styles.checkbox, checked && styles.checkboxOn]}>
+              {checked ? <Text style={styles.checkmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.checkLabel}>Confirmar que realizei</Text>
+          </Pressable>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Observações (opcional)"
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            editable={task.status !== 'completed'}
+          />
+          {canCheck ? (
+            <Pressable
+              style={({ pressed }) => [styles.button, styles.buttonSuccess, pressed && styles.buttonPressed]}
+              onPress={completeByCheck}
+              disabled={busy}
+            >
+              <Text style={styles.buttonText}>Confirmar tarefa</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
 
       {actionError ? <Text style={styles.actionError}>{actionError}</Text> : null}
 
@@ -236,7 +315,11 @@ export default function TaskDetailScreen() {
           disabled={busy}
         >
           <Text style={styles.buttonText}>
-            {task.status === 'rejected' ? 'Tirar foto novamente' : 'Tirar foto'}
+            {task.status === 'rejected'
+              ? 'Tirar foto novamente'
+              : photoOptional
+                ? 'Anexar foto (opcional)'
+                : 'Tirar foto'}
           </Text>
         </Pressable>
       ) : null}
@@ -250,7 +333,7 @@ export default function TaskDetailScreen() {
           <Text style={styles.buttonText}>Concluir sem foto</Text>
         </Pressable>
       ) : null}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -346,6 +429,55 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     fontSize: 14,
     marginTop: 16,
+  },
+  checkCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkPressed: {
+    opacity: 0.85,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  checkboxOn: {
+    backgroundColor: '#16a34a',
+    borderColor: '#16a34a',
+  },
+  checkmark: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  checkLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0f172a',
+    marginTop: 12,
+    minHeight: 64,
+    textAlignVertical: 'top',
   },
   button: {
     marginTop: 24,

@@ -21,6 +21,7 @@ export interface TaskItem {
   requires_photo: boolean;
   requires_gps: boolean;
   due_time: string | null;
+  execution_mode?: 'photo' | 'check' | 'both';
 }
 
 export interface TaskInstanceRow {
@@ -29,6 +30,8 @@ export interface TaskInstanceRow {
   due_at: string;
   status: TaskStatus;
   completed_at: string | null;
+  checked: boolean;
+  notes?: string | null;
   checklist_items: TaskItem;
 }
 

@@ -301,14 +301,23 @@ export function ChecklistBuilder() {
                         />
                         Item crítico (alerta WhatsApp + peso extra)
                       </label>
-                      <label className="checkbox">
-                        <input
-                          type="checkbox"
-                          checked={it.requires_photo}
-                          onChange={(e) => updateItem(idx, { requires_photo: e.target.checked })}
-                        />
-                        Foto obrigatória
-                      </label>
+                      <div className="field">
+                        <label>Prova</label>
+                        <select
+                          value={(it as any).execution_mode ?? 'photo'}
+                          onChange={(e) => {
+                            const mode = e.target.value;
+                            updateItem(idx, {
+                              execution_mode: mode,
+                              requires_photo: mode === 'photo' || mode === 'both',
+                            } as any);
+                          }}
+                        >
+                          <option value="photo">Foto obrigatória</option>
+                          <option value="check">Confirmação (✓)</option>
+                          <option value="both">✓ + foto opcional</option>
+                        </select>
+                      </div>
                       <label className="checkbox">
                         <input
                           type="checkbox"

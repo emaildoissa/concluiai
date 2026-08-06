@@ -42,6 +42,8 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     const companyId = req.user?.company_id || '11111111-1111-1111-1111-111111111111';
     const { id, name, description, shift, recurrence, is_active, unit_ids, items } = req.body;
 
+    const validModes = ['photo', 'check', 'both'];
+
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Nome é obrigatório' });
     }
@@ -84,17 +86,22 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     // 3. Atualiza itens em checklist_items
     await sb.from('checklist_items').delete().eq('checklist_id', cl.id);
     if (Array.isArray(items) && items.length > 0) {
-      const itemRows = items.map((it: any, idx: number) => ({
-        checklist_id: cl.id,
-        title: it.title,
-        description: it.description || null,
-        is_critical: Boolean(it.is_critical),
-        requires_photo: it.requires_photo ?? true,
-        requires_gps: it.requires_gps ?? true,
-        due_time: it.due_time || '23:59:00',
-        sort_order: idx + 1,
-        weight: it.weight || 1,
-      }));
+      const itemRows = items.map((it: any, idx: number) => {
+        const execution_mode = validModes.includes(it.execution_mode) ? it.execution_mode : 'photo';
+        const requires_photo = execution_mode === 'photo' || execution_mode === 'both';
+        return {
+          checklist_id: cl.id,
+          title: it.title,
+          description: it.description || null,
+          is_critical: Boolean(it.is_critical),
+          requires_photo,
+          requires_gps: it.requires_gps ?? true,
+          due_time: it.due_time || '23:59:00',
+          sort_order: idx + 1,
+          weight: it.weight || 1,
+          execution_mode,
+        };
+      });
       await sb.from('checklist_items').insert(itemRows);
     }
 
