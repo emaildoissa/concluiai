@@ -14,6 +14,8 @@ import { operatorsRouter } from './routes/operators.js';
 import { trainingRouter } from './routes/training.js';
 import { checkCriticalOverdueTasks } from './jobs/alerts.js';
 import { recalculateDailyScores } from './services/score.js';
+import { generateTasksForDate } from './services/tasks.js';
+import cron from 'node-cron';
 
 const app = express();
 
@@ -69,9 +71,31 @@ function startJobs() {
     }
   }, config.jobs.scoreRecalcIntervalMs);
 
+  if (config.jobs.dailyGenerateEnabled) {
+    cron.schedule(
+      config.jobs.dailyGenerateCron,
+      async () => {
+        try {
+          const r = await generateTasksForDate({});
+          console.log(`[jobs] tarefas geradas: ${r.created}`);
+        } catch (e) {
+          console.error('[jobs] daily-generate', e);
+        }
+      },
+      { timezone: config.jobs.dailyGenerateTz }
+    );
+  }
+
   console.log(
     `[jobs] alertas a cada ${config.jobs.alertCheckIntervalMs}ms | score a cada ${config.jobs.scoreRecalcIntervalMs}ms`
   );
+  if (config.jobs.dailyGenerateEnabled) {
+    console.log(
+      `[jobs] geração diária de tarefas: ${config.jobs.dailyGenerateCron} (${config.jobs.dailyGenerateTz})`
+    );
+  } else {
+    console.log('[jobs] geração diária de tarefas: desligada (CRON_DAILY_GENERATE=0)');
+  }
 }
 
 // 0.0.0.0: aceita conexões da LAN (celular), não só localhost

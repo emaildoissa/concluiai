@@ -55,6 +55,9 @@ export const config = {
   jobs: {
     alertCheckIntervalMs: optionalInt('ALERT_CHECK_INTERVAL_MS', 60_000),
     scoreRecalcIntervalMs: optionalInt('SCORE_RECALC_INTERVAL_MS', 300_000),
+    dailyGenerateEnabled: process.env.CRON_DAILY_GENERATE !== '0',
+    dailyGenerateCron: optional('CRON_DAILY_GENERATE_CRON', '0 5 * * *'),
+    dailyGenerateTz: optional('CRON_DAILY_GENERATE_TZ', 'America/Sao_Paulo'),
   },
 } as const;
 
