@@ -11,6 +11,7 @@ interface UnitRow {
   tasks_late: number;
   tasks_completed: number;
   critical_missed: number;
+  closed_today?: boolean;
 }
 
 function scoreClass(score: number | null) {
@@ -206,16 +207,22 @@ export function MultistoreDashboard() {
                   {u.address || '—'}
                 </div>
                 <div className="row" style={{ marginTop: 6 }}>
-                  <span className="badge badge-completed">{u.tasks_completed} ok</span>
-                  <span className="badge badge-pending">{u.tasks_pending} pend.</span>
-                  {u.tasks_late > 0 && <span className="badge badge-late">{u.tasks_late} atr.</span>}
-                  {u.critical_missed > 0 && (
-                    <span className="badge badge-critical">{u.critical_missed} crítica</span>
+                  {u.closed_today ? (
+                    <span className="badge badge-info">Fora de operação hoje</span>
+                  ) : (
+                    <>
+                      <span className="badge badge-completed">{u.tasks_completed} ok</span>
+                      <span className="badge badge-pending">{u.tasks_pending} pend.</span>
+                      {u.tasks_late > 0 && <span className="badge badge-late">{u.tasks_late} atr.</span>}
+                      {u.critical_missed > 0 && (
+                        <span className="badge badge-critical">{u.critical_missed} crítica</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
               <div className={`score-ring ${scoreClass(u.score_total)}`}>
-                {u.score_total != null ? Math.round(u.score_total) : '—'}
+                {u.closed_today ? '—' : u.score_total != null ? Math.round(u.score_total) : '—'}
               </div>
             </div>
           ))

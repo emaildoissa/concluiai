@@ -2,12 +2,33 @@ import { useEffect, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { loadDemoUnits, DEMO_UNITS } from '../../lib/demoData';
 
-type Unit = (typeof DEMO_UNITS)[number];
+type Unit = (typeof DEMO_UNITS)[number] & { operation_days?: number[] | null; closed_today?: boolean };
+
+const DAYS = [
+  { v: 0, label: 'Dom' },
+  { v: 1, label: 'Seg' },
+  { v: 2, label: 'Ter' },
+  { v: 3, label: 'Qua' },
+  { v: 4, label: 'Qui' },
+  { v: 5, label: 'Sex' },
+  { v: 6, label: 'Sáb' },
+];
+
+function allDays(): number[] {
+  return DAYS.map((d) => d.v);
+}
+
+function isTodayClosed(u: Unit): boolean {
+  if (!u.operation_days || u.operation_days.length === 0) return false;
+  const today = new Date().getDay();
+  return !u.operation_days.includes(today);
+}
 
 export function UnitsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
+  const [operationDays, setOperationDays] = useState<number[] | null>(null);
 
   const fetchUnits = async () => {
     try {
@@ -26,12 +47,22 @@ export function UnitsPage() {
     void fetchUnits();
   }, []);
 
+  function toggleDay(v: number) {
+    setOperationDays((prev) => {
+      const base = prev == null ? allDays() : prev;
+      const has = base.includes(v);
+      const next = has ? base.filter((d) => d !== v) : [...base, v].sort((a, b) => a - b);
+      return next.length === 7 ? null : next;
+    });
+  }
+
   async function addUnit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     const payload = {
       name: name.trim(),
       address: address.trim() || '—',
+      operation_days: operationDays,
       is_active: true,
     };
     try {
@@ -43,6 +74,7 @@ export function UnitsPage() {
     }
     setName('');
     setAddress('');
+    setOperationDays(null);
   }
 
   async function toggle(u: Unit) {
@@ -87,6 +119,26 @@ export function UnitsPage() {
               <label>Endereço</label>
               <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua..." />
             </div>
+            <div className="field">
+              <label>Dias de operação</label>
+              <div className="chip-select">
+                {DAYS.map((d) => (
+                  <button
+                    key={d.v}
+                    type="button"
+                    className={`chip ${operationDays != null && operationDays.includes(d.v) ? 'chip-on' : ''}`}
+                    onClick={() => toggleDay(d.v)}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+              <div className="muted" style={{ fontSize: '0.75rem' }}>
+                {operationDays == null
+                  ? 'Todos os dias (default).'
+                  : `Fechado em: ${DAYS.filter((d) => !operationDays.includes(d.v)).map((d) => d.label).join(', ')}`}
+              </div>
+            </div>
             <button className="btn btn-primary" type="submit">
               Cadastrar
             </button>
@@ -119,16 +171,20 @@ export function UnitsPage() {
                         {u.is_active ? 'Ativa' : 'Inativa'}
                       </span>
                     </td>
-                    <td>{u.score_total ?? '—'}</td>
+                    <td>{isTodayClosed(u) ? '—' : (u.score_total ?? '—')}</td>
                     <td>
-                      <div className="row">
-                        <button type="button" className="btn btn-sm btn-ghost" onClick={() => void toggle(u)}>
-                          {u.is_active ? 'Desativar' : 'Ativar'}
-                        </button>
-                        <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(u.id)}>
-                          ✕
-                        </button>
-                      </div>
+                      {isTodayClosed(u) ? (
+                        <span className="badge badge-pending">Fechada hoje</span>
+                      ) : (
+                        <div className="row">
+                          <button type="button" className="btn btn-sm btn-ghost" onClick={() => void toggle(u)}>
+                            {u.is_active ? 'Desativar' : 'Ativar'}
+                          </button>
+                          <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(u.id)}>
+                            ✕
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

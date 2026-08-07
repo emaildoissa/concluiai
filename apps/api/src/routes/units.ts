@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
+import { normalizeOperationDays } from '../lib/operation-days.js';
 
 export const unitsRouter = Router();
 
@@ -30,7 +31,7 @@ unitsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (req, 
   try {
     const sb = getSupabaseAdmin();
     const companyId = req.user?.company_id || '11111111-1111-1111-1111-111111111111';
-    const { id, name, address, is_active } = req.body;
+    const { id, name, address, is_active, operation_days } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Nome da unidade é obrigatório' });
@@ -43,6 +44,7 @@ unitsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (req, 
         company_id: companyId,
         name: name.trim(),
         address: address?.trim() || null,
+        operation_days: normalizeOperationDays(operation_days),
         is_active: is_active ?? true,
       })
       .select()

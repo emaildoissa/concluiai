@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
+import { isOperationDay } from '../lib/operation-days.js';
 
 export const dashboardRouter = Router();
 
@@ -30,7 +31,7 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
 
     const { data: units, error } = await sb
       .from('units')
-      .select('id, name, address, is_active')
+      .select('id, name, address, is_active, operation_days')
       .eq('company_id', companyId)
       .eq('is_active', true);
 
@@ -38,6 +39,21 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
 
     const rows = [];
     for (const unit of units || []) {
+      const closedToday = !isOperationDay(today, unit.operation_days);
+      if (closedToday) {
+        rows.push({
+          unit_id: unit.id,
+          unit_name: unit.name,
+          address: unit.address,
+          score_total: null,
+          tasks_pending: 0,
+          tasks_late: 0,
+          tasks_completed: 0,
+          critical_missed: 0,
+          closed_today: true,
+        });
+        continue;
+      }
       const { data: score } = await sb
         .from('daily_scores')
         .select('*')
@@ -91,6 +107,7 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
         tasks_late: late ?? 0,
         tasks_completed: completed ?? 0,
         critical_missed: score?.critical_missed ?? 0,
+        closed_today: false,
       });
     }
 

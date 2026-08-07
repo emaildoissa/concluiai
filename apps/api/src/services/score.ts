@@ -1,5 +1,6 @@
 import { config } from '../config.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
+import { isOperationDay } from '../lib/operation-days.js';
 
 /**
  * Motor de Score 0–100
@@ -92,13 +93,15 @@ export async function recalculateDailyScores(params?: {
   const sb = getSupabaseAdmin();
   const date = params?.date || new Date().toISOString().slice(0, 10);
 
-  let unitsQuery = sb.from('units').select('id').eq('is_active', true);
+  let unitsQuery = sb.from('units').select('id, operation_days').eq('is_active', true);
   if (params?.unitId) unitsQuery = unitsQuery.eq('id', params.unitId);
   const { data: units, error: unitsErr } = await unitsQuery;
   if (unitsErr) throw unitsErr;
 
   let processed = 0;
-  for (const unit of units || []) {
+  for (const unit of (units || []) as { id: string; operation_days: number[] | null }[]) {
+    // Unidade fechada no dia não deve gerar score (evita 0 em rankings/evolução).
+    if (!isOperationDay(date, unit.operation_days)) continue;
     const { data: tasks, error } = await sb
       .from('task_instances')
       .select(

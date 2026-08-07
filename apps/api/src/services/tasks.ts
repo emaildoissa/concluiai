@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '../lib/supabase.js';
+import { isOperationDay } from '../lib/operation-days.js';
 
 interface ChecklistRow {
   id: string;
@@ -66,6 +67,39 @@ export async function generateTasksForDate(params?: {
         itemIds.add(item.id);
       }
     }
+  }
+
+  // Dias de operação por unidade — filtra unidades fechadas no dia (ex.: domingo).
+  const operationDaysByUnit = new Map<string, number[] | null>();
+  if (unitIds.size > 0) {
+    const { data: unitOps, error: unitOpsErr } = await sb
+      .from('units')
+      .select('id, operation_days')
+      .in('id', [...unitIds]);
+    if (unitOpsErr) throw unitOpsErr;
+    for (const u of (unitOps || []) as { id: string; operation_days: number[] | null }[]) {
+      operationDaysByUnit.set(u.id, u.operation_days);
+    }
+    for (const unitId of [...unitIds]) {
+      if (!isOperationDay(date, operationDaysByUnit.get(unitId))) {
+        unitIds.delete(unitId);
+      }
+    }
+    // Reconstroi expected/expectedSet só com unidades operando no dia.
+    expected.length = 0;
+    expectedSet.clear();
+    for (const cl of clRows) {
+      for (const link of cl.units || []) {
+        if (!unitIds.has(link.unit_id)) continue;
+        for (const item of cl.items || []) {
+          const key = `${item.id}|${link.unit_id}`;
+          expected.push({ checklistItemId: item.id, unitId: link.unit_id });
+          expectedSet.add(key);
+        }
+      }
+    }
+    itemIds.clear();
+    for (const e of expected) itemIds.add(e.checklistItemId);
   }
 
   // Operadores ativos por unidade (round-robin de atribuição) — 1 query.
@@ -137,6 +171,7 @@ export async function generateTasksForDate(params?: {
       const dueTime = item.due_time || '23:59:00';
       const dueAt = new Date(`${date}T${String(dueTime).slice(0, 8)}`);
       for (const link of cl.units || []) {
+        if (!unitIds.has(link.unit_id)) continue;
         const key = `${item.id}|${link.unit_id}`;
         if (existingKeys.has(key)) continue;
 
