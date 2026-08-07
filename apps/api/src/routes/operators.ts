@@ -10,6 +10,41 @@ function companyIdOf(req: { user?: { company_id?: string } }): string {
   return req.user?.company_id || DEFAULT_COMPANY_ID;
 }
 
+/** Substitui os setores de um operador (delete + insert em lote) */
+async function replaceProfileSectors(
+  sb: ReturnType<typeof getSupabaseAdmin>,
+  profileId: string,
+  sectorIds: string[] | undefined
+) {
+  if (sectorIds === undefined) return;
+  const ids = Array.isArray(sectorIds) ? sectorIds : [];
+  await sb.from('profiles_sectors').delete().eq('profile_id', profileId);
+  if (ids.length > 0) {
+    await sb
+      .from('profiles_sectors')
+      .insert(ids.map((sector_id: string) => ({ profile_id: profileId, sector_id })));
+  }
+}
+
+/** Busca sector_ids de perfis e anexa ao resultado */
+async function attachSectorIds(
+  sb: ReturnType<typeof getSupabaseAdmin>,
+  rows: { id: string }[]
+): Promise<Record<string, string[]>> {
+  if (rows.length === 0) return {};
+  const ids = rows.map((r) => r.id);
+  const { data: links, error } = await sb
+    .from('profiles_sectors')
+    .select('profile_id, sector_id')
+    .in('profile_id', ids);
+  if (error) throw error;
+  const map: Record<string, string[]> = {};
+  for (const l of (links || []) as { profile_id: string; sector_id: string }[]) {
+    (map[l.profile_id] ||= []).push(l.sector_id);
+  }
+  return map;
+}
+
 /** GET /api/operators — Lista operadores/gerentes da empresa com nome da unidade */
 operatorsRouter.get('/', requireAuth, requireRole('admin', 'manager'), async (req, res) => {
   try {
@@ -30,7 +65,11 @@ operatorsRouter.get('/', requireAuth, requireRole('admin', 'manager'), async (re
 
     if (error) throw error;
 
-    return res.json({ operators: data || [] });
+    const rows = (data || []) as { id: string }[];
+    const sectorMap = await attachSectorIds(sb, rows);
+    const operators = rows.map((row: any) => ({ ...row, sector_ids: sectorMap[row.id] || [] }));
+
+    return res.json({ operators });
   } catch (err) {
     console.error('[operators list]', err);
     return res.status(500).json({ error: 'Falha ao listar operadores' });
@@ -42,7 +81,7 @@ operatorsRouter.post('/', requireAuth, requireRole('admin'), async (req, res) =>
   try {
     const sb = getSupabaseAdmin();
     const companyId = companyIdOf(req);
-    const { email, password, full_name, phone, role, unit_id, is_active } = req.body || {};
+    const { email, password, full_name, phone, role, unit_id, is_active, sector_ids } = req.body || {};
 
     if (!email?.trim() || !full_name?.trim()) {
       return res.status(400).json({ error: 'Email e nome completo são obrigatórios' });
@@ -87,6 +126,8 @@ operatorsRouter.post('/', requireAuth, requireRole('admin'), async (req, res) =>
 
     if (upsertError) throw upsertError;
 
+    await replaceProfileSectors(sb, profile!.id, sector_ids);
+
     return res.json({ operator: profile });
   } catch (err) {
     console.error('[operators create]', err);
@@ -99,7 +140,7 @@ operatorsRouter.patch('/:id', requireAuth, requireRole('admin'), async (req, res
   try {
     const sb = getSupabaseAdmin();
     const { id } = req.params;
-    const { full_name, phone, role, unit_id, is_active } = req.body || {};
+    const { full_name, phone, role, unit_id, is_active, sector_ids } = req.body || {};
 
     const patch: Record<string, unknown> = {};
     if (full_name !== undefined) patch.full_name = String(full_name).trim();
@@ -127,7 +168,9 @@ operatorsRouter.patch('/:id', requireAuth, requireRole('admin'), async (req, res
       throw error;
     }
 
-    return res.json({ operator: data });
+    await replaceProfileSectors(sb, String(id), sector_ids);
+
+    return res.json({ operator: data, sector_ids: sector_ids });
   } catch (err) {
     console.error('[operators patch]', err);
     return res.status(500).json({ error: 'Falha ao atualizar operador' });

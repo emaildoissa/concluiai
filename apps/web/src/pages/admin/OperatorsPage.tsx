@@ -12,9 +12,15 @@ interface Operator {
   is_active: boolean;
   created_at: string;
   unit?: { id: string; name: string } | null;
+  sector_ids?: string[];
 }
 
 interface Unit {
+  id: string;
+  name: string;
+}
+
+interface Sector {
   id: string;
   name: string;
 }
@@ -28,13 +34,25 @@ export function OperatorsPage() {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'operator' | 'manager'>('operator');
   const [unitId, setUnitId] = useState('');
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [sectorIds, setSectorIds] = useState<string[]>([]);
   const [msg, setMsg] = useState('');
   const [editing, setEditing] = useState<Operator | null>(null);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editRole, setEditRole] = useState<'operator' | 'manager'>('operator');
   const [editUnitId, setEditUnitId] = useState('');
+  const [editSectorIds, setEditSectorIds] = useState<string[]>([]);
   const [editActive, setEditActive] = useState(true);
+
+  const fetchSectors = async () => {
+    try {
+      const data = await apiGet<{ sectors: Sector[] }>('/api/sectors');
+      setSectors(data.sectors || []);
+    } catch {
+      setSectors([]);
+    }
+  };
 
   const fetchAll = async () => {
     try {
@@ -53,6 +71,7 @@ export function OperatorsPage() {
 
   useEffect(() => {
     void fetchAll();
+    void fetchSectors();
   }, []);
 
   async function create(e: React.FormEvent) {
@@ -70,6 +89,7 @@ export function OperatorsPage() {
         phone: phone.trim() || null,
         role,
         unit_id: unitId || null,
+        sector_ids: sectorIds,
         is_active: true,
       });
       setMsg('Operador criado.');
@@ -78,6 +98,7 @@ export function OperatorsPage() {
       setPassword('');
       setPhone('');
       setUnitId('');
+      setSectorIds([]);
       await fetchAll();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Falha ao criar operador');
@@ -100,11 +121,16 @@ export function OperatorsPage() {
     setEditPhone(op.phone || '');
     setEditRole(op.role);
     setEditUnitId(op.unit_id || '');
+    setEditSectorIds(op.sector_ids || []);
     setEditActive(op.is_active);
   }
 
   function closeEdit() {
     setEditing(null);
+  }
+
+  function toggleSector(id: string, list: string[], setList: (v: string[]) => void) {
+    setList(list.includes(id) ? list.filter((s) => s !== id) : [...list, id]);
   }
 
   async function saveEdit(e: React.FormEvent) {
@@ -117,6 +143,7 @@ export function OperatorsPage() {
         phone: editPhone.trim() || null,
         role: editRole,
         unit_id: editUnitId || null,
+        sector_ids: editSectorIds,
         is_active: editActive,
       });
       setMsg('Operador atualizado.');
@@ -126,6 +153,11 @@ export function OperatorsPage() {
       setMsg(err instanceof Error ? err.message : 'Falha ao atualizar operador');
     }
   }
+
+  const unitName = (id: string) => units.find((u) => u.id === id)?.name || '—';
+
+  const sectorNames = (ids?: string[]) =>
+    (ids || []).map((id) => sectors.find((s) => s.id === id)?.name).filter(Boolean).join(', ');
 
   return (
     <div>
@@ -176,6 +208,22 @@ export function OperatorsPage() {
                 ))}
               </select>
             </div>
+            <div className="field">
+              <label>Setores (responsável por)</label>
+              <div className="chip-select">
+                {sectors.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={sectorIds.includes(s.id) ? 'chip chip-on' : 'chip'}
+                    onClick={() => toggleSector(s.id, sectorIds, setSectorIds)}
+                  >
+                    {s.name}
+                  </button>
+                ))}
+                {sectors.length === 0 && <div className="muted" style={{ fontSize: '0.8rem' }}>Crie setores primeiro.</div>}
+              </div>
+            </div>
             <button className="btn btn-primary" type="submit">
               Cadastrar
             </button>
@@ -206,6 +254,11 @@ export function OperatorsPage() {
                     </td>
                     <td>
                       {op.unit?.name || (units.find((u) => u.id === op.unit_id)?.name) || '—'}
+                      {op.sector_ids?.length ? (
+                        <div className="muted" style={{ fontSize: '0.8rem' }}>
+                          {sectorNames(op.sector_ids)}
+                        </div>
+                      ) : null}
                     </td>
                     <td>{op.role === 'manager' ? 'Gerente' : 'Operador'}</td>
                     <td>
@@ -276,6 +329,22 @@ export function OperatorsPage() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="field">
+                <label>Setores (responsável por)</label>
+                <div className="chip-select">
+                  {sectors.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={editSectorIds.includes(s.id) ? 'chip chip-on' : 'chip'}
+                      onClick={() => toggleSector(s.id, editSectorIds, setEditSectorIds)}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                  {sectors.length === 0 && <div className="muted" style={{ fontSize: '0.8rem' }}>Crie setores primeiro.</div>}
+                </div>
               </div>
               <div className="field" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input

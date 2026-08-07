@@ -1,0 +1,3 @@
+ docker build -t emaildoissa/concluiai-backend:latest -f apps/api/Dockerfile .
+
+ docker push emaildoissa/concluiai-backend:latest 

@@ -40,7 +40,7 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
   try {
     const sb = getSupabaseAdmin();
     const companyId = req.user?.company_id || '11111111-1111-1111-1111-111111111111';
-    const { id, name, description, shift, recurrence, is_active, unit_ids, items } = req.body;
+    const { id, name, description, shift, recurrence, is_active, unit_ids, items, sector_id } = req.body;
 
     const validModes = ['photo', 'check', 'both'];
 
@@ -58,6 +58,7 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
         description: description || null,
         shift: shift || 'all_day',
         recurrence: recurrence || 'daily',
+        sector_id: sector_id || null,
         is_active: is_active ?? true,
       })
       .select()

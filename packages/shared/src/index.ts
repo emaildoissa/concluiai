@@ -105,6 +105,8 @@ export interface Profile {
   avatar_url?: string | null;
   is_active: boolean;
   created_at: string;
+  // joins
+  sector_ids?: string[];
 }
 
 export interface Checklist {

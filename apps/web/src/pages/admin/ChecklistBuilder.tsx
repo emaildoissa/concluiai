@@ -7,7 +7,8 @@ import {
   loadDemoUnits,
 } from '../../lib/demoData';
 
-type Checklist = ReturnType<typeof loadDemoChecklists>[number];
+type DemoChecklist = ReturnType<typeof loadDemoChecklists>[number];
+type Checklist = DemoChecklist & { sector_id?: string | null };
 type Item = Checklist['items'][number];
 interface UnitRow { id: string; name: string; address?: string }
 
@@ -26,6 +27,7 @@ const emptyItem = (): Item => ({
 export function ChecklistBuilder() {
   const [list, setList] = useState<Checklist[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
+  const [sectors, setSectors] = useState<UnitRow[]>([]);
   const [editing, setEditing] = useState<Checklist | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -56,9 +58,19 @@ export function ChecklistBuilder() {
     }
   };
 
+  const fetchSectors = async () => {
+    try {
+      const data = await apiGet<{ sectors: UnitRow[] }>('/api/sectors');
+      setSectors(data.sectors || []);
+    } catch {
+      setSectors([]);
+    }
+  };
+
   useEffect(() => {
     void fetchChecklists();
     void fetchUnits();
+    void fetchSectors();
   }, []);
 
   function startNew() {
@@ -225,6 +237,26 @@ export function ChecklistBuilder() {
                     <option value="weekly">Semanal</option>
                     <option value="once">Única</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="field">
+                <label>Setor responsável (opcional)</label>
+                <select
+                  value={editing.sector_id || ''}
+                  onChange={(e) =>
+                    setEditing({ ...editing, sector_id: e.target.value || null })
+                  }
+                >
+                  <option value="">— Rotativo da unidade —</option>
+                  {sectors.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="muted" style={{ fontSize: '0.75rem' }}>
+                  Ao definir um setor, as tarefas são atribuídas só a operadores desse setor, dentro das unidades vinculadas.
                 </div>
               </div>
 

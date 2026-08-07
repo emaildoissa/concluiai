@@ -4,6 +4,7 @@ interface ChecklistRow {
   id: string;
   shift: string;
   is_active: boolean;
+  sector_id: string | null;
   items: { id: string; due_time: string | null; title: string }[];
   units: { unit_id: string }[];
 }
@@ -30,7 +31,7 @@ export async function generateTasksForDate(params?: {
     .from('checklists')
     .select(
       `
-      id, company_id, shift, is_active,
+      id, company_id, shift, is_active, sector_id,
       items:checklist_items ( id, due_time, title ),
       units:checklist_units ( unit_id )
     `
@@ -69,6 +70,8 @@ export async function generateTasksForDate(params?: {
 
   // Operadores ativos por unidade (round-robin de atribuição) — 1 query.
   const activeOperatorsByUnit = new Map<string, string[]>();
+  // Operadores ativos por setor (para checklists com sector_id) — setor -> operador.
+  const activeOperatorsBySector = new Map<string, string[]>();
   if (unitIds.size > 0) {
     const { data: operators, error: opErr } = await sb
       .from('profiles')
@@ -82,6 +85,21 @@ export async function generateTasksForDate(params?: {
       const list = activeOperatorsByUnit.get(op.unit_id) || [];
       list.push(op.id);
       activeOperatorsByUnit.set(op.unit_id, list);
+    }
+
+    // Vínculos de setor para esses operadores — 1 query.
+    const operatorIds = [...activeOperatorsByUnit.values()].flat();
+    if (operatorIds.length > 0) {
+      const { data: links, error: linkErr } = await sb
+        .from('profiles_sectors')
+        .select('profile_id, sector_id')
+        .in('profile_id', operatorIds);
+      if (linkErr) throw linkErr;
+      for (const l of (links || []) as { profile_id: string; sector_id: string }[]) {
+        const list = activeOperatorsBySector.get(l.sector_id) || [];
+        list.push(l.profile_id);
+        activeOperatorsBySector.set(l.sector_id, list);
+      }
     }
   }
 
@@ -122,12 +140,20 @@ export async function generateTasksForDate(params?: {
         const key = `${item.id}|${link.unit_id}`;
         if (existingKeys.has(key)) continue;
 
-        const operators = activeOperatorsByUnit.get(link.unit_id) || [];
+        // Prefere operadores do setor do checklist (dentro da mesma unidade);
+        // cai no round-robin da unidade quando não há operador do setor.
+        const unitOperators = activeOperatorsByUnit.get(link.unit_id) || [];
+        const sectorOperators = cl.sector_id
+          ? (activeOperatorsBySector.get(cl.sector_id) || []).filter((id) => unitOperators.includes(id))
+          : [];
+        const operators = sectorOperators.length > 0 ? sectorOperators : unitOperators;
+        const rrKey = sectorOperators.length > 0 ? `${link.unit_id}|${cl.sector_id}` : link.unit_id;
+
         let assignedTo: string | null = null;
         if (operators.length > 0) {
-          const i = rrCounter.get(link.unit_id) || 0;
+          const i = rrCounter.get(rrKey) || 0;
           assignedTo = operators[i % operators.length];
-          rrCounter.set(link.unit_id, i + 1);
+          rrCounter.set(rrKey, i + 1);
         }
 
         rowsToInsert.push({
