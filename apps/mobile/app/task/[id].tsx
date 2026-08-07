@@ -127,8 +127,7 @@ export default function TaskDetailScreen() {
         .update({ status: 'completed', completed_at: new Date().toISOString() })
         .eq('id', id);
       if (updateError) throw updateError;
-
-      await load();
+      router.back();
     } catch (e: any) {
       console.error(e);
       setActionError('Falha ao concluir a tarefa. Tente novamente.');
@@ -152,8 +151,7 @@ export default function TaskDetailScreen() {
         })
         .eq('id', id);
       if (updateError) throw updateError;
-      setChecked(true);
-      await load();
+      router.back();
     } catch (e: any) {
       console.error(e);
       setActionError('Falha ao confirmar a tarefa. Tente novamente.');

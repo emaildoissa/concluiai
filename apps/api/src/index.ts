@@ -15,6 +15,7 @@ import { trainingRouter } from './routes/training.js';
 import { checkCriticalOverdueTasks } from './jobs/alerts.js';
 import { recalculateDailyScores } from './services/score.js';
 import { generateTasksForDate } from './services/tasks.js';
+import { purgeOldEvidences } from './services/evidences.js';
 import cron from 'node-cron';
 
 const app = express();
@@ -86,6 +87,23 @@ function startJobs() {
     );
   }
 
+  if (config.jobs.evidenceCleanupEnabled) {
+    cron.schedule(
+      config.jobs.evidenceCleanupCron,
+      async () => {
+        try {
+          const r = await purgeOldEvidences({ olderThanDays: config.jobs.evidenceRetentionDays });
+          if (r.oldRows > 0) {
+            console.log(`[jobs] evidências antigas removidas: ${r.oldRows} (${r.storageFiles} fotos)`);
+          }
+        } catch (e) {
+          console.error('[jobs] evidence-cleanup', e);
+        }
+      },
+      { timezone: config.jobs.evidenceCleanupTz }
+    );
+  }
+
   console.log(
     `[jobs] alertas a cada ${config.jobs.alertCheckIntervalMs}ms | score a cada ${config.jobs.scoreRecalcIntervalMs}ms`
   );
@@ -95,6 +113,13 @@ function startJobs() {
     );
   } else {
     console.log('[jobs] geração diária de tarefas: desligada (CRON_DAILY_GENERATE=0)');
+  }
+  if (config.jobs.evidenceCleanupEnabled) {
+    console.log(
+      `[jobs] limpeza de evidências: ${config.jobs.evidenceCleanupCron} (> ${config.jobs.evidenceRetentionDays} dias, ${config.jobs.evidenceCleanupTz})`
+    );
+  } else {
+    console.log('[jobs] limpeza de evidências: desligada (CRON_EVIDENCE_CLEANUP=0)');
   }
 }
 

@@ -44,10 +44,11 @@ export function MultistoreDashboard() {
   async function load() {
     setLoading(true);
     try {
-      const data = await apiGet<{ units: UnitRow[]; demo?: boolean }>('/api/dashboard/multistore');
+      const [data, evData] = await Promise.all([
+        apiGet<{ units: UnitRow[]; demo?: boolean }>('/api/dashboard/multistore'),
+        apiGet<{ evidences: EvidenceRow[] }>('/api/evidences'),
+      ]);
       setUnits(data.units);
-
-      const evData = await apiGet<{ evidences: EvidenceRow[] }>('/api/evidences');
       setEvidences(evData.evidences || []);
     } catch {
       setUnits(
@@ -86,19 +87,6 @@ export function MultistoreDashboard() {
     { pending: 0, late: 0, completed: 0, critical: 0, scoreSum: 0, scoreN: 0 }
   );
   const avgScore = totals.scoreN ? Math.round((totals.scoreSum / totals.scoreN) * 10) / 10 : null;
-
-  async function generateTasks() {
-    setMsg('');
-    setBusy('generate');
-    try {
-      const r = await apiPost<{ created: number; message?: string }>('/api/tasks/generate-today', {});
-      setMsg(r.message || `Tarefas geradas: ${r.created}`);
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Erro');
-    } finally {
-      setBusy(null);
-    }
-  }
 
   async function runAlerts() {
     setMsg('');
@@ -160,9 +148,6 @@ export function MultistoreDashboard() {
           <p>Visão consolidada de todas as unidades em tempo quase real.</p>
         </div>
         <div className="row">
-          <button type="button" className="btn btn-sm" onClick={() => void generateTasks()} disabled={busy !== null}>
-            {busy === 'generate' ? 'Gerando…' : 'Gerar tarefas de hoje'}
-          </button>
           <button type="button" className="btn btn-sm" onClick={() => void runAlerts()} disabled={busy !== null}>
             {busy === 'alerts' ? 'Rodando…' : 'Rodar alertas'}
           </button>
@@ -266,6 +251,8 @@ export function MultistoreDashboard() {
                     <img
                       src={ev.photo_url}
                       alt="Evidência"
+                      loading="lazy"
+                      decoding="async"
                       style={{
                         width: 90,
                         height: 90,

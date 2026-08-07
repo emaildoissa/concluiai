@@ -1,12 +1,43 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { getSupabaseAdmin } from '../lib/supabase.js';
+import { getSupabaseAdmin, type SupabaseClient } from '../lib/supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
 
 export const evidencesRouter = Router();
 
 const STORAGE_BUCKET = 'evidences';
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60; // 1h
+const THUMB_WIDTH = 300;
+
+// Cache de URLs assinadas (thread/task -> URLs) para não regenerar a cada refresh.
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+const SIGNED_URL_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+
+function startOfTodaySaoPaulo(): string {
+  const now = new Date();
+  const sp = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  sp.setHours(0, 0, 0, 0);
+  return sp.toISOString();
+}
+
+async function getSignedThumb(sb: SupabaseClient, path: string): Promise<string | null> {
+  const now = Date.now();
+  const cached = signedUrlCache.get(path);
+  if (cached && cached.expiresAt > now) return cached.url;
+
+  const { data: signed, error: signedError } = await sb.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS, {
+      transform: { width: THUMB_WIDTH, height: THUMB_WIDTH, resize: 'cover' },
+    });
+
+  if (signedError || !signed?.signedUrl) return null;
+  signedUrlCache.set(path, {
+    url: signed.signedUrl,
+    expiresAt: now + SIGNED_URL_CACHE_TTL_MS,
+  });
+  return signed.signedUrl;
+}
 
 /**
  * GET /api/evidences
@@ -45,6 +76,7 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
         `,
       )
       .order('captured_at', { ascending: false })
+      .gte('captured_at', startOfTodaySaoPaulo())
       .limit(30);
 
     if (error) {
@@ -70,20 +102,12 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
       },
     );
 
-    // Assina a URL de cada foto (photo_url é o path no Storage)
+    // Assina a URL de cada foto (photo_url é o path no Storage) — thumbnail leve
     const withSignedUrls = await Promise.all(
       latestEvidences.map(async (evidence) => {
         const path = evidence.photo_url;
         if (!path) return { ...evidence, photo_url: null };
-
-        const { data: signed, error: signedError } = await sb.storage
-          .from(STORAGE_BUCKET)
-          .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS);
-
-        if (signedError || !signed?.signedUrl) {
-          return { ...evidence, photo_url: null };
-        }
-        return { ...evidence, photo_url: signed.signedUrl };
+        return { ...evidence, photo_url: await getSignedThumb(sb, path) };
       }),
     );
 

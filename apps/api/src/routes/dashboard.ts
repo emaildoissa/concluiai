@@ -12,6 +12,22 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
     if (!companyId) return res.status(400).json({ error: 'Perfil sem company_id' });
 
     const today = new Date().toISOString().slice(0, 10);
+    const todayDate = today;
+
+    // Tenta o RPC agregado (1 query). Se ainda não existir no banco, cai no fallback JS.
+    try {
+      const { data, error } = await sb.rpc('get_multistore_dashboard', {
+        p_company_id: companyId,
+        p_date: todayDate,
+      });
+
+      if (!error && Array.isArray(data)) {
+        return res.json({ units: data, date: today });
+      }
+    } catch {
+      // RPC indisponível — segue para o fallback.
+    }
+
     const { data: units, error } = await sb
       .from('units')
       .select('id, name, address, is_active')
@@ -30,26 +46,11 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
         .eq('score_date', today)
         .maybeSingle();
 
-      const { count: pending } = await sb
-        .from('task_instances')
-        .select('*', { count: 'exact', head: true })
-        .eq('unit_id', unit.id)
-        .eq('scheduled_date', today)
-        .eq('status', 'pending');
-
-      const { count: late } = await sb
-        .from('task_instances')
-        .select('*', { count: 'exact', head: true })
-        .eq('unit_id', unit.id)
-        .eq('scheduled_date', today)
-        .eq('status', 'late');
-
-      const { count: completed } = await sb
-        .from('task_instances')
-        .select('*', { count: 'exact', head: true })
-        .eq('unit_id', unit.id)
-        .eq('scheduled_date', today)
-        .eq('status', 'completed');
+      const [{ count: pending }, { count: late }, { count: completed }] = await Promise.all([
+        sb.from('task_instances').select('*', { count: 'exact', head: true }).eq('unit_id', unit.id).eq('scheduled_date', today).eq('status', 'pending'),
+        sb.from('task_instances').select('*', { count: 'exact', head: true }).eq('unit_id', unit.id).eq('scheduled_date', today).eq('status', 'late'),
+        sb.from('task_instances').select('*', { count: 'exact', head: true }).eq('unit_id', unit.id).eq('scheduled_date', today).eq('status', 'completed'),
+      ]);
 
       let scoreTotal = score?.score_total ?? null;
 

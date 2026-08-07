@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { config, hasSupabaseConfig } from '../config.js';
 
+export type { SupabaseClient };
+
 export const supabase = createClient(
   config.supabaseUrl,
   config.supabaseServiceRoleKey,

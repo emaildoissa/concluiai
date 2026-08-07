@@ -58,6 +58,10 @@ export const config = {
     dailyGenerateEnabled: process.env.CRON_DAILY_GENERATE !== '0',
     dailyGenerateCron: optional('CRON_DAILY_GENERATE_CRON', '0 5 * * *'),
     dailyGenerateTz: optional('CRON_DAILY_GENERATE_TZ', 'America/Sao_Paulo'),
+    evidenceCleanupEnabled: process.env.CRON_EVIDENCE_CLEANUP !== '0',
+    evidenceCleanupCron: optional('CRON_EVIDENCE_CLEANUP_CRON', '0 3 * * *'),
+    evidenceCleanupTz: optional('CRON_EVIDENCE_CLEANUP_TZ', 'America/Sao_Paulo'),
+    evidenceRetentionDays: optionalInt('EVIDENCE_RETENTION_DAYS', 30),
   },
 } as const;
 
