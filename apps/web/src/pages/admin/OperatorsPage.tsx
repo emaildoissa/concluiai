@@ -154,8 +154,6 @@ export function OperatorsPage() {
     }
   }
 
-  const unitName = (id: string) => units.find((u) => u.id === id)?.name || '—';
-
   const sectorNames = (ids?: string[]) =>
     (ids || []).map((id) => sectors.find((s) => s.id === id)?.name).filter(Boolean).join(', ');
 
