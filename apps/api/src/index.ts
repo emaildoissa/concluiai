@@ -8,6 +8,7 @@ import { scoreRouter } from './routes/score.js';
 import { tasksRouter } from './routes/tasks.js';
 import { whatsappWebhookRouter } from './routes/whatsapp-webhook.js';
 import { dashboardRouter } from './routes/dashboard.js';
+import { settingsRouter } from './routes/settings.js';
 import { checklistsRouter } from './routes/checklists.js';
 import { unitsRouter } from './routes/units.js';
 import { operatorsRouter } from './routes/operators.js';
@@ -38,6 +39,7 @@ app.use('/api/units', unitsRouter);
 app.use('/api/operators', operatorsRouter);
 app.use('/api/training', trainingRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/settings', settingsRouter);
 app.use('/webhooks/whatsapp', whatsappWebhookRouter);
 
 app.get('/', (_req, res) => {

@@ -1,16 +1,55 @@
-import { config } from '../config.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
+import { getWhatsAppSettings, type WhatsAppSettings } from './settings.js';
+
+interface ResolvedWhatsApp extends WhatsAppSettings {
+  phoneNumberId: string;
+}
+
+async function resolveWhatsAppSettings(): Promise<ResolvedWhatsApp> {
+  const s = await getWhatsAppSettings();
+  return {
+    provider: s.provider,
+    apiUrl: s.apiUrl,
+    token: s.token,
+    instance: s.instance,
+    instanceNumber: s.instanceNumber,
+    phoneNumberId: s.phoneNumberId ?? '',
+  };
+}
 
 export interface WhatsAppSendResult {
   ok: boolean;
-  status: 'sent' | 'failed' | 'mock';
+  status: 'sent' | 'failed' | 'mock' | 'blocked';
   providerResponse?: unknown;
   error?: string;
 }
 
 /**
+ * Normaliza um telefone brasileiro para E.164 (55 + DDD + 9 + número).
+ * Aceita entradas com 9 e sem/´+55, com/sem 9 (fixo→celular) e retorna { number, valid }.
+ */
+export function normalizePhoneBR(raw: string): { number: string; valid: boolean } {
+  const d = (raw || '').replace(/\D/g, '');
+  let n = d;
+
+  if (/^55\d{2}\d{8}$/.test(n) && n.length === 12) {
+    // 55 + DDD + 8 dígitos (ex.: 555135083008) → insere o 9 de celular após o DDD
+    n = n.slice(0, 4) + '9' + n.slice(4);
+  } else if (!/^55/.test(n) && n.length === 11) {
+    // sem 55, já com o 9 (ex.: 51993257923) → prefixa 55
+    n = '55' + n;
+  } else if (!/^55/.test(n) && n.length === 10) {
+    // sem 55 e sem o 9 (fixo) → prefixa 55 e insere o 9
+    n = '55' + n.slice(0, 2) + '9' + n.slice(2);
+  }
+
+  const valid = /^55\d{2}9\d{8}$/.test(n);
+  return { number: n, valid };
+}
+
+/**
  * Envia alerta via WhatsApp.
- * Configure WHATSAPP_PROVIDER e credenciais no .env (veja .env.example).
+ * Configure WHATSAPP_PROVIDER e credenciais via painel (ou .env).
  */
 export async function sendWhatsAppMessage(params: {
   toPhone: string;
@@ -19,30 +58,49 @@ export async function sendWhatsAppMessage(params: {
   unitId?: string;
   recipientProfileId?: string;
 }): Promise<WhatsAppSendResult> {
-  const { provider } = config.whatsapp;
+  const settings = await resolveWhatsAppSettings();
+  const { provider, token, apiUrl, phoneNumberId, instance, instanceNumber } = settings;
   let result: WhatsAppSendResult;
 
-  switch (provider) {
-    case 'meta':
-      result = await sendViaMeta(params.toPhone, params.message);
-      break;
-    case 'evolution':
-      result = await sendViaEvolution(params.toPhone, params.message);
-      break;
-    case 'twilio':
-      result = await sendViaTwilio(params.toPhone, params.message);
-      break;
-    default:
-      result = {
-        ok: true,
-        status: 'mock',
-        providerResponse: {
-          note: 'WHATSAPP_PROVIDER=mock — mensagem não enviada de verdade',
-          to: params.toPhone,
-          message: params.message,
-        },
-      };
-      console.log('[whatsapp:mock]', params.toPhone, params.message.slice(0, 120));
+  // Normaliza o telefone BR (E.164) e valida antes de qualquer envio.
+  const { number: toPhone, valid } = normalizePhoneBR(params.toPhone);
+  const normInstance = (instanceNumber || '').replace(/\D/g, '');
+
+  if (!valid) {
+    result = {
+      ok: false,
+      status: 'blocked',
+      error: `Telefone inválido para WhatsApp: ${params.toPhone} (use 55 + DDD + 9 + número)`,
+    };
+  } else if (normInstance && toPhone === normInstance) {
+    result = {
+      ok: false,
+      status: 'blocked',
+      error: `Alerta não enviado: o destinatário é o mesmo número do robô (${toPhone}). Cadastre o celular real do gerente.`,
+    };
+  } else {
+    switch (provider) {
+      case 'meta':
+        result = await sendViaMeta(toPhone, params.message, token, apiUrl, phoneNumberId);
+        break;
+      case 'evolution':
+        result = await sendViaEvolution(toPhone, params.message, apiUrl, token, instance);
+        break;
+      case 'twilio':
+        result = await sendViaTwilio(toPhone, params.message, token, phoneNumberId);
+        break;
+      default:
+        result = {
+          ok: true,
+          status: 'mock',
+          providerResponse: {
+            note: 'WHATSAPP_PROVIDER=mock — mensagem não enviada de verdade',
+            to: toPhone,
+            message: params.message,
+          },
+        };
+        console.log('[whatsapp:mock]', toPhone, params.message.slice(0, 120));
+    }
   }
 
   // Auditoria
@@ -51,12 +109,12 @@ export async function sendWhatsAppMessage(params: {
     await sb.from('alert_logs').insert({
       task_instance_id: params.taskInstanceId ?? null,
       unit_id: params.unitId ?? null,
-      recipient_phone: params.toPhone,
+      recipient_phone: toPhone,
       recipient_profile_id: params.recipientProfileId ?? null,
       channel: 'whatsapp',
       message: params.message,
       status: result.status,
-      provider_response: result.providerResponse ?? null,
+      provider_response: result.providerResponse ?? (result.error ? { error: result.error } : null),
     });
   } catch (err) {
     console.warn('[whatsapp] falha ao gravar alert_log (Supabase pode não estar configurado)', err);
@@ -65,21 +123,27 @@ export async function sendWhatsAppMessage(params: {
   return result;
 }
 
-async function sendViaMeta(toPhone: string, message: string): Promise<WhatsAppSendResult> {
-  if (!config.whatsapp.token || !config.whatsapp.phoneNumberId) {
+async function sendViaMeta(
+  toPhone: string,
+  message: string,
+  token: string,
+  apiUrl: string,
+  phoneNumberId: string
+): Promise<WhatsAppSendResult> {
+  if (!token || !phoneNumberId) {
     return {
       ok: false,
       status: 'failed',
-      error: 'Preencha WHATSAPP_TOKEN e WHATSAPP_PHONE_NUMBER_ID no .env',
+      error: 'Preencha o token e o Phone Number ID do Meta no painel config',
     };
   }
 
-  const url = `${config.whatsapp.apiUrl}/${config.whatsapp.phoneNumberId}/messages`;
+  const url = `${apiUrl}/${phoneNumberId}/messages`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${config.whatsapp.token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -99,25 +163,29 @@ async function sendViaMeta(toPhone: string, message: string): Promise<WhatsAppSe
   }
 }
 
-async function sendViaEvolution(toPhone: string, message: string): Promise<WhatsAppSendResult> {
+async function sendViaEvolution(
+  toPhone: string,
+  message: string,
+  apiUrl: string,
+  token: string,
+  instance: string
+): Promise<WhatsAppSendResult> {
   // Evolution API v2: POST {API_URL}/message/sendText/{instance}
-  // Preencha WHATSAPP_API_URL (base), WHATSAPP_TOKEN (apikey) e WHATSAPP_INSTANCE (nome da instância).
-  if (!config.whatsapp.apiUrl || !config.whatsapp.token || !config.whatsapp.instance) {
+  if (!apiUrl || !token || !instance) {
     return {
       ok: false,
       status: 'failed',
-      error:
-        'Preencha WHATSAPP_API_URL, WHATSAPP_TOKEN (apikey) e WHATSAPP_INSTANCE para Evolution API',
+      error: 'Preencha API URL, Token (apikey) e Instância no painel config',
     };
   }
-  const base = config.whatsapp.apiUrl.replace(/\/+$/, '');
-  const instance = encodeURIComponent(config.whatsapp.instance);
-  const url = `${base}/message/sendText/${instance}`;
+  const base = apiUrl.replace(/\/+$/, '');
+  const instanceEnc = encodeURIComponent(instance);
+  const url = `${base}/message/sendText/${instanceEnc}`;
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
-        apikey: config.whatsapp.token,
+        apikey: token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -139,22 +207,26 @@ async function sendViaEvolution(toPhone: string, message: string): Promise<Whats
   }
 }
 
-async function sendViaTwilio(toPhone: string, message: string): Promise<WhatsAppSendResult> {
-  if (!config.whatsapp.token || !config.whatsapp.phoneNumberId) {
+async function sendViaTwilio(
+  toPhone: string,
+  message: string,
+  token: string,
+  phoneNumberId: string
+): Promise<WhatsAppSendResult> {
+  if (!token || !phoneNumberId) {
     return {
       ok: false,
       status: 'failed',
-      error:
-        'Twilio: preencha WHATSAPP_TOKEN (AccountSid:AuthToken) e WHATSAPP_PHONE_NUMBER_ID (from whatsapp:+...)',
+      error: 'Twilio: preencha o Token (AccountSid:AuthToken) e o From (whatsapp:+...) no painel config',
     };
   }
-  const [sid, auth] = config.whatsapp.token.split(':');
+  const [sid, auth] = token.split(':');
   if (!sid || !auth) {
-    return { ok: false, status: 'failed', error: 'WHATSAPP_TOKEN deve ser AccountSid:AuthToken' };
+    return { ok: false, status: 'failed', error: 'Token Twilio deve ser AccountSid:AuthToken' };
   }
   const url = `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`;
   const body = new URLSearchParams({
-    From: config.whatsapp.phoneNumberId,
+    From: phoneNumberId,
     To: `whatsapp:${toPhone.startsWith('+') ? toPhone : `+${toPhone}`}`,
     Body: message,
   });

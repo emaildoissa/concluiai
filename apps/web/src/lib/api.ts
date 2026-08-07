@@ -227,6 +227,22 @@ export async function apiPatch<T>(
   });
 }
 
+export async function apiPut<T>(
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers = await jsonHeaders();
+
+  return request<T>(path, {
+    method: 'PUT',
+    headers,
+    body:
+      body !== undefined
+        ? JSON.stringify(body)
+        : undefined,
+  });
+}
+
 /**
  * Envia arquivos usando multipart/form-data.
  *

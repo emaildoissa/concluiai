@@ -42,6 +42,7 @@ export const config = {
     token: optional('WHATSAPP_TOKEN', ''),
     phoneNumberId: optional('WHATSAPP_PHONE_NUMBER_ID', ''),
     instance: optional('WHATSAPP_INSTANCE', ''),
+    instanceNumber: optional('WHATSAPP_INSTANCE_NUMBER', ''),
     webhookVerifyToken: optional('WHATSAPP_WEBHOOK_VERIFY_TOKEN', 'concluiai_webhook_verify'),
   },
 

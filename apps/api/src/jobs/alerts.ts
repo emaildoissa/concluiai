@@ -1,13 +1,19 @@
 import { hasSupabaseConfig } from '../config.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
-import { buildCriticalAlertMessage, sendWhatsAppMessage } from '../services/whatsapp.js';
+import { buildCriticalAlertMessage, normalizePhoneBR, sendWhatsAppMessage } from '../services/whatsapp.js';
+
+export interface AlertRunResult {
+  alerted: number;
+  skipped: number;
+  invalid: number;
+}
 
 /**
  * Monitora tarefas críticas vencidas e dispara WhatsApp para gerentes.
  */
-export async function checkCriticalOverdueTasks(): Promise<{ alerted: number }> {
+export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
   if (!hasSupabaseConfig()) {
-    return { alerted: 0 };
+    return { alerted: 0, skipped: 0, invalid: 0 };
   }
 
   const sb = getSupabaseAdmin();
@@ -29,10 +35,12 @@ export async function checkCriticalOverdueTasks(): Promise<{ alerted: number }> 
 
   if (error) {
     console.error('[alerts] query error', error);
-    return { alerted: 0 };
+    return { alerted: 0, skipped: 0, invalid: 0 };
   }
 
   let alerted = 0;
+  let skipped = 0;
+  let invalid = 0;
 
   for (const task of tasks || []) {
     const item = Array.isArray(task.checklist_item)
@@ -40,17 +48,12 @@ export async function checkCriticalOverdueTasks(): Promise<{ alerted: number }> 
       : task.checklist_item;
     const unit = Array.isArray(task.unit) ? task.unit[0] : task.unit;
 
-    if (!item?.is_critical) {
-      // Marca late mesmo se não crítica
-      if (task.status !== 'late') {
-        await sb.from('task_instances').update({ status: 'late' }).eq('id', task.id);
-      }
-      continue;
-    }
-
+    // Marca late mesmo se não crítica
     if (task.status !== 'late') {
       await sb.from('task_instances').update({ status: 'late' }).eq('id', task.id);
     }
+
+    if (!item?.is_critical) continue;
 
     // Evita spam: se já alertou nas últimas 2h, pula
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
@@ -61,7 +64,10 @@ export async function checkCriticalOverdueTasks(): Promise<{ alerted: number }> 
       .gte('created_at', twoHoursAgo)
       .limit(1);
 
-    if (recent && recent.length > 0) continue;
+    if (recent && recent.length > 0) {
+      skipped += 1;
+      continue;
+    }
 
     // Gerentes da unidade + admins da company
     const { data: managers } = await sb
@@ -78,21 +84,33 @@ export async function checkCriticalOverdueTasks(): Promise<{ alerted: number }> 
       isCritical: true,
     });
 
+    let taskSent = 0;
     for (const mgr of managers || []) {
       if (!mgr.phone) {
         console.warn(`[alerts] gerente ${mgr.full_name} sem telefone`);
         continue;
       }
-      await sendWhatsAppMessage({
+      const { valid } = normalizePhoneBR(mgr.phone);
+      if (!valid) {
+        console.warn(`[alerts] gerente ${mgr.full_name} com telefone inválido para WhatsApp: ${mgr.phone}`);
+        invalid += 1;
+        continue;
+      }
+      const result = await sendWhatsAppMessage({
         toPhone: mgr.phone,
         message,
         taskInstanceId: task.id,
         unitId: task.unit_id,
         recipientProfileId: mgr.id,
       });
-      alerted += 1;
+      if (result.status === 'sent' || result.status === 'mock') {
+        taskSent += 1;
+      } else if (result.status === 'blocked') {
+        invalid += 1;
+      }
     }
+    if (taskSent > 0) alerted += 1;
   }
 
-  return { alerted };
+  return { alerted, skipped, invalid };
 }

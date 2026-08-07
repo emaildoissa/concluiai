@@ -10,6 +10,7 @@ import { RankingsPage } from './pages/admin/RankingsPage';
 import { EvolutionPage } from './pages/admin/EvolutionPage';
 import { TrainingPage } from './pages/admin/TrainingPage';
 import { CredentialsPage } from './pages/admin/CredentialsPage';
+import { WhatsAppPage } from './pages/admin/WhatsAppPage';
 
 function Guard({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -61,6 +62,7 @@ export default function App() {
         <Route path="operators" element={<OperatorsPage />} />
         <Route path="rankings" element={<RankingsPage />} />
         <Route path="evolution" element={<EvolutionPage />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="training" element={<TrainingPage />} />
         <Route path="credentials" element={<CredentialsPage />} />
       </Route>

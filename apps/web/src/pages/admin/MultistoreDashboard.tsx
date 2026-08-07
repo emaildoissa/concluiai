@@ -92,8 +92,11 @@ export function MultistoreDashboard() {
     setMsg('');
     setBusy('alerts');
     try {
-      const r = await apiPost<{ alerted: number }>('/api/tasks/run-alerts', {});
-      setMsg(`Alertas disparados: ${r.alerted}`);
+      const r = await apiPost<{ alerted: number; skipped: number; invalid: number }>('/api/tasks/run-alerts', {});
+      const parts = [`Enviados: ${r.alerted}`];
+      if (r.skipped > 0) parts.push(`pulados (já alertado): ${r.skipped}`);
+      if (r.invalid > 0) parts.push(`recursos inválidos: ${r.invalid}`);
+      setMsg(r.alerted || r.skipped || r.invalid ? parts.join(' · ') : 'Nenhuma tarefa crítica vencida agora.');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
