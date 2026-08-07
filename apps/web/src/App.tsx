@@ -11,6 +11,7 @@ import { EvolutionPage } from './pages/admin/EvolutionPage';
 import { TrainingPage } from './pages/admin/TrainingPage';
 import { CredentialsPage } from './pages/admin/CredentialsPage';
 import { WhatsAppPage } from './pages/admin/WhatsAppPage';
+import { PendingTasks } from './pages/admin/PendingTasks';
 
 function Guard({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -57,6 +58,7 @@ export default function App() {
         }
       >
         <Route index element={<MultistoreDashboard />} />
+        <Route path="pendings" element={<PendingTasks />} />
         <Route path="checklists" element={<ChecklistBuilder />} />
         <Route path="units" element={<UnitsPage />} />
         <Route path="operators" element={<OperatorsPage />} />
