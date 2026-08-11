@@ -94,6 +94,19 @@ if ($Cloud) {
   Write-Host '=== Build LOCAL via Docker ===' -ForegroundColor Cyan
   Write-Host 'Requere Docker Desktop rodando. Primeiro build é pesado; o resto usa cache.' -ForegroundColor Yellow
 
+  $image = 'concluiai-eas'
+  $built = docker images -q $image
+  if (-not $built) {
+    Write-Host 'Imagem concluiai-eas não existe; construindo (upgrade p/ Node 20 + SDK 36)...' -ForegroundColor Yellow
+    Push-Location $root
+    try {
+      & docker build -t $image -f deploy/Dockerfile.eas-local .
+      if ($LASTEXITCODE -ne 0) { throw 'Falha ao construir a imagem concluiai-eas' }
+    } finally {
+      Pop-Location
+    }
+  }
+
   $dockerArgs = @(
     'run', '--rm',
     '--name', 'eas-build',
@@ -102,7 +115,7 @@ if ($Cloud) {
     '-e', "EXPO_TOKEN=$env:EXPO_TOKEN",
     '-e', 'EAS_LOCAL_BUILD_ARTIFACTS_DIR=/workspace/apps/mobile/dist/build',
     '-e', 'EAS_LOCAL_BUILD_WORKINGDIR=/tmp/eas-work',
-    'erayalakese/eas-like-local-builder:latest',
+    $image,
     'eas', 'build', '--local', '--platform', 'android', '--profile', 'preview', '--non-interactive'
   )
   & docker $dockerArgs

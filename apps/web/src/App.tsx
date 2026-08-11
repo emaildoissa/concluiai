@@ -13,6 +13,7 @@ import { CredentialsPage } from './pages/admin/CredentialsPage';
 import { WhatsAppPage } from './pages/admin/WhatsAppPage';
 import { PendingTasks } from './pages/admin/PendingTasks';
 import { SectorsPage } from './pages/admin/SectorsPage';
+import { EstoquePage } from './pages/admin/EstoquePage';
 
 function Guard({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -63,6 +64,7 @@ export default function App() {
         <Route path="checklists" element={<ChecklistBuilder />} />
         <Route path="units" element={<UnitsPage />} />
         <Route path="sectors" element={<SectorsPage />} />
+        <Route path="estoque" element={<EstoquePage />} />
         <Route path="operators" element={<OperatorsPage />} />
         <Route path="rankings" element={<RankingsPage />} />
         <Route path="evolution" element={<EvolutionPage />} />
