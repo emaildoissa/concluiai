@@ -11,12 +11,14 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
+import { colors, radius, shadow, spacing, typography } from '../../src/lib/theme';
+import { SHIFT_LABEL } from '../../src/lib/labels';
 import type { TodayGroup, TodayTask } from '../../src/lib/types';
 
 const SECTIONS: { key: TodayGroup; title: string; color: string }[] = [
-  { key: 'late', title: 'Atrasadas', color: '#dc2626' },
-  { key: 'pending', title: 'Pendentes', color: '#d97706' },
-  { key: 'completed', title: 'Finalizadas', color: '#16a34a' },
+  { key: 'late', title: 'Atrasadas', color: colors.danger },
+  { key: 'pending', title: 'Pendentes', color: colors.warning },
+  { key: 'completed', title: 'Finalizadas', color: colors.success },
 ];
 
 function formatTime(iso: string): string {
@@ -141,7 +143,7 @@ export default function TodayScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -167,7 +169,10 @@ export default function TodayScreen() {
   return (
     <ScrollView
       style={styles.container}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadTasks(); }} />}
+      contentContainerStyle={styles.content}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadTasks(); }} tintColor={colors.primary} />
+      }
     >
       {groups.map((group) => {
         const isOpen = expanded.has(group.name);
@@ -178,27 +183,35 @@ export default function TodayScreen() {
               onPress={() => toggle(group.name)}
             >
               <View style={styles.cardTop}>
-                <Text style={styles.cardTitle}>{group.name}</Text>
+                <View style={styles.cardTitleWrap}>
+                  <Text style={styles.cardTitle}>{group.name}</Text>
+                  <Text style={styles.cardSubtitle}>
+                    {group.shift ? `${SHIFT_LABEL[group.shift] ?? group.shift} · ` : ''}
+                    {group.tasks.length} {group.tasks.length === 1 ? 'item' : 'itens'}
+                  </Text>
+                </View>
                 <Text style={styles.chevron}>{isOpen ? '▾' : '▸'}</Text>
               </View>
-              <Text style={styles.cardSubtitle}>
-                {group.shift ? `${group.shift} · ` : ''}
-                {group.tasks.length} itens
-              </Text>
               <View style={styles.badges}>
                 {group.late > 0 ? (
-                  <View style={[styles.badge, { backgroundColor: '#fef2f2' }]}>
-                    <Text style={[styles.badgeText, { color: '#dc2626' }]}>{group.late} atrasada{group.late > 1 ? 's' : ''}</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.dangerSoft }]}>
+                    <Text style={[styles.badgeText, { color: colors.onDanger }]}>
+                      {group.late} atrasada{group.late > 1 ? 's' : ''}
+                    </Text>
                   </View>
                 ) : null}
                 {group.pending > 0 ? (
-                  <View style={[styles.badge, { backgroundColor: '#fffbeb' }]}>
-                    <Text style={[styles.badgeText, { color: '#b45309' }]}>{group.pending} pendente{group.pending > 1 ? 's' : ''}</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.primarySoft }]}>
+                    <Text style={[styles.badgeText, { color: colors.onWarning }]}>
+                      {group.pending} pendente{group.pending > 1 ? 's' : ''}
+                    </Text>
                   </View>
                 ) : null}
                 {group.completed > 0 ? (
-                  <View style={[styles.badge, { backgroundColor: '#f0fdf4' }]}>
-                    <Text style={[styles.badgeText, { color: '#15803d' }]}>{group.completed} finalizada{group.completed > 1 ? 's' : ''}</Text>
+                  <View style={[styles.badge, { backgroundColor: colors.successSoft }]}>
+                    <Text style={[styles.badgeText, { color: colors.onSuccess }]}>
+                      {group.completed} finalizada{group.completed > 1 ? 's' : ''}
+                    </Text>
                   </View>
                 ) : null}
               </View>
@@ -211,18 +224,24 @@ export default function TodayScreen() {
                   if (items.length === 0) return null;
                   return (
                     <View key={section.key} style={styles.innerSection}>
-                      <Text style={[styles.innerSectionTitle, { color: section.color }]}>
+                      <Text style={styles.innerSectionTitle}>
                         {section.title} ({items.length})
                       </Text>
                       {items.map((task) => (
                         <Pressable
                           key={task.instance_id}
-                          style={({ pressed }) => [styles.taskCard, pressed && styles.cardPressed]}
+                          style={({ pressed }) => [
+                            styles.taskCard,
+                            { borderLeftColor: section.color },
+                            pressed && styles.cardPressed,
+                          ]}
                           onPress={() => router.push(`/task/${task.instance_id}`)}
                         >
                           <View style={styles.taskCardRow}>
                             <Text style={styles.taskTitle}>{task.title}</Text>
-                            <Text style={styles.taskTime}>{formatTime(task.due_at)}</Text>
+                            <View style={styles.timePill}>
+                              <Text style={styles.taskTime}>{formatTime(task.due_at)}</Text>
+                            </View>
                           </View>
                           {task.is_critical ? (
                             <View style={styles.criticalBadge}>
@@ -244,11 +263,13 @@ export default function TodayScreen() {
       })}
 
       {groups.length === 0 ? (
-        <Text style={styles.empty}>
-          {profile?.unit_id
-            ? 'Nenhuma tarefa para hoje.'
-            : 'Perfil do operador não encontrado. Contate o administrador.'}
-        </Text>
+        <View style={styles.emptyCard}>
+          <Text style={styles.empty}>
+            {profile?.unit_id
+              ? 'Nenhuma tarefa para hoje.'
+              : 'Perfil do operador não encontrado. Contate o administrador.'}
+          </Text>
+        </View>
       ) : null}
     </ScrollView>
   );
@@ -257,26 +278,26 @@ export default function TodayScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
-    padding: 16,
+    backgroundColor: colors.bg,
+  },
+  content: {
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.bg,
   },
   section: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   checklistCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: 18,
+    ...shadow.card,
   },
   cardPressed: {
     opacity: 0.85,
@@ -286,60 +307,64 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  cardTitleWrap: {
+    flex: 1,
+    marginRight: spacing.sm,
+  },
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#0f172a',
-    flex: 1,
-    marginRight: 8,
+    color: colors.text,
     textTransform: 'capitalize',
   },
   chevron: {
     fontSize: 18,
-    color: '#64748b',
+    color: colors.textMuted,
   },
   cardSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    marginTop: 4,
+    fontSize: typography.small,
+    color: colors.textMuted,
+    marginTop: 2,
     textTransform: 'capitalize',
   },
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
+    gap: spacing.sm,
+    marginTop: spacing.md,
   },
   badge: {
-    borderRadius: 8,
+    borderRadius: radius.pill,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: typography.tiny + 1,
     fontWeight: '600',
   },
   expanded: {
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   innerSection: {
-    paddingHorizontal: 6,
+    paddingHorizontal: 4,
   },
   innerSectionTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
-    marginTop: 12,
-    marginBottom: 6,
+    letterSpacing: 1,
+    color: colors.textMuted,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: 4,
   },
   taskCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 14,
+    marginBottom: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: '#e2e8f0',
+    ...shadow.card,
   },
   taskCardRow: {
     flexDirection: 'row',
@@ -347,50 +372,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   taskTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
+  },
+  timePill: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   taskTime: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   criticalBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fef2f2',
+    backgroundColor: colors.dangerSoft,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
     marginTop: 6,
   },
   criticalBadgeText: {
-    color: '#b91c1c',
+    color: colors.onDanger,
     fontSize: 10,
     fontWeight: '700',
   },
   rejectedText: {
-    color: '#dc2626',
+    color: colors.danger,
     fontSize: 12,
     marginTop: 6,
   },
+  emptyCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.xxl,
+    ...shadow.card,
+  },
   empty: {
     textAlign: 'center',
-    color: '#64748b',
-    marginTop: 40,
+    color: colors.textMuted,
   },
   errorText: {
-    color: '#dc2626',
+    color: colors.danger,
     fontSize: 15,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   retryButton: {
-    backgroundColor: '#0f172a',
-    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
     paddingVertical: 12,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.xxl,
   },
   retryPressed: {
     opacity: 0.85,

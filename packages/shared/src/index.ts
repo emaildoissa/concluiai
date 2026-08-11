@@ -248,3 +248,9 @@ export const SHIFT_LABELS: Record<Shift, string> = {
   night: 'Noite',
   all_day: 'Dia inteiro',
 };
+
+export const RECURRENCE_LABELS: Record<Checklist['recurrence'], string> = {
+  daily: 'Diária',
+  weekly: 'Semanal',
+  once: 'Única',
+};

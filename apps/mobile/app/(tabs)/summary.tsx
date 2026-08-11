@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
+import { colors, radius, shadow, spacing, typography } from '../../src/lib/theme';
 
 interface Summary {
   total: number;
@@ -72,7 +73,7 @@ export default function SummaryScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -101,15 +102,15 @@ export default function SummaryScreen() {
       </View>
 
       <View style={styles.grid}>
-        <View style={[styles.statCard, { borderLeftColor: '#16a34a' }]}>
+        <View style={[styles.statCard, { borderLeftColor: colors.success }]}>
           <Text style={styles.statValue}>{s?.completed ?? 0}</Text>
           <Text style={styles.statLabel}>Finalizadas</Text>
         </View>
-        <View style={[styles.statCard, { borderLeftColor: '#d97706' }]}>
+        <View style={[styles.statCard, { borderLeftColor: colors.warning }]}>
           <Text style={styles.statValue}>{s?.pending ?? 0}</Text>
           <Text style={styles.statLabel}>Pendentes</Text>
         </View>
-        <View style={[styles.statCard, { borderLeftColor: '#dc2626' }]}>
+        <View style={[styles.statCard, { borderLeftColor: colors.danger }]}>
           <Text style={styles.statValue}>{s?.late ?? 0}</Text>
           <Text style={styles.statLabel}>Atrasadas</Text>
         </View>
@@ -135,98 +136,101 @@ export default function SummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
   },
   content: {
-    padding: 16,
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
   },
   scoreCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.lg,
+    padding: spacing.xxl,
+    marginBottom: spacing.lg,
+    ...shadow.card,
   },
   scoreLabel: {
-    color: '#94a3b8',
+    color: colors.textSubtle,
     fontSize: 14,
   },
   scoreValue: {
-    color: '#f59e0b',
-    fontSize: 44,
+    color: colors.primary,
+    fontSize: typography.display,
     fontWeight: '800',
     marginTop: 4,
   },
   barTrack: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#334155',
-    marginTop: 12,
+    backgroundColor: colors.surfaceAltBorder,
+    marginTop: spacing.md,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
     borderRadius: 5,
-    backgroundColor: '#f59e0b',
+    backgroundColor: colors.primary,
   },
   scoreSub: {
-    color: '#94a3b8',
+    color: colors.textSubtle,
     fontSize: 13,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
   },
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.lg,
     borderLeftWidth: 4,
+    ...shadow.card,
   },
   statValue: {
-    fontSize: 26,
+    fontSize: typography.value,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.text,
   },
   statLabel: {
     fontSize: 13,
-    color: '#64748b',
+    color: colors.textMuted,
     marginTop: 2,
   },
   criticalCard: {
-    backgroundColor: '#fef2f2',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
+    backgroundColor: colors.dangerSoft,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginTop: spacing.lg,
   },
   criticalTitle: {
-    color: '#b91c1c',
+    color: colors.onDanger,
     fontWeight: '700',
   },
   criticalValue: {
-    color: '#7f1d1d',
+    color: colors.onDanger,
     fontSize: 18,
     fontWeight: '700',
     marginTop: 4,
   },
   criticalHint: {
-    color: '#991b1b',
+    color: colors.onDanger,
     fontSize: 13,
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   error: {
-    color: '#dc2626',
+    color: colors.danger,
     fontSize: 14,
     textAlign: 'center',
-    padding: 24,
+    padding: spacing.xxl,
   },
 });

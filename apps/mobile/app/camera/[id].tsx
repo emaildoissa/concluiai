@@ -122,7 +122,7 @@ export default function CameraScreen() {
 
       await supabase
         .from('task_instances')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({ status: 'in_progress' })
         .eq('id', id);
 
       setPhase('analyzing');
@@ -209,8 +209,8 @@ export default function CameraScreen() {
       <View style={[styles.center, { backgroundColor: '#f0fdf4' }]}>
         <Text style={[styles.verdictTitle, { color: '#16a34a' }]}>Foto enviada!</Text>
         <Text style={styles.verdictReason}>
-          A evidência foi registrada. A conferência da IA será processada em instantes — veja o
-          resultado no Histórico.
+          A análise da IA ainda não confirmou a foto. A tarefa segue em Pendentes — abra a
+          tarefa para consultar o resultado e, se preciso, tirar de novo.
         </Text>
         {!gpsCaptured ? (
           <Text style={styles.gpsWarning}>

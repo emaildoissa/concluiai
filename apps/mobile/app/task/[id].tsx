@@ -14,16 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
 import { analyzeEvidence } from '../../src/lib/api';
+import { formatDuePtBR } from '../../src/lib/format';
 import type { AnalyzeResult, EvidenceRow, TaskInstanceRow } from '../../src/lib/types';
 
 function formatDue(iso: string): string {
-  return new Date(iso).toLocaleString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'UTC',
-  });
+  return formatDuePtBR(iso);
 }
 
 const STATUS_LABEL: Record<string, string> = {

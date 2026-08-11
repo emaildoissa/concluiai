@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/lib/auth';
+import { colors } from '../src/lib/theme';
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -16,7 +17,15 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        headerStyle: { backgroundColor: colors.surfaceAlt },
+        headerTintColor: '#f8fafc',
+        headerTitleStyle: { fontWeight: '700' },
+        contentStyle: { backgroundColor: colors.bg },
+      }}
+    >
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />
       </Stack.Protected>

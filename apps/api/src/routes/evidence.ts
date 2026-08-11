@@ -109,13 +109,6 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
     })
     .eq('id', id);
 
-  if (!verdict.approved) {
-    await supabase
-      .from('task_instances')
-      .update({ status: 'rejected' })
-      .eq('id', task.id);
-  }
-
   // Grava o score P/E/Q da tarefa para alimentar o dashboard
   const completedAt = task.completed_at || new Date().toISOString();
   const scores = scoreTaskOnComplete({
@@ -128,9 +121,16 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
     weight: item.weight,
   });
 
+  // O servidor é dono do status: só conclui com veredito aprovado,
+  // e recusa (com completed_at nulo) quando a foto não passa.
+  const statusPatch = verdict.approved
+    ? { status: 'completed', completed_at: completedAt }
+    : { status: 'rejected', completed_at: null };
+
   await supabase
     .from('task_instances')
     .update({
+      ...statusPatch,
       score_p: scores.score_p,
       score_e: scores.score_e,
       score_q: scores.score_q,

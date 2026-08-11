@@ -4,6 +4,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '../../src/lib/supabase';
 import { useAuth } from '../../src/lib/auth';
 import { STATUS_LABEL, statusColor } from '../../src/lib/labels';
+import { colors, radius, shadow, spacing, typography } from '../../src/lib/theme';
+import { formatDayPtBR } from '../../src/lib/format';
 
 interface HistoryTask {
   id: string;
@@ -20,12 +22,7 @@ interface HistoryDay {
 }
 
 function formatDay(date: string): string {
-  const [y, m, d] = date.split('-');
-  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('pt-BR', {
-    weekday: 'short',
-    day: '2-digit',
-    month: '2-digit',
-  });
+  return formatDayPtBR(date);
 }
 
 function formatTime(iso: string): string {
@@ -99,7 +96,7 @@ export default function HistoryScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -122,7 +119,9 @@ export default function HistoryScreen() {
             >
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle}>{task.title}</Text>
-                <Text style={styles.cardTime}>{formatTime(task.due_at)}</Text>
+                <View style={styles.timePill}>
+                  <Text style={styles.cardTime}>{formatTime(task.due_at)}</Text>
+                </View>
               </View>
               <View style={styles.cardBottom}>
                 <Text style={[styles.cardStatus, { color: statusColor(task.status) }]}>
@@ -141,32 +140,34 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
   },
   content: {
-    padding: 16,
+    padding: spacing.xl,
+    paddingBottom: spacing.xxl,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.bg,
   },
   daySection: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   dayTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.text,
     textTransform: 'capitalize',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     padding: 14,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
+    ...shadow.card,
   },
   cardPressed: {
     opacity: 0.85,
@@ -179,13 +180,20 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text,
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
+  },
+  timePill: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
   cardTime: {
-    fontSize: 13,
-    color: '#64748b',
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   cardBottom: {
     flexDirection: 'row',
@@ -197,20 +205,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   critical: {
-    marginLeft: 8,
-    color: '#b91c1c',
+    marginLeft: spacing.sm,
+    color: colors.onDanger,
     fontSize: 11,
     fontWeight: '700',
   },
   empty: {
     textAlign: 'center',
-    color: '#64748b',
+    color: colors.textMuted,
     marginTop: 40,
   },
   error: {
-    color: '#dc2626',
+    color: colors.danger,
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: spacing.xxl,
   },
 });

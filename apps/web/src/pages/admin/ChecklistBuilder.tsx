@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Shift } from '@concluiai/shared';
-import { SHIFT_LABELS } from '@concluiai/shared';
+import { RECURRENCE_LABELS, SHIFT_LABELS } from '@concluiai/shared';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import {
   loadDemoChecklists,
@@ -152,7 +152,8 @@ export function ChecklistBuilder() {
               <div>
                 <strong style={{ fontSize: '1.05rem' }}>{cl.name}</strong>
                 <div className="muted" style={{ fontSize: '0.85rem' }}>
-                  {SHIFT_LABELS[cl.shift as Shift]} · {cl.recurrence} · {cl.items.length} itens
+                  {SHIFT_LABELS[cl.shift as Shift]} · {RECURRENCE_LABELS[cl.recurrence]} ·{' '}
+                  {cl.items.length} {cl.items.length === 1 ? 'item' : 'itens'}
                 </div>
               </div>
               <span className={`badge ${cl.is_active ? 'badge-completed' : 'badge-pending'}`}>
