@@ -15,12 +15,14 @@ const STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
   in_progress: 'Em andamento',
   late: 'Atrasada',
+  rejected: 'Recusada pela IA',
 };
 
 const STATUS_CLASS: Record<string, string> = {
   pending: 'badge-pending',
   in_progress: 'badge-info',
   late: 'badge-late',
+  rejected: 'badge-rejected',
 };
 
 export function PendingTasks() {

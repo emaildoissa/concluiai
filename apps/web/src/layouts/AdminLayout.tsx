@@ -35,19 +35,34 @@ function SideIcon({ name }: { name: string }) {
   );
 }
 
-const links = [
-  { to: '/admin', end: true, label: 'Multiloja', icon: 'grid' },
-  { to: '/admin/checklists', label: 'Checklists', icon: 'checklist' },
-  { to: '/admin/units', label: 'Unidades', icon: 'building' },
-  { to: '/admin/sectors', label: 'Setores', icon: 'layers' },
-  { to: '/admin/estoque', label: 'Estoque', icon: 'box' },
-  { to: '/admin/pendings', label: 'Pendências', icon: 'bell' },
-  { to: '/admin/operators', label: 'Operadores', icon: 'users' },
-  { to: '/admin/rankings', label: 'Rankings', icon: 'ranking' },
-  { to: '/admin/evolution', label: 'Evolução', icon: 'trend' },
-  { to: '/admin/whatsapp', label: 'WhatsApp', icon: 'chat' },
-  { to: '/admin/training', label: 'Treinamento', icon: 'book' },
-  { to: '/admin/credentials', label: 'Credenciais', icon: 'gear' },
+const sections = [
+  {
+    title: 'Operação',
+    links: [
+      { to: '/admin', end: true, label: 'Multiloja', icon: 'grid' },
+      { to: '/admin/checklists', label: 'Checklists', icon: 'checklist' },
+      { to: '/admin/units', label: 'Unidades', icon: 'building' },
+      { to: '/admin/sectors', label: 'Setores', icon: 'layers' },
+      { to: '/admin/estoque', label: 'Estoque', icon: 'box' },
+    ],
+  },
+  {
+    title: 'Acompanhamento',
+    links: [
+      { to: '/admin/pendings', label: 'Pendências', icon: 'bell' },
+      { to: '/admin/rankings', label: 'Rankings', icon: 'ranking' },
+      { to: '/admin/evolution', label: 'Evolução', icon: 'trend' },
+    ],
+  },
+  {
+    title: 'Admin',
+    links: [
+      { to: '/admin/operators', label: 'Operadores', icon: 'users' },
+      { to: '/admin/whatsapp', label: 'WhatsApp', icon: 'chat' },
+      { to: '/admin/training', label: 'Treinamento', icon: 'book' },
+      { to: '/admin/credentials', label: 'Credenciais', icon: 'gear' },
+    ],
+  },
 ];
 
 export function AdminLayout() {
@@ -65,11 +80,21 @@ export function AdminLayout() {
         </div>
 
         <nav className="nav">
-          {links.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? 'active' : '')}>
-              <SideIcon name={l.icon} />
-              {l.label}
-            </NavLink>
+          {sections.map((section) => (
+            <div key={section.title} className="nav-section">
+              <div className="nav-section-title">{section.title}</div>
+              {section.links.map((l) => (
+                <NavLink
+                  key={l.to}
+                  to={l.to}
+                  end={l.end}
+                  className={({ isActive }) => (isActive ? 'active' : '')}
+                >
+                  <SideIcon name={l.icon} />
+                  {l.label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

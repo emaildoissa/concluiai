@@ -44,7 +44,7 @@ tasksRouter.post(
   }
 );
 
-const NOT_DONE_STATUSES = ['pending', 'in_progress', 'late'];
+const NOT_DONE_STATUSES = ['pending', 'in_progress', 'late', 'rejected'];
 
 /**
  * GET /api/tasks/pendings?unitId=&status=&critical=&date=

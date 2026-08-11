@@ -64,7 +64,8 @@ export async function sendWhatsAppMessage(params: {
 
   // Normaliza o telefone BR (E.164) e valida antes de qualquer envio.
   const { number: toPhone, valid } = normalizePhoneBR(params.toPhone);
-  const normInstance = (instanceNumber || '').replace(/\D/g, '');
+  const { number: normInstance } = normalizePhoneBR(instanceNumber || '');
+  const rawInstance = (instanceNumber || '').replace(/\D/g, '');
 
   if (!valid) {
     result = {
@@ -72,11 +73,11 @@ export async function sendWhatsAppMessage(params: {
       status: 'blocked',
       error: `Telefone inválido para WhatsApp: ${params.toPhone} (use 55 + DDD + 9 + número)`,
     };
-  } else if (normInstance && toPhone === normInstance) {
+  } else if (normInstance && (toPhone === normInstance || toPhone === rawInstance)) {
     result = {
       ok: false,
       status: 'blocked',
-      error: `Alerta não enviado: o destinatário é o mesmo número do robô (${toPhone}). Cadastre o celular real do gerente.`,
+      error: `Alerta não enviado: o destinatário é o mesmo número do robô (${toPhone}). Cadastre o celular real do gerente/operador.`,
     };
   } else {
     switch (provider) {
