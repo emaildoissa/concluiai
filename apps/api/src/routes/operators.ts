@@ -176,3 +176,44 @@ operatorsRouter.patch('/:id', requireAuth, requireRole('admin'), async (req, res
     return res.status(500).json({ error: 'Falha ao atualizar operador' });
   }
 });
+
+/** DELETE /api/operators/:id - Exclui perfil + usuário de auth do operador */
+operatorsRouter.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  try {
+    const sb = getSupabaseAdmin();
+    const { id } = req.params;
+    const companyId = companyIdOf(req);
+
+    if (req.user?.id === id) {
+      return res.status(400).json({ error: 'Não é possível excluir seu próprio usuário.' });
+    }
+
+    const { data: profile, error: findError } = await sb
+      .from('profiles')
+      .select('id, company_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (findError) throw findError;
+    if (!profile) {
+      return res.status(404).json({ error: 'Operador não encontrado.' });
+    }
+
+    if (profile.company_id !== companyId) {
+      return res.status(403).json({ error: 'Sem permissão para excluir este operador.' });
+    }
+
+    const { error: deleteError } = await sb.from('profiles').delete().eq('id', id);
+    if (deleteError) throw deleteError;
+
+    const { error: authError } = await sb.auth.admin.deleteUser(String(id));
+    if (authError) {
+      console.error('[operators delete] auth cleanup falhou (perfil já excluído):', authError);
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('[operators delete]', err);
+    return res.status(500).json({ error: 'Falha ao excluir operador' });
+  }
+});

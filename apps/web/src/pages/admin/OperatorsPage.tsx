@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { apiGet, apiPatch, apiPost } from '../../lib/api';
+import { apiGet, apiPatch, apiPost, apiDelete } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 
 interface Operator {
   id: string;
@@ -26,6 +27,7 @@ interface Sector {
 }
 
 export function OperatorsPage() {
+  const { isAdmin } = useAuth();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [fullName, setFullName] = useState('');
@@ -112,6 +114,24 @@ export function OperatorsPage() {
       await fetchAll();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : 'Falha ao atualizar operador');
+    }
+  }
+
+  async function removeOperator(op: Operator) {
+    if (
+      !window.confirm(
+        `Excluir ${op.full_name}? Esta ação não pode ser desfeita — evidências e avaliações deste operador serão removidas.`
+      )
+    ) {
+      return;
+    }
+    setMsg('');
+    try {
+      await apiDelete(`/api/operators/${op.id}`);
+      setMsg(`Operador ${op.full_name} excluído.`);
+      await fetchAll();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Falha ao excluir operador');
     }
   }
 
@@ -272,6 +292,11 @@ export function OperatorsPage() {
                         <button type="button" className="btn btn-sm btn-ghost" onClick={() => void toggleActive(op)}>
                           {op.is_active ? 'Desativar' : 'Ativar'}
                         </button>
+                        {isAdmin && (
+                          <button type="button" className="btn btn-sm btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => void removeOperator(op)}>
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
