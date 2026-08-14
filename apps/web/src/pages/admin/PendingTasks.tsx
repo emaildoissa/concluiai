@@ -51,19 +51,18 @@ export function PendingTasks() {
   }, [load]);
 
   async function notify(task: PendingTask) {
-    if (
-      !confirm(
-        `Enviar lembrete WhatsApp para ${task.operator?.fullName || 'o operador'}?` +
-          (task.operator?.phone ? '' : ' (sem telefone cadastrado)')
-      )
-    ) {
+    const targetLabel = task.operator?.phone
+      ? `${task.operator.fullName} (${task.operator.phone})`
+      : `${task.operator?.fullName || 'o operador'} (sem telefone cadastrado)`;
+
+    if (!confirm(`Enviar lembrete WhatsApp para ${targetLabel}?`)) {
       return;
     }
     setNotifyingId(task.id);
     setMsg(null);
     try {
       await apiPost<{ ok: boolean }>(`/api/tasks/${task.id}/notify`, {});
-      setMsg({ type: 'ok', text: 'Lembrete enviado ao operador.' });
+      setMsg({ type: 'ok', text: `✅ Lembrete enviado com sucesso para ${task.operator?.fullName || 'o operador'} via WhatsApp!` });
     } catch (e) {
       setMsg({ type: 'err', text: e instanceof Error ? e.message : 'Falha ao enviar lembrete.' });
     } finally {

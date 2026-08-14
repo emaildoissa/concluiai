@@ -239,6 +239,36 @@ export async function handleConversation(input: ConversationInput): Promise<{ re
     return { response: 'Ação cancelada.', ignored: false };
   }
 
+  // ── Resposta textual a confirmação pendente (Sim / Não / Confirmar / Cancelar) ──
+  const cleanInputText = (input.text || '').trim().toLowerCase();
+  const isYes = /^(sim|s|confirmo|confirmar|confirmado|ok|beleza|blz|positivo|1)$/i.test(cleanInputText);
+  const isNo = /^(não|nao|n|cancelar|cancela|cancelado|2)$/i.test(cleanInputText);
+
+  if (isYes || isNo) {
+    const { data: latestPending } = await sb
+      .from('whatsapp_pending_confirmations')
+      .select('*')
+      .eq('user_phone', phone.number)
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestPending) {
+      if (isYes) {
+        return handleConfirmationResponse(sb, operator, conv.id, `confirm_${latestPending.id}`, input);
+      } else {
+        await sb
+          .from('whatsapp_pending_confirmations')
+          .update({ status: 'cancelled' })
+          .eq('id', latestPending.id);
+        await sendText(phone.number, '✅ Ação cancelada. Nada foi registrado.');
+        return { response: 'Ação cancelada.', ignored: false };
+      }
+    }
+  }
+
   // ── Saudação (sem IA) ────────────────────────────────────────────────────
   if (input.text && isGreetingOnly(input.text)) {
     await sendText(phone.number, 'Olá! Sou seu assistente de estoque. Pode mandar, ex.:\n"dar entrada de 10 kg de tomate a 4.50" ou "saldo do tomate".');

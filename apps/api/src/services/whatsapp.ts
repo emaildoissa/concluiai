@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { getWhatsAppSettings, type WhatsAppSettings } from './settings.js';
+import { resolveEvolutionRecipient } from './evolution.js';
 
 interface ResolvedWhatsApp extends WhatsAppSettings {
   phoneNumberId: string;
@@ -29,7 +30,12 @@ export interface WhatsAppSendResult {
  * Aceita entradas com 9 e sem/´+55, com/sem 9 (fixo→celular) e retorna { number, valid }.
  */
 export function normalizePhoneBR(raw: string): { number: string; valid: boolean } {
-  const d = (raw || '').replace(/\D/g, '');
+  let d = (raw || '').replace(/\D/g, '');
+  // Remove leading 0 if present (e.g. 051993257923 -> 51993257923)
+  if (d.startsWith('0') && d.length >= 11) {
+    d = d.slice(1);
+  }
+
   let n = d;
 
   if (/^55\d{2}\d{8}$/.test(n) && n.length === 12) {
@@ -43,8 +49,16 @@ export function normalizePhoneBR(raw: string): { number: string; valid: boolean 
     n = '55' + n.slice(0, 2) + '9' + n.slice(2);
   }
 
-  const valid = /^55\d{2}9\d{8}$/.test(n);
+  const valid = /^55\d{2}9\d{8}$/.test(n) || /^55\d{10,11}$/.test(n);
   return { number: n, valid };
+}
+
+export function toE164AsTyped(raw: string): string {
+  let d = (raw || '').replace(/\D/g, '');
+  if (d.startsWith('0') && d.length >= 11) {
+    d = d.slice(1);
+  }
+  return /^55/.test(d) ? d : `55${d}`;
 }
 
 /**
@@ -62,16 +76,17 @@ export async function sendWhatsAppMessage(params: {
   const { provider, token, apiUrl, phoneNumberId, instance, instanceNumber } = settings;
   let result: WhatsAppSendResult;
 
-  // Normaliza o telefone BR (E.164) e valida antes de qualquer envio.
-  const { number: toPhone, valid } = normalizePhoneBR(params.toPhone);
+  // Normaliza para E.164 como digitado (sem forçar a inserção do "9" de celular).
+  const toPhone = toE164AsTyped(params.toPhone);
   const { number: normInstance } = normalizePhoneBR(instanceNumber || '');
   const rawInstance = (instanceNumber || '').replace(/\D/g, '');
+  const valid = /^55\d{10,11}$/.test(toPhone) || params.toPhone.includes('@lid');
 
   if (!valid) {
     result = {
       ok: false,
       status: 'blocked',
-      error: `Telefone inválido para WhatsApp: ${params.toPhone} (use 55 + DDD + 9 + número)`,
+      error: `Telefone inválido para WhatsApp: ${params.toPhone} (use 55 + DDD + número, ex.: 55 11 91234-5678)`,
     };
   } else if (normInstance && (toPhone === normInstance || toPhone === rawInstance)) {
     result = {
@@ -182,7 +197,11 @@ async function sendViaEvolution(
   const base = apiUrl.replace(/\/+$/, '');
   const instanceEnc = encodeURIComponent(instance);
   const url = `${base}/message/sendText/${instanceEnc}`;
+
   try {
+    // Resolve destinatário (utiliza LID se o contato já interagiu para evitar corrupção de DDDs)
+    const destination = await resolveEvolutionRecipient(toPhone, apiUrl, token, instance);
+
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -190,13 +209,15 @@ async function sendViaEvolution(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        number: toPhone.replace(/\D/g, ''),
+        number: destination,
         text: message,
+        delay: 500,
       }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || res.status >= 400) {
-      return { ok: false, status: 'failed', providerResponse: body, error: `Evolution API error ${res.status}` };
+      const errText = typeof body === 'object' ? JSON.stringify(body) : String(body);
+      return { ok: false, status: 'failed', providerResponse: body, error: `Evolution API error ${res.status}: ${errText.slice(0, 150)}` };
     }
     return {
       ok: true,

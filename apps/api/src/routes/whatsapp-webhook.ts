@@ -48,8 +48,9 @@ whatsappWebhookRouter.post('/', async (req, res) => {
 });
 
 interface EvolutionMessage {
-  key?: { remoteJid?: string };
+  key?: { remoteJid?: string; fromMe?: boolean };
   remoteJid?: string;
+  fromMe?: boolean;
   pushName?: string;
   message?: Record<string, any>;
   messageType?: string;
@@ -59,22 +60,27 @@ interface EvolutionMessage {
 
 async function handleEvolutionPayload(data: any) {
   const msgData: EvolutionMessage = data?.data || data;
+
+  // Ignora mensagens enviadas pelo próprio robô (evita loops)
+  if (msgData?.key?.fromMe || msgData?.fromMe || data?.data?.key?.fromMe) {
+    return;
+  }
+
   const remoteJid = msgData?.key?.remoteJid || msgData?.remoteJid || '';
   const userPhoneRaw = (remoteJid.split('@')[0] || '').replace(/\D/g, '');
   const instanceName = data?.instance || data?.instanceName || '';
 
   if (!userPhoneRaw) {
-    console.log('[whatsapp-evolution] sem remoteJid, ignorado');
     return;
   }
 
   const sb = getSupabaseAdmin();
 
-  // Resolve a instância → empresa
+  // Resolve a instância → empresa (busca case-insensitive)
   const { data: instance } = await sb
     .from('whatsapp_instances')
     .select('id, company_id')
-    .eq('instance_name', instanceName)
+    .ilike('instance_name', instanceName)
     .eq('is_active', true)
     .maybeSingle();
 
@@ -129,7 +135,6 @@ async function handleEvolutionPayload(data: any) {
   }
 
   if (!parsed.text && !audioBase64 && !imageBase64) {
-    console.log('[whatsapp-evolution] mensagem sem conteúdo útil, ignorada');
     return;
   }
 
@@ -191,15 +196,25 @@ function extractButtonId(message: Record<string, any>): string | undefined {
   if (message?.templateButtonReplyMessage?.selectedId) {
     return message.templateButtonReplyMessage.selectedId;
   }
-  if (message?.interactiveResponseMessage?.nativeFlowResponseMessage?.id) {
-    const id = message.interactiveResponseMessage.nativeFlowResponseMessage.id;
-    try {
-      const parsed = JSON.parse(id as string);
-      if (parsed.id) return parsed.id;
-    } catch {
-      /* retorna id literal */
+  if (message?.interactiveResponseMessage?.nativeFlowResponseMessage) {
+    const nf = message.interactiveResponseMessage.nativeFlowResponseMessage;
+    if (nf.paramsJson) {
+      try {
+        const parsed = typeof nf.paramsJson === 'string' ? JSON.parse(nf.paramsJson) : nf.paramsJson;
+        if (parsed.id) return parsed.id;
+      } catch {
+        /* continua */
+      }
     }
-    return id;
+    if (nf.id) {
+      try {
+        const parsed = typeof nf.id === 'string' ? JSON.parse(nf.id) : nf.id;
+        if (parsed.id) return parsed.id;
+      } catch {
+        /* retorna id literal */
+      }
+      return String(nf.id);
+    }
   }
   if (message?.listResponseMessage?.singleSelectReply?.selectedRowId) {
     return message.listResponseMessage.singleSelectReply.selectedRowId;
