@@ -91,8 +91,7 @@ export async function listStock(companyId: string, unitId?: string): Promise<any
         'products:product_id (id, name, sku, average_cost, min_stock, category_id (name), ' +
         'uom_id (name, abbreviation))'
     )
-    .in('product_id', productIds)
-    .order('products:product_id(name)', { ascending: true });
+    .in('product_id', productIds);
 
   if (unitId) query = query.eq('unit_id', unitId);
 
@@ -101,7 +100,11 @@ export async function listStock(companyId: string, unitId?: string): Promise<any
     console.error('[estoque listStock]', error);
     throw new Error('Falha ao listar saldo de estoque');
   }
-  return data || [];
+
+  const rows = (data || []).sort((a: any, b: any) =>
+    (a.products?.name || '').localeCompare(b.products?.name || '')
+  );
+  return rows;
 }
 
 /** Produtos de uma empresa para contexto em queries/conversa */
