@@ -298,12 +298,29 @@ export async function handleConversation(input: ConversationInput): Promise<{ re
     const label = intent === 'dar_entrada' ? 'Entrada' : 'Saída';
     let productId = entities.productId as string | undefined;
     const quantity = Number(entities.quantity) || 0;
-    if (!productId) {
+    if (!productId && entities.name) {
       productId = (await matchProductByName(input.companyId, entities.name as string)) || undefined;
-      if (productId) entities.productId = productId;
+      if (productId) {
+        entities.productId = productId;
+      } else if (intent === 'dar_entrada') {
+        // Auto-cadastra produto se for entrada de compra
+        const { data: newProd } = await sb
+          .from('products')
+          .insert({
+            company_id: input.companyId,
+            name: String(entities.name).trim(),
+            average_cost: Number(entities.unitCost) || 0,
+          })
+          .select()
+          .single();
+        if (newProd) {
+          productId = newProd.id;
+          entities.productId = productId;
+        }
+      }
     }
     if (!productId || quantity <= 0) {
-      await sendText(phone.number, 'Não identifiquei o produto ou a quantidade. Por favor, especifique o nome e a quantidade.');
+      await sendText(phone.number, 'Não identifiquei o produto ou a quantidade. Por favor, especifique o nome e a quantidade (ex: "comprei 20 sacos de arroz" ou "entrada de 10 kg de tomate").');
       return { response: 'Dados insuficientes.', ignored: false };
     }
 
@@ -358,13 +375,17 @@ export async function handleConversation(input: ConversationInput): Promise<{ re
   let reply: string;
   switch (intent) {
     case 'consultar_saldo': {
-      reply = await answerSaldo(sb, input.companyId, entities.productId as string | undefined);
+      let productId = entities.productId as string | undefined;
+      if (!productId && entities.name) {
+        productId = (await matchProductByName(input.companyId, entities.name as string)) || undefined;
+      }
+      reply = await answerSaldo(sb, input.companyId, productId, entities.name as string | undefined);
       break;
     }
     case 'cadastrar_produto': {
       const name = (entities.name as string) || '';
       if (!name) {
-        reply = 'Qual produto você quer cadastrar? Me diga o nome e, se quiser, a categoria.';
+        reply = 'Qual produto você quer cadastrar? Me diga o nome e, se quiser, a categoria (ex: "cadastrar produto Arroz").';
       } else {
         const { data: product } = await sb
           .from('products')
@@ -372,13 +393,13 @@ export async function handleConversation(input: ConversationInput): Promise<{ re
           .select()
           .single();
         reply = product
-          ? `✅ Produto *${product.name}* cadastrado!`
+          ? `✅ Produto *${product.name}* cadastrado com sucesso!`
           : '❌ Não consegui cadastrar o produto.';
       }
       break;
     }
     default: {
-      reply = (entities as any).reply || 'Não entendi. Ex.: "dar entrada de 10 kg de tomate", "saldo do tomate" ou "cadastrar produto óleo de soja".';
+      reply = (entities as any).bot_reply || (entities as any).reply || 'Não entendi. Ex.: "comprei 20 sacos de arroz", "saldo do tomate" ou "usei 2 kg de frango".';
     }
   }
 
@@ -473,21 +494,30 @@ async function describeProduct(sb: ReturnType<typeof getSupabaseAdmin>, productI
   return `${qty} ${uom} de ${row.name}`.trim();
 }
 
-async function answerSaldo(sb: ReturnType<typeof getSupabaseAdmin>, companyId: string, productId?: string): Promise<string> {
+async function answerSaldo(
+  sb: ReturnType<typeof getSupabaseAdmin>,
+  companyId: string,
+  productId?: string,
+  productName?: string
+): Promise<string> {
   if (productId) {
     const { data } = await sb
       .from('product_stock')
       .select('quantity, products:product_id (name, uom_id (abbreviation), min_stock)')
       .eq('product_id', productId)
       .maybeSingle();
-    if (!data) return 'Produto não encontrado. Tente "cadastrar produto <nome>".';
+    if (!data) return `📦 *${productName || 'Produto'}*: 0 no estoque.`;
     const row = data as any;
     const min = Number(row.products?.min_stock ?? 0);
-    const qtyNum = Number(row.quantity);
+    const qtyNum = Number(row.quantity || 0);
     const qty = qtyNum.toLocaleString('pt-BR');
     const uom = row.products?.uom_id?.abbreviation ?? 'un';
     const warning = qtyNum <= min ? '\n⚠️ Abaixo do estoque mínimo!' : '';
     return `📦 *${row.products?.name}*: ${qty} ${uom}. Mínimo: ${min} ${uom}.${warning}`;
+  }
+
+  if (productName) {
+    return `📦 Não encontrei o produto *${productName}* no estoque. Deseja cadastrar? (Ex: "cadastrar produto ${productName}")`;
   }
 
   // Sem produto específico: lista produtos com saldo (top 15)

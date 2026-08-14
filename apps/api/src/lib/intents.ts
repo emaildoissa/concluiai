@@ -42,46 +42,61 @@ function buildPrompt(
   hasImage: boolean,
 ): string {
   const header = hasAudio
-    ? 'O usuário enviou um ÁUDIO de voz. Transcreva o que ele disse.'
+    ? 'O usuário enviou um ÁUDIO de voz. Transcreva o que ele disse e entenda a ação.'
     : hasImage
-      ? 'O usuário enviou uma FOTO (ex.: nota fiscal, etiqueta). Extraia o que for relevante.'
-      : 'O usuário enviou uma mensagem de texto.';
+      ? 'O usuário enviou uma FOTO (ex.: nota fiscal, etiqueta, produto). Extraia os itens e valores.'
+      : 'O usuário enviou uma mensagem de texto pelo WhatsApp.';
 
   return [
-    'Você é o assistente de estoque do ConcluíAI, um ERP gastronômico.',
+    'Você é o assistente inteligente de estoque do ConcluíAI, um ERP gastronômico para restaurantes e franquias.',
     header,
     '',
-    'Classifique a INTENÇÃO e extraia ENTIDADES para registrar ou consultar estoque.',
+    'Classifique a INTENÇÃO e extraia as ENTIDADES com precisão para registrar ou consultar estoque.',
     '',
     'Intenções disponíveis:',
-    '- "dar_entrada": registrar entrada de produto no estoque (compra/reposição). Entities: productId (string), quantity (number), unitCost (number, opcional), unitId (string, opcional - id da unidade/loja), bot_reply (string)',
-    '- "dar_saida": registrar saída de produto (uso, baixa, fabricação). Entities: productId (string), quantity (number), unitId (string, opcional), bot_reply (string)',
-    '- "consultar_saldo": perguntar o nível de estoque de um produto. Entities: productId (string), bot_reply (string)',
-    '- "cadastrar_produto": criar um novo produto. Entities: name (string), category (string, opcional), quantity (number, opcional), unitId (string, opcional), bot_reply (string)',
-    '- "cancelar": cancelar a última ação (ex.: desfazer entrada/saída errada). Entities: bot_reply (string)',
-    '- "chat": saudação ou assunto fora das regras acima. Entities: reply (string)',
+    '- "dar_entrada": Qualquer compra, chegada de mercadoria, reposição, abastecimento ou entrada. (Ex: "comprei 20 sacos de arroz", "chegou 10 kg de tomate a 4.50", "entrou 5 caixas de óleo", "compramos 3 fardos de coca").',
+    '  Entities: name (string, nome do produto), productId (string, se existir na lista abaixo), quantity (number, quantidade numérica), unitCost (number, opcional - valor unitário em R$), unitId (string, opcional), bot_reply (string).',
+    '',
+    '- "dar_saida": Uso, consumo, baixa, quebra, preparo ou saída de estoque. (Ex: "usei 3 kg de arroz", "gastamos 2 pacotes de massa", "saiu 5 latas de cerveja", "baixa de 1 kg de frango").',
+    '  Entities: name (string, nome do produto), productId (string, se existir na lista abaixo), quantity (number), unitId (string, opcional), bot_reply (string).',
+    '',
+    '- "consultar_saldo": Consultas sobre quantidade disponível ou estoque de produtos. (Ex: "quanto tem de arroz?", "tem tomate?", "saldo do frango", "estoque atual").',
+    '  Entities: name (string, opcional), productId (string, se existir na lista abaixo), bot_reply (string).',
+    '',
+    '- "cadastrar_produto": Pedido explícito para criar ou cadastrar um novo produto. (Ex: "cadastrar produto azeite de oliva", "novo produto farinha").',
+    '  Entities: name (string), category (string, opcional), quantity (number, opcional), unitCost (number, opcional), unitId (string, opcional), bot_reply (string).',
+    '',
+    '- "cancelar": Cancelar ou desfazer a última ação. (Ex: "cancela", "desfazer", "errei o valor").',
+    '  Entities: bot_reply (string).',
+    '',
+    '- "chat": Saudações puras ("oi", "olá", "bom dia") ou conversas não relacionadas a estoque.',
+    '  Entities: reply (string).',
     '',
     'REGRAS IMPORTANTES:',
-    '- Use SEMPRE o productId EXATO da lista de produtos disponível abaixo. Se o produto mencionado não existir, retorne intent="cadastrar_produto" com name = nome do produto. NAO invente productId.',
-    '- Use SEMPRE o unitId EXATO da lista de unidades disponível abaixo. Se o usuário não indicar a unidade/loja, NAO preencha unitId (omita o campo). NUNCA invente um UUID.',
-    '- quantities são números (posso ser decimal, ex.: 1.5).',
-    '- unitCost (custo de compra) é um número em reais.',
-    '- NÃO inclua campos com valor null ou vazio no entities (ex.: omita unitId, unitCost, name, reply quando não houver).',
-    '- bot_reply: resposta curta e simpática confirmando o que foi entendido, dirigida ao gerente.',
+    '1. Identifique SEMPRE o "name" do produto (ex: "Arroz", "Tomate", "Óleo de soja").',
+    '2. Se o produto mencionado estiver na lista "PRODUTOS DISPONÍVEIS", atribua o "productId" correspondente. Se NÃO estiver na lista, NÃO invente um UUID, apenas forneça o "name".',
+    '3. "quantity" deve ser o número extraído (ex: "20 sacos de arroz" -> quantity: 20, name: "Arroz").',
+    '4. "unitCost" é o valor unitário em reais se informado (ex: "a 4,50" -> unitCost: 4.5).',
+    '5. Mensagens como "Comprei X produto", "Chegou X", "Entrada de X" são SEMPRE intent="dar_entrada".',
+    '6. Mensagens como "Usei X", "Gastamos X", "Baixa de X" são SEMPRE intent="dar_saida".',
     '',
     productContext
-      ? `PRODUTOS DISPONÍVEIS (id | nome):\n${productContext}`
-      : '',
+      ? `PRODUTOS DISPONÍVEIS NO SISTEMA (id | nome):\n${productContext}`
+      : 'Nenhum produto cadastrado no momento.',
     '',
     unitContext
-      ? `UNIDADES DISPONÍVEIS (id | nome):\n${unitContext}`
+      ? `UNIDADES / LOJAS DISPONÍVEIS (id | nome):\n${unitContext}`
       : '',
     '',
-    'Exemplos:',
-    'Mensagem: "dar entrada de 10 kg de tomate a 4.50"',
-    'Resposta: {"intent": "dar_entrada", "entities": {"productId": "<id>", "quantity": 10, "unitCost": 4.5, "bot_reply": "Entrada de 10 kg de Tomate a R$ 4,50/kg. Correto?"}}',
-    'Mensagem: "saldo do tomate"',
-    'Resposta: {"intent": "consultar_saldo", "entities": {"productId": "<id>", "bot_reply": ""}}',
+    'Exemplos de classificação:',
+    '• "Comprei 20 sacos de arroz"',
+    '  -> {"intent": "dar_entrada", "entities": {"name": "Arroz", "quantity": 20, "bot_reply": "Entrada de 20 un de Arroz."}}',
+    '• "dar entrada de 10 kg de tomate a 4.50"',
+    '  -> {"intent": "dar_entrada", "entities": {"name": "Tomate", "quantity": 10, "unitCost": 4.5, "bot_reply": "Entrada de 10 kg de Tomate a R$ 4,50."}}',
+    '• "quanto tem de tomate?"',
+    '  -> {"intent": "consultar_saldo", "entities": {"name": "Tomate"}}',
+    '• "usei 2 kg de frango"',
+    '  -> {"intent": "dar_saida", "entities": {"name": "Frango (peito)", "quantity": 2, "bot_reply": "Saída de 2 kg de Frango."}}',
   ].filter(Boolean).join('\n');
 }
 
