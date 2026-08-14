@@ -38,7 +38,7 @@ let contactsCache: {
 
 /**
  * Resolve o destinatário para a Evolution API.
- * Prioriza LID se o contato já interagiu, evitando bugs de normalização de DDDs brasileiros.
+ * Identifica o remoteJid real no WhatsApp, evitando corrupção de DDDs e auto-envio.
  */
 export async function resolveEvolutionRecipient(
   rawPhone: string,
@@ -47,12 +47,20 @@ export async function resolveEvolutionRecipient(
   instance: string
 ): Promise<string> {
   const clean = String(rawPhone || '').trim();
-  if (clean.includes('@lid')) {
+  if (clean.includes('@lid') || clean.includes('@s.whatsapp.net')) {
     return clean;
   }
 
-  const digits = clean.replace(/\D/g, '');
+  let digits = clean.replace(/\D/g, '');
+  if (digits.startsWith('0') && digits.length >= 11) {
+    digits = digits.slice(1);
+  }
+  if (!digits.startsWith('55') && (digits.length === 10 || digits.length === 11)) {
+    digits = `55${digits}`;
+  }
   if (!digits) return clean;
+
+  const last8 = digits.slice(-8);
 
   try {
     const now = Date.now();
@@ -77,27 +85,34 @@ export async function resolveEvolutionRecipient(
     }
 
     if (contacts && contacts.length > 0) {
-      const last8 = digits.slice(-8);
-      // Busca contato que termine com os mesmos 8 dígitos (LID ou remoteJid)
+      // Busca contato que termine com os mesmos 8 dígitos
       const matching = contacts.filter(
         (c) =>
           c.remoteJid &&
           (c.remoteJid.includes(last8) || (c.id && String(c.id).includes(last8)))
       );
 
-      // Prioriza LID se disponível (garante entrega direta no aparelho sem reprocessamento de DDD)
-      const lidContact = matching.find((c) => c.remoteJid?.endsWith('@lid'));
-      if (lidContact?.remoteJid) {
-        return lidContact.remoteJid;
-      }
-
       const directContact = matching.find((c) => c.remoteJid?.endsWith('@s.whatsapp.net'));
       if (directContact?.remoteJid) {
         return directContact.remoteJid;
       }
+
+      const lidContact = matching.find((c) => c.remoteJid?.endsWith('@lid'));
+      if (lidContact?.remoteJid) {
+        return lidContact.remoteJid;
+      }
     }
   } catch (err) {
     console.warn('[evolution resolveRecipient] falha ao consultar contatos', err);
+  }
+
+  // Para DDDs brasileiros >= 31 (ex: DDD 51 do RS), o WhatsApp opera no formato 12 dígitos (55 + DDD + 8 dígitos)
+  if (digits.length === 13 && digits.startsWith('55')) {
+    const ddd = parseInt(digits.slice(2, 4), 10);
+    if (ddd >= 31) {
+      // Remove o 9º dígito excedente (índice 4) para a Evolution API não corromper o DDD
+      return `${digits.slice(0, 4)}${digits.slice(5)}`;
+    }
   }
 
   return digits;
