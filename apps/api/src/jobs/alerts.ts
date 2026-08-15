@@ -55,16 +55,15 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
 
     if (!item?.is_critical) continue;
 
-    // Evita spam: se já alertou nas últimas 2h, pula
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-    const { data: recent } = await sb
+    // Disparo ÚNICO por tarefa (anti-spam): se já foi alertado (sent/mock), nunca mais reenvia via WhatsApp
+    const { data: alreadyAlerted } = await sb
       .from('alert_logs')
       .select('id')
       .eq('task_instance_id', task.id)
-      .gte('created_at', twoHoursAgo)
+      .in('status', ['sent', 'mock'])
       .limit(1);
 
-    if (recent && recent.length > 0) {
+    if (alreadyAlerted && alreadyAlerted.length > 0) {
       skipped += 1;
       continue;
     }
