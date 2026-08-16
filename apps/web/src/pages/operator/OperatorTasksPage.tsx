@@ -169,14 +169,14 @@ export function OperatorTasksPage() {
           id: 'demo-1',
           unit_id: unitId || '22222222-2222-2222-2222-222222222221',
           scheduled_date: todayIso,
-          due_at: `${todayIso}T10:30:00-03:00`,
+          due_at: `${todayIso}T09:00:00-03:00`,
           status: 'pending',
-          checklist_name: 'Abertura de Cozinha',
+          checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
           checklist_item: {
             id: 'item-1',
-            title: 'Higienização da Bancada de Inox e Panela de Arroz',
-            description: 'Passar álcool 70% em toda a superfície e higienizar a cuba de preparo.',
+            title: 'Panela de Arroz · Higienização da Cuba',
+            description: 'Lavar cuba interna com esponja e detergente neutro. Secar e checar se não há crosta de arroz no fundo. A foto deve mostrar o interior limpo e brilhando.',
             is_critical: true,
             execution_mode: 'photo',
             requires_photo: true,
@@ -186,30 +186,48 @@ export function OperatorTasksPage() {
           id: 'demo-2',
           unit_id: unitId || '22222222-2222-2222-2222-222222222221',
           scheduled_date: todayIso,
-          due_at: `${todayIso}T11:00:00-03:00`,
+          due_at: `${todayIso}T09:00:00-03:00`,
           status: 'pending',
-          checklist_name: 'Abertura de Cozinha',
+          checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
           checklist_item: {
             id: 'item-2',
-            title: 'Conferência de Temperatura dos Refrigeradores',
-            description: 'Checar se o mostrador digital indica entre 2°C e 6°C.',
-            is_critical: false,
-            execution_mode: 'check',
+            title: 'Controle de Temperatura · Freezer 1',
+            description: 'Checar display digital do freezer 1. Faixa esperada: entre -18°C e -22°C. A foto deve enquadrar claramente os números do mostrador.',
+            is_critical: true,
+            execution_mode: 'photo',
+            requires_photo: true,
           },
         },
         {
           id: 'demo-3',
           unit_id: unitId || '22222222-2222-2222-2222-222222222221',
           scheduled_date: todayIso,
-          due_at: `${todayIso}T16:00:00-03:00`,
+          due_at: `${todayIso}T09:30:00-03:00`,
+          status: 'pending',
+          checklist_name: 'Abertura de Cozinha & Preparo',
+          checklist_shift: 'Manhã',
+          checklist_item: {
+            id: 'item-3',
+            title: 'Higienização da Bancada de Inox',
+            description: 'Passar álcool 70% em toda a extensão. A foto deve mostrar a bancada desimpedida, sem utensílios e seca.',
+            is_critical: false,
+            execution_mode: 'photo',
+            requires_photo: true,
+          },
+        },
+        {
+          id: 'demo-4',
+          unit_id: unitId || '22222222-2222-2222-2222-222222222221',
+          scheduled_date: todayIso,
+          due_at: `${todayIso}T23:00:00-03:00`,
           status: 'pending',
           checklist_name: 'Fechamento & Limpeza Noturna',
           checklist_shift: 'Noite',
           checklist_item: {
-            id: 'item-3',
+            id: 'item-4',
             title: 'Limpeza Pesada de Coifa, Fogão e Ralos',
-            description: 'Retirar resíduos sólidos, aplicar desengordurante e passar água quente.',
+            description: 'Remover filtros da coifa para desengordurar, limpar queimadores do fogão e despejar água quente nos ralos.',
             is_critical: true,
             execution_mode: 'both',
             requires_photo: true,
@@ -722,9 +740,12 @@ export function OperatorTasksPage() {
                             </div>
 
                             {task.checklist_item?.description && (
-                              <p className="op-task-snippet">
-                                {task.checklist_item.description}
-                              </p>
+                              <div className="op-task-directive-preview">
+                                <span className="op-directive-badge">Diretriz:</span>
+                                <span className="op-task-snippet">
+                                  {task.checklist_item.description}
+                                </span>
+                              </div>
                             )}
 
                             {/* Tags & Prazos */}

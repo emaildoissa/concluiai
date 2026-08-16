@@ -1722,6 +1722,83 @@ table.data tr:hover td {
   color: var(--text-muted);
 }
 
+/* Card de Diretriz Operacional & Critérios de Validação */
+.task-exec-directive-card {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-left: 4px solid #6366f1;
+  border-radius: 12px;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.directive-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #a5b4fc;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.5rem;
+}
+
+.directive-icon {
+  font-size: 1.05rem;
+}
+
+.directive-text {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+.directive-ai-hint {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.ai-hint-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}
+
+.directive-ai-hint p {
+  margin: 2px 0 0;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+/* Diretriz nos Cards da Lista */
+.op-task-directive-preview {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 3px 0 6px;
+}
+
+.op-directive-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #818cf8;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
 .task-check-card,
 .task-photo-card {
   background: var(--bg-elevated);

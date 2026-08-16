@@ -21,22 +21,32 @@ const SCHEMA = {
 
 function buildPrompt(taskTitle: string, taskDescription: string | null): string {
   return [
-    'Você é um auditor de qualidade do setor de food service. Um colaborador enviou',
-    'uma foto como prova de execução de uma tarefa operacional. Analise a imagem e',
-    'decida se ela é uma evidência VÁLIDA da tarefa descrita.',
+    'Você é um auditor especialista em qualidade e conformidade operacional de food service e varejo.',
+    'Um colaborador enviou uma fotografia em tempo real como evidência de execução da seguinte tarefa:',
     '',
-    `TAREFA: ${taskTitle}`,
-    taskDescription ? `DESCRIÇÃO: ${taskDescription}` : '',
+    `🏷️ NOME DA TAREFA: ${taskTitle}`,
+    taskDescription
+      ? `📋 DIRETRIZ OPERACIONAL / CRITÉRIOS DE CONFORMIDADE:\n"${taskDescription}"`
+      : '📋 DIRETRIZ OPERACIONAL: Validar se o equipamento/área está em condições adequadas de operação, higiene e organização.',
     '',
-    'Critérios de reprovação (RECUSE se QUALQUER um ocorrer):',
-    '- Foto escura, desfocada ou com movimento excessivo (sem nitidez);',
-    '- Enquadramento errado (objeto/área da tarefa não visível);',
-    '- Foto de tela de celular, print ou de outro aparelho;',
-    '- Foto sem relação com a tarefa (banheiro, chão, rostos, etc.);',
-    '- Foto com flash estourado que oculte o objeto.',
+    'DIRETRIZES PARA AUDITORIA DA IA:',
+    '1. AVALIAÇÃO DA DIRETRIZ: Examine atentamente a foto para constatar se ela cumpre o que foi solicitado na DIRETRIZ OPERACIONAL (ex: cuba higienizada sem resíduos, superfícies secas, objetos organizados).',
+    '2. CONTROLE DE TEMPERATURA / INDICADORES: Se a diretriz especificar faixas numéricas de temperatura (ex: freezer entre -18°C e -22°C, geladeira entre 2°C e 6°C), verifique se o termômetro ou visor digital na foto mostra um valor aceitável e legível.',
+    '3. HIGIENE E SEGURANÇA ALIMENTAR: Se for limpeza (ex: panela de arroz, bancada, coifa, ralo, fogão), verifique se o interior/superfície está limpo, sem gordura aparente, sem restos de comida ou sujeira.',
+    '4. CRITÉRIOS DE REPROVAÇÃO IMEDIATA (RECUSE caso ocorra qualquer um):',
+    '   - Foto escura, borrada, tremida ou sem nitidez que impeça a leitura ou inspeção;',
+    '   - Enquadramento errado (o objeto/equipamento/display exigido não está visível);',
+    '   - Foto de tela de computador, print de celular ou de outra foto (fraude);',
+    '   - Foto sem relação com a tarefa solicitada;',
+    '   - Não conformidade evidente com a diretriz (ex: sujeira visível quando deveria estar limpo, temperatura fora da faixa indicada).',
     '',
-    'Responda SOMENTE com JSON: { "approved": boolean, "reason": string (curto, em português), "confidence": number (0 a 1) }.',
-  ].filter(Boolean).join('\n');
+    'Responda ESTRITAMENTE em formato JSON com as seguintes chaves:',
+    '{',
+    '  "approved": boolean,',
+    '  "reason": "Explicação concisa e profissional em português para o operador (ex: \'Temperatura de -19.5°C conferida no display dentro da faixa esperada\' ou \'Recusado: interior da panela ainda apresenta resíduos de alimentos\')",',
+    '  "confidence": number (de 0.0 a 1.0)',
+    '}',
+  ].join('\n');
 }
 
 export async function analyzeEvidenceImage(params: {

@@ -122,13 +122,28 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
 
     try {
       if (demoMode) {
-        // Simulação no modo demonstração
+        // Simulação no modo demonstração com feedback contextual inteligente
         setPhase('analyzing');
         await new Promise((r) => setTimeout(r, 1800));
+
+        let mockReason = 'Evidência avaliada com sucesso pela IA. Procedimento em conformidade.';
+        const tLower = (item?.title || '').toLowerCase();
+        const dLower = (item?.description || '').toLowerCase();
+
+        if (tLower.includes('temperatura') || tLower.includes('freezer') || dLower.includes('temperatura')) {
+          mockReason = 'Leitura do display identificada: -19.4°C. Temperatura aprovada dentro da faixa estipulada (-18°C a -22°C).';
+        } else if (tLower.includes('arroz') || tLower.includes('panela')) {
+          mockReason = 'Cuba da panela inspecionada: superfície higienizada, seca e livre de crostas ou resíduos.';
+        } else if (tLower.includes('bancada') || tLower.includes('inox')) {
+          mockReason = 'Bancada de inox desimpedida, seca e com padrão sanitário adequado.';
+        } else if (tLower.includes('coifa') || tLower.includes('fogão')) {
+          mockReason = 'Grelhas e queimadores limpos, sem acúmulo de gordura visível.';
+        }
+
         setVerdict({
           approved: true,
-          reason: 'Evidência avaliada com sucesso pela IA (Modo Demo). Local limpo e organizado.',
-          confidence: 0.96,
+          reason: mockReason,
+          confidence: 0.98,
         });
         setPhase('done');
         onSuccess();
@@ -253,13 +268,25 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
             </span>
           </div>
 
-          {/* Descrição / Instrução */}
-          {item?.description && (
-            <div className="task-exec-desc">
-              <strong>Como realizar:</strong>
-              <p>{item.description}</p>
+          {/* Diretriz Operacional & Critérios */}
+          <div className="task-exec-directive-card">
+            <div className="directive-header">
+              <span className="directive-icon" aria-hidden>📋</span>
+              <strong>Diretriz Operacional (O que fazer)</strong>
             </div>
-          )}
+            <p className="directive-text">
+              {item?.description || 'Realize o procedimento operacional padrão para esta área/equipamento e registre a comprovação.'}
+            </p>
+
+            {(needPhoto || photoOptional) && (
+              <div className="directive-ai-hint">
+                <span className="ai-hint-tag">⚡ Dica para validação da IA</span>
+                <p>
+                  Tire a foto bem iluminada, sem reflexos fortes, focando exatamente no objeto, superfície ou mostrador numérico exigido.
+                </p>
+              </div>
+            )}
+          </div>
 
           {errorMsg && <div className="notice warn">{errorMsg}</div>}
 

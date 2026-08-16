@@ -24,6 +24,41 @@ const emptyItem = (): Item => ({
   weight: 1,
 });
 
+const PRESET_TEMPLATES = [
+  {
+    label: '🌡️ Temperatura / Freezer',
+    title: 'Conferência de Temperatura do Freezer 1',
+    description: 'Checar display digital do freezer. Faixa obrigatória: entre -18°C e -22°C. A foto deve enquadrar com nitidez o visor indicando os números de temperatura.',
+    is_critical: true,
+    due_time: '09:00',
+    mode: 'photo',
+  },
+  {
+    label: '🧼 Limpeza / Panela de Arroz',
+    title: 'Higienização da Panela de Arroz',
+    description: 'Retirar cuba interna, lavar com esponja macia e detergente neutro. Secar e limpar a carcaça externa com álcool 70%. A foto deve mostrar o interior da cuba limpo, seco e sem crosta de arroz.',
+    is_critical: true,
+    due_time: '10:00',
+    mode: 'photo',
+  },
+  {
+    label: '✨ Bancada & Inox',
+    title: 'Higienização da Bancada de Inox',
+    description: 'Passar solução desinfetante / álcool 70% em toda a extensão da bancada. A foto deve mostrar a bancada livre de utensílios, seca e higienizada.',
+    is_critical: false,
+    due_time: '10:30',
+    mode: 'photo',
+  },
+  {
+    label: '🔍 Segurança / Gás & Ralos',
+    title: 'Conferência de Válvulas de Gás e Ralos',
+    description: 'Verificar se as válvulas mestras de gás estão abertas sem ruído ou odor. Checar se as tampas dos ralos estão desobstruídas e fechadas.',
+    is_critical: true,
+    due_time: '08:30',
+    mode: 'both',
+  },
+];
+
 export function ChecklistBuilder() {
   const [list, setList] = useState<Checklist[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
@@ -133,12 +168,23 @@ export function ChecklistBuilder() {
     setEditing({ ...editing, items });
   }
 
+  function applyTemplate(idx: number, t: typeof PRESET_TEMPLATES[number]) {
+    updateItem(idx, {
+      title: t.title,
+      description: t.description,
+      is_critical: t.is_critical,
+      due_time: t.due_time,
+      execution_mode: t.mode,
+      requires_photo: t.mode === 'photo' || t.mode === 'both',
+    } as any);
+  }
+
   return (
     <div>
       <div className="page-header">
         <div>
-          <h2>Builder de Checklist</h2>
-          <p>Defina tarefas, turnos, recorrência e itens críticos (alerta + peso no score).</p>
+          <h2>Builder de Checklist & Procedimentos (SOP)</h2>
+          <p>Defina tarefas, diretrizes operacionais para o operador e critérios de validação pela IA.</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={startNew}>
           + Novo checklist
@@ -160,16 +206,24 @@ export function ChecklistBuilder() {
                 {cl.is_active ? 'Ativo' : 'Inativo'}
               </span>
             </div>
+
             <ul style={{ margin: '0.75rem 0', paddingLeft: '1.1rem', color: 'var(--text-muted)' }}>
               {cl.items.map((it) => (
-                <li key={it.id}>
-                  {it.title}{' '}
-                  {it.is_critical && <span className="badge badge-critical">crítico</span>}
-                  {it.due_time && (
-                    <span className="muted" style={{ fontSize: '0.8rem' }}>
-                      {' '}
-                      · {it.due_time}
-                    </span>
+                <li key={it.id} style={{ marginBottom: '0.5rem' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                    {it.title}{' '}
+                    {it.is_critical && <span className="badge badge-critical" style={{ fontSize: '0.7rem' }}>crítico</span>}
+                    {it.due_time && (
+                      <span className="muted" style={{ fontSize: '0.78rem' }}>
+                        {' '}
+                        · Prazo: {it.due_time}
+                      </span>
+                    )}
+                  </div>
+                  {it.description && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2, fontStyle: 'italic' }}>
+                      ↳ {it.description}
+                    </div>
                   )}
                 </li>
               ))}
@@ -188,23 +242,24 @@ export function ChecklistBuilder() {
 
       {open && editing && (
         <div className="modal-backdrop" onClick={() => { if (!saving) setOpen(false); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: 720 }} onClick={(e) => e.stopPropagation()}>
             <h3>{list.some((c) => c.id === editing.id) ? 'Editar' : 'Novo'} checklist</h3>
             <div className="form-grid">
               <div className="field">
-                <label>Nome</label>
+                <label>Nome do Checklist</label>
                 <input
                   value={editing.name}
                   onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  placeholder="Ex: Abertura de Cozinha"
+                  placeholder="Ex: Abertura de Cozinha & Preparo"
                 />
               </div>
               <div className="field">
-                <label>Descrição</label>
+                <label>Descrição Geral do Checklist</label>
                 <textarea
                   rows={2}
                   value={editing.description}
                   onChange={(e) => setEditing({ ...editing, description: e.target.value })}
+                  placeholder="Instruções gerais sobre o turno ou rotina..."
                 />
               </div>
               <div className="field-row">
@@ -213,7 +268,7 @@ export function ChecklistBuilder() {
                   <select
                     value={editing.shift}
                     onChange={(e) =>
-                      setEditing({ ...editing, shift: e.target.value as Checklist['shift'] })
+                    setEditing({ ...editing, shift: e.target.value as Checklist['shift'] })
                     }
                   >
                     {Object.entries(SHIFT_LABELS).map(([k, v]) => (
@@ -284,30 +339,69 @@ export function ChecklistBuilder() {
 
               <div>
                 <div className="row" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-                  <strong>Itens / Tarefas</strong>
+                  <strong>Itens / Tarefas Operacionais</strong>
                   <button
                     type="button"
-                    className="btn btn-sm"
+                    className="btn btn-sm btn-primary"
                     onClick={() =>
                       setEditing({ ...editing, items: [...editing.items, emptyItem()] })
                     }
                   >
-                    + Item
+                    + Adicionar Item
                   </button>
                 </div>
+
                 {editing.items.map((it, idx) => (
-                  <div className="item-editor" key={it.id}>
+                  <div className="item-editor" key={it.id} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '1rem', marginBottom: '1rem' }}>
+                    {/* Botões rápidos de templates */}
+                    <div style={{ marginBottom: '0.65rem' }}>
+                      <div className="muted" style={{ fontSize: '0.75rem', marginBottom: 4 }}>
+                        ⚡ Preencher com modelo rápido:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                        {PRESET_TEMPLATES.map((tpl) => (
+                          <button
+                            key={tpl.label}
+                            type="button"
+                            className="btn btn-sm"
+                            style={{ fontSize: '0.72rem', padding: '3px 8px' }}
+                            onClick={() => applyTemplate(idx, tpl)}
+                          >
+                            {tpl.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="field">
-                      <label>Título</label>
+                      <label style={{ fontWeight: 700 }}>Título da Tarefa</label>
                       <input
                         value={it.title}
                         onChange={(e) => updateItem(idx, { title: e.target.value })}
-                        placeholder="Ex: Conferência de gás"
+                        placeholder="Ex: Higienização da Panela de Arroz ou Freezer 1"
                       />
                     </div>
+
+                    {/* Campo de Diretriz Operacional & Critérios de Validação */}
+                    <div className="field">
+                      <label style={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>📋 Diretriz Operacional & O que fazer</span>
+                        <span className="muted" style={{ fontWeight: 400, fontSize: '0.72rem' }}>
+                          Instruções para o operador e para a IA
+                        </span>
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={it.description || ''}
+                        onChange={(e) => updateItem(idx, { description: e.target.value })}
+                        placeholder="Ex: Lavar a cuba interna com esponja e detergente neutro. Secar e checar se não há crostas de arroz no fundo. A foto deve mostrar o interior da panela limpo e brilhando."
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    </div>
+
                     <div className="field-row">
                       <div className="field">
-                        <label>Horário limite</label>
+                        <label>Horário limite (Prazo)</label>
                         <input
                           type="time"
                           value={it.due_time || ''}
@@ -325,7 +419,8 @@ export function ChecklistBuilder() {
                         />
                       </div>
                     </div>
-                    <div className="row">
+
+                    <div className="row" style={{ marginTop: 8 }}>
                       <label className="checkbox">
                         <input
                           type="checkbox"
@@ -335,7 +430,7 @@ export function ChecklistBuilder() {
                         Item crítico (alerta WhatsApp + peso extra)
                       </label>
                       <div className="field">
-                        <label>Prova</label>
+                        <label>Tipo de Prova</label>
                         <select
                           value={(it as any).execution_mode ?? 'photo'}
                           onChange={(e) => {
@@ -346,7 +441,7 @@ export function ChecklistBuilder() {
                             } as any);
                           }}
                         >
-                          <option value="photo">Foto obrigatória</option>
+                          <option value="photo">Foto obrigatória (IA avalia)</option>
                           <option value="check">Confirmação (✓)</option>
                           <option value="both">✓ + foto opcional</option>
                         </select>
@@ -360,11 +455,12 @@ export function ChecklistBuilder() {
                         GPS obrigatório
                       </label>
                     </div>
+
                     {editing.items.length > 1 && (
                       <button
                         type="button"
                         className="btn btn-sm btn-danger"
-                        style={{ marginTop: 8 }}
+                        style={{ marginTop: 10 }}
                         onClick={() =>
                           setEditing({
                             ...editing,
@@ -379,7 +475,7 @@ export function ChecklistBuilder() {
                 ))}
               </div>
 
-              <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <div className="row" style={{ justifyContent: 'flex-end', marginTop: 12 }}>
                 <button type="button" className="btn btn-ghost" onClick={() => { if (!saving) setOpen(false); }} disabled={saving}>
                   Cancelar
                 </button>
