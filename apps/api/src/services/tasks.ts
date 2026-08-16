@@ -20,12 +20,34 @@ interface OperatorRow {
  * Otimizado: 1 query de busca de existentes + 1 insert em lote,
  * em vez de ~2 queries seriais por item/unidade.
  */
+function getTodayBrazil(): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
+
+function buildDueAtBrazil(dateStr: string, dueTimeStr?: string | null): string {
+  const raw = String(dueTimeStr || '23:59:00').trim();
+  const hhmmss = raw.length === 5 ? `${raw}:00` : raw.slice(0, 8);
+  const dt = new Date(`${dateStr}T${hhmmss}-03:00`);
+  return dt.toISOString();
+}
+
+/**
+ * Gera as instâncias do dia a partir de chekclists ativos + unidades.
+ * Otimizado: 1 query de busca de existentes + 1 insert em lote,
+ * em vez de ~2 queries seriais por item/unidade.
+ */
 export async function generateTasksForDate(params?: {
   date?: string; // YYYY-MM-DD
   companyId?: string;
 }): Promise<{ created: number }> {
   const sb = getSupabaseAdmin();
-  const date = params?.date || new Date().toISOString().slice(0, 10);
+  const date = params?.date || getTodayBrazil();
   const companyId = params?.companyId;
 
   let checklistQuery = sb
@@ -168,8 +190,7 @@ export async function generateTasksForDate(params?: {
 
   for (const cl of clRows) {
     for (const item of cl.items || []) {
-      const dueTime = item.due_time || '23:59:00';
-      const dueAt = new Date(`${date}T${String(dueTime).slice(0, 8)}`);
+      const dueAtIso = buildDueAtBrazil(date, item.due_time);
       for (const link of cl.units || []) {
         if (!unitIds.has(link.unit_id)) continue;
         const key = `${item.id}|${link.unit_id}`;
@@ -196,7 +217,7 @@ export async function generateTasksForDate(params?: {
           unit_id: link.unit_id,
           assigned_to: assignedTo,
           scheduled_date: date,
-          due_at: dueAt.toISOString(),
+          due_at: dueAtIso,
           status: 'pending',
         });
       }

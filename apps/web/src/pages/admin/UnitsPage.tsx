@@ -18,8 +18,14 @@ function allDays(): number[] {
   return DAYS.map((d) => d.v);
 }
 
+function getActiveDays(days: number[] | null | undefined): number[] {
+  if (days === null || days === undefined) return allDays();
+  return days;
+}
+
 function isTodayClosed(u: Unit): boolean {
-  if (!u.operation_days || u.operation_days.length === 0) return false;
+  if (u.operation_days === undefined || u.operation_days === null) return false;
+  if (Array.isArray(u.operation_days) && u.operation_days.length === 0) return true;
   const today = new Date().getDay();
   return !u.operation_days.includes(today);
 }
@@ -54,18 +60,18 @@ export function UnitsPage() {
 
   function toggleDay(v: number) {
     setOperationDays((prev) => {
-      const base = prev == null ? allDays() : prev;
-      const has = base.includes(v);
-      const next = has ? base.filter((d) => d !== v) : [...base, v].sort((a, b) => a - b);
+      const current = getActiveDays(prev);
+      const has = current.includes(v);
+      const next = has ? current.filter((d) => d !== v) : [...current, v].sort((a, b) => a - b);
       return next.length === 7 ? null : next;
     });
   }
 
   function toggleEditDay(v: number) {
     setEditOperationDays((prev) => {
-      const base = prev == null ? allDays() : prev;
-      const has = base.includes(v);
-      const next = has ? base.filter((d) => d !== v) : [...base, v].sort((a, b) => a - b);
+      const current = getActiveDays(prev);
+      const has = current.includes(v);
+      const next = has ? current.filter((d) => d !== v) : [...current, v].sort((a, b) => a - b);
       return next.length === 7 ? null : next;
     });
   }
@@ -177,17 +183,21 @@ export function UnitsPage() {
                   <button
                     key={d.v}
                     type="button"
-                    className={`chip ${operationDays != null && operationDays.includes(d.v) ? 'chip-on' : ''}`}
+                    className={`chip ${getActiveDays(operationDays).includes(d.v) ? 'chip-on' : ''}`}
                     onClick={() => toggleDay(d.v)}
                   >
                     {d.label}
                   </button>
                 ))}
               </div>
-              <div className="muted" style={{ fontSize: '0.75rem' }}>
-                {operationDays == null
-                  ? 'Todos os dias (default).'
-                  : `Fechado em: ${DAYS.filter((d) => !operationDays.includes(d.v)).map((d) => d.label).join(', ')}`}
+              <div className="muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                {(() => {
+                  const active = getActiveDays(operationDays);
+                  if (active.length === 7) return '✅ Opera todos os dias da semana (padrão).';
+                  if (active.length === 0) return '🔴 Sem expediente (unidade fechada permanentemente).';
+                  const closed = DAYS.filter((d) => !active.includes(d.v)).map((d) => d.label);
+                  return `Fechado em: ${closed.join(', ')}`;
+                })()}
               </div>
             </div>
             <button className="btn btn-primary" type="submit">
@@ -284,17 +294,21 @@ export function UnitsPage() {
                     <button
                       key={d.v}
                       type="button"
-                      className={`chip ${editOperationDays != null && editOperationDays.includes(d.v) ? 'chip-on' : ''}`}
+                      className={`chip ${getActiveDays(editOperationDays).includes(d.v) ? 'chip-on' : ''}`}
                       onClick={() => toggleEditDay(d.v)}
                     >
                       {d.label}
                     </button>
                   ))}
                 </div>
-                <div className="muted" style={{ fontSize: '0.75rem' }}>
-                  {editOperationDays == null
-                    ? 'Todos os dias (default).'
-                    : `Fechado em: ${DAYS.filter((d) => !editOperationDays.includes(d.v)).map((d) => d.label).join(', ')}`}
+                <div className="muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                  {(() => {
+                    const active = getActiveDays(editOperationDays);
+                    if (active.length === 7) return '✅ Opera todos os dias da semana (padrão).';
+                    if (active.length === 0) return '🔴 Sem expediente (unidade fechada permanentemente).';
+                    const closed = DAYS.filter((d) => !active.includes(d.v)).map((d) => d.label);
+                    return `Fechado em: ${closed.join(', ')}`;
+                  })()}
                 </div>
               </div>
               <div className="row" style={{ justifyContent: 'flex-end', marginTop: '0.25rem' }}>

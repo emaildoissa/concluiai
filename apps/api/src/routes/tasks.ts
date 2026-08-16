@@ -390,7 +390,7 @@ tasksRouter.post('/:id/notify', requireAuth, requireRole('admin', 'manager'), as
           `⏰ ConcluíAI — Lembrete de pendência\n` +
           `Unidade: ${unit?.name || '—'}\n` +
           `Tarefa: ${item?.title || 'Tarefa'}\n` +
-          `Prazo: ${new Date(task.due_at).toLocaleString('pt-BR')}\n` +
+          `Prazo: ${new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n` +
           `Por favor, execute o quanto antes.`;
 
         const result = await sendWhatsAppMessage({

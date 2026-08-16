@@ -79,7 +79,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     const message = buildCriticalAlertMessage({
       unitName: unit?.name || 'Unidade',
       taskTitle: item.title,
-      dueAt: new Date(task.due_at).toLocaleString('pt-BR'),
+      dueAt: new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       isCritical: true,
     });
 
