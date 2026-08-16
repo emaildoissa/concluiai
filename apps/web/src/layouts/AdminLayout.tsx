@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useState } from 'react';
+import { NavLink, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 const paths: Record<string, string> = {
@@ -15,6 +16,7 @@ const paths: Record<string, string> = {
   chat: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
   gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z',
   camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
 };
 
 function SideIcon({ name }: { name: string }) {
@@ -36,51 +38,115 @@ function SideIcon({ name }: { name: string }) {
   );
 }
 
-const sections = [
+interface NavItem {
+  to: string;
+  end?: boolean;
+  label: string;
+  icon: string;
+  badge?: { text: string; type: 'alert' | 'active' };
+}
+
+interface NavSection {
+  title: string;
+  links: NavItem[];
+}
+
+const sections: NavSection[] = [
   {
-    title: 'Operação',
+    title: 'Operação de Rede',
     links: [
-      { to: '/admin', end: true, label: 'Multiloja', icon: 'grid' },
-      { to: '/admin/checklists', label: 'Checklists', icon: 'checklist' },
-      { to: '/admin/units', label: 'Unidades', icon: 'building' },
-      { to: '/admin/sectors', label: 'Setores', icon: 'layers' },
-      { to: '/admin/estoque', label: 'Estoque', icon: 'box' },
-      { to: '/operator', label: '📱 Visão do Operador', icon: 'camera' },
+      { to: '/admin', end: true, label: 'Multiloja · War Room', icon: 'grid' },
+      { to: '/admin/checklists', label: 'Checklists & POPs', icon: 'checklist' },
+      { to: '/admin/units', label: 'Unidades & Lojas', icon: 'building' },
+      { to: '/admin/sectors', label: 'Setores Operacionais', icon: 'layers' },
+      { to: '/admin/estoque', label: 'Estoque & Insumos', icon: 'box' },
     ],
   },
   {
-    title: 'Acompanhamento',
+    title: 'Auditoria & Telemetria',
     links: [
-      { to: '/admin/pendings', label: 'Pendências', icon: 'bell' },
-      { to: '/admin/rankings', label: 'Rankings', icon: 'ranking' },
-      { to: '/admin/evolution', label: 'Evolução', icon: 'trend' },
+      {
+        to: '/admin/pendings',
+        label: 'Pendências Críticas',
+        icon: 'bell',
+        badge: { text: '🚨 Monitor', type: 'alert' },
+      },
+      { to: '/admin/rankings', label: 'Ranking de Lojas', icon: 'ranking' },
+      { to: '/admin/evolution', label: 'Evolução Temporal', icon: 'trend' },
     ],
   },
   {
-    title: 'Admin',
+    title: 'Governança & Acessos',
     links: [
-      { to: '/admin/operators', label: 'Operadores', icon: 'users' },
-      { to: '/admin/whatsapp', label: 'WhatsApp', icon: 'chat' },
-      { to: '/admin/training', label: 'Treinamento', icon: 'book' },
-      { to: '/admin/credentials', label: 'Credenciais', icon: 'gear' },
+      { to: '/admin/operators', label: 'Operadores de Campo', icon: 'users' },
+      {
+        to: '/admin/whatsapp',
+        label: 'WhatsApp Gateway',
+        icon: 'chat',
+        badge: { text: 'Online', type: 'active' },
+      },
+      { to: '/admin/training', label: 'Central de Treinamento', icon: 'book' },
+      { to: '/admin/credentials', label: 'Configurações de IA', icon: 'gear' },
     ],
   },
 ];
 
 export function AdminLayout() {
   const { user, logout, demoMode } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Iniciais do usuário para avatar
+  const initials = user?.full_name
+    ? user.full_name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((n) => n[0].toUpperCase())
+        .join('')
+    : 'AD';
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mobileOpen ? 'is-mobile-open' : ''}`}>
       <aside className="sidebar">
+        {/* Brand Header */}
         <div className="brand">
-          <div className="brand-mark">C</div>
-          <div>
-            <h1>ConcluíAI</h1>
-            <span>Padronização operacional</span>
+          <div className="brand-mark-tactical">C</div>
+          <div className="brand-text-wrap">
+            <h1>
+              ConcluíAI
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  padding: '2px 5px',
+                  borderRadius: '4px',
+                  background: 'rgba(99, 102, 241, 0.2)',
+                  color: '#a5b4fc',
+                  fontWeight: 800,
+                }}
+              >
+                PRO
+              </span>
+            </h1>
+            <div className="brand-status-chip">
+              <span className="dot" />
+              <span>Rede Monitorada</span>
+            </div>
           </div>
         </div>
 
+        {/* Card Tático de Acesso ao PWA Operador */}
+        <Link to="/operator" className="sidebar-operator-card" title="Acessar visão do funcionário na cozinha">
+          <div className="op-card-left">
+            <div className="op-card-icon">📱</div>
+            <div>
+              <div className="op-card-title">Modo Operador</div>
+              <div className="op-card-sub">Terminal de campo</div>
+            </div>
+          </div>
+          <span className="op-card-arrow">→</span>
+        </Link>
+
+        {/* Links de Navegação */}
         <nav className="nav">
           {sections.map((section) => (
             <div key={section.title} className="nav-section">
@@ -91,30 +157,70 @@ export function AdminLayout() {
                   to={l.to}
                   end={l.end}
                   className={({ isActive }) => (isActive ? 'active' : '')}
+                  onClick={() => setMobileOpen(false)}
                 >
-                  <SideIcon name={l.icon} />
-                  {l.label}
+                  <div className="nav-link-content">
+                    <SideIcon name={l.icon} />
+                    <span>{l.label}</span>
+                  </div>
+                  {l.badge && (
+                    <span
+                      className={`nav-badge-pill ${
+                        l.badge.type === 'alert' ? 'badge-pill-alert' : 'badge-pill-active'
+                      }`}
+                    >
+                      {l.badge.text}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>
           ))}
         </nav>
 
+        {/* Footer com Perfil do Gestor */}
         <div className="sidebar-footer">
           {demoMode && (
-            <div className="notice" style={{ margin: 0, fontSize: '0.75rem' }}>
-              Modo demo — configure Supabase no .env
+            <div
+              style={{
+                fontSize: '0.68rem',
+                color: '#fbbf24',
+                background: 'rgba(245, 158, 11, 0.1)',
+                padding: '4px 8px',
+                borderRadius: '6px',
+                textAlign: 'center',
+                fontWeight: 600,
+              }}
+            >
+              ⚡ Modo Demonstração Ativo
             </div>
           )}
-          <div>
-            <strong>{user?.full_name}</strong>
-            <div className="muted" style={{ fontSize: '0.8rem' }}>
-              {user?.role} · {user?.email}
+
+          <div className="user-profile-bar">
+            <div className="user-profile-left">
+              <div className="user-avatar-mark">
+                {initials}
+                <span className="user-online-dot" />
+              </div>
+              <div className="user-profile-info">
+                <div className="user-profile-name" title={user?.full_name || 'Administrador'}>
+                  {user?.full_name || 'Administrador'}
+                </div>
+                <div className="user-profile-role">
+                  <span>{user?.role?.toUpperCase() || 'GESTOR'}</span>
+                </div>
+              </div>
             </div>
+
+            <button
+              type="button"
+              className="user-logout-btn"
+              onClick={() => void logout()}
+              title="Encerrar sessão"
+            >
+              <SideIcon name="logout" />
+            </button>
           </div>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void logout()}>
-            Sair
-          </button>
         </div>
       </aside>
 
