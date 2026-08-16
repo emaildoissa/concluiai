@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { NavLink, Outlet, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 
 const paths: Record<string, string> = {
@@ -17,13 +17,17 @@ const paths: Record<string, string> = {
   gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z',
   camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
+  menu: 'M4 6h16M4 12h16M4 18h16',
+  close: 'M18 6 6 18M6 6l12 12',
+  smartphone: 'M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 18h.01',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
 };
 
-function SideIcon({ name }: { name: string }) {
+function SideIcon({ name, size = 18 }: { name: string; size?: number }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -69,7 +73,7 @@ const sections: NavSection[] = [
         to: '/admin/pendings',
         label: 'Pendências Críticas',
         icon: 'bell',
-        badge: { text: '🚨 Monitor', type: 'alert' },
+        badge: { text: 'Alerta', type: 'alert' },
       },
       { to: '/admin/rankings', label: 'Ranking de Lojas', icon: 'ranking' },
       { to: '/admin/evolution', label: 'Evolução Temporal', icon: 'trend' },
@@ -94,6 +98,12 @@ const sections: NavSection[] = [
 export function AdminLayout() {
   const { user, logout, demoMode } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+
+  // Fecha o drawer em mudanças de rota
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   // Iniciais do usuário para avatar
   const initials = user?.full_name
@@ -107,6 +117,45 @@ export function AdminLayout() {
 
   return (
     <div className={`app-shell ${mobileOpen ? 'is-mobile-open' : ''}`}>
+      {/* Header Superior Mobile */}
+      <header className="mobile-admin-header">
+        <div className="mobile-header-brand">
+          <div className="brand-mark-tactical" style={{ width: 32, height: 32, fontSize: '0.95rem' }}>
+            C
+          </div>
+          <div className="mobile-brand-title">
+            <span className="brand-name-text">ConcluíAI</span>
+            <span className="brand-pro-pill">PRO</span>
+          </div>
+        </div>
+
+        <div className="mobile-header-actions">
+          <Link to="/operator" className="mobile-op-shortcut" title="Ir para Modo Operador">
+            <SideIcon name="smartphone" size={14} />
+            <span>Operador</span>
+          </Link>
+
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            aria-label={mobileOpen ? 'Fechar menu de navegação' : 'Abrir menu de navegação'}
+          >
+            <SideIcon name={mobileOpen ? 'close' : 'menu'} size={20} />
+          </button>
+        </div>
+      </header>
+
+      {/* Backdrop para fechar o menu no mobile */}
+      {mobileOpen && (
+        <div
+          className="sidebar-mobile-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden
+        />
+      )}
+
+      {/* Sidebar Principal (Desktop fixo / Mobile drawer) */}
       <aside className="sidebar">
         {/* Brand Header */}
         <div className="brand">
@@ -114,30 +163,36 @@ export function AdminLayout() {
           <div className="brand-text-wrap">
             <h1>
               ConcluíAI
-              <span
-                style={{
-                  fontSize: '0.62rem',
-                  padding: '2px 5px',
-                  borderRadius: '4px',
-                  background: 'rgba(99, 102, 241, 0.2)',
-                  color: '#a5b4fc',
-                  fontWeight: 800,
-                }}
-              >
-                PRO
-              </span>
+              <span className="brand-pro-badge">PRO</span>
             </h1>
             <div className="brand-status-chip">
               <span className="dot" />
               <span>Rede Monitorada</span>
             </div>
           </div>
+
+          {/* Botão fechar visível no drawer mobile */}
+          <button
+            type="button"
+            className="sidebar-drawer-close-btn"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Fechar gaveta de menu"
+          >
+            <SideIcon name="close" size={18} />
+          </button>
         </div>
 
         {/* Card Tático de Acesso ao PWA Operador */}
-        <Link to="/operator" className="sidebar-operator-card" title="Acessar visão do funcionário na cozinha">
+        <Link
+          to="/operator"
+          className="sidebar-operator-card"
+          title="Acessar visão do funcionário na cozinha"
+          onClick={() => setMobileOpen(false)}
+        >
           <div className="op-card-left">
-            <div className="op-card-icon">📱</div>
+            <div className="op-card-icon">
+              <SideIcon name="smartphone" size={16} />
+            </div>
             <div>
               <div className="op-card-title">Modo Operador</div>
               <div className="op-card-sub">Terminal de campo</div>
@@ -181,18 +236,8 @@ export function AdminLayout() {
         {/* Footer com Perfil do Gestor */}
         <div className="sidebar-footer">
           {demoMode && (
-            <div
-              style={{
-                fontSize: '0.68rem',
-                color: '#fbbf24',
-                background: 'rgba(245, 158, 11, 0.1)',
-                padding: '4px 8px',
-                borderRadius: '6px',
-                textAlign: 'center',
-                fontWeight: 600,
-              }}
-            >
-              ⚡ Modo Demonstração Ativo
+            <div className="demo-mode-badge-bar">
+              Modo Demonstração Ativo
             </div>
           )}
 
@@ -218,15 +263,64 @@ export function AdminLayout() {
               onClick={() => void logout()}
               title="Encerrar sessão"
             >
-              <SideIcon name="logout" />
+              <SideIcon name="logout" size={16} />
             </button>
           </div>
         </div>
       </aside>
 
+      {/* Conteúdo Principal */}
       <main className="main">
         <Outlet />
       </main>
+
+      {/* Barra de Navegação Inferior no Mobile (Quick Reach) */}
+      <nav className="mobile-bottom-nav">
+        <NavLink
+          to="/admin"
+          end
+          className={({ isActive }) => `mobile-tab-item ${isActive ? 'is-active' : ''}`}
+        >
+          <SideIcon name="grid" size={20} />
+          <span>War Room</span>
+        </NavLink>
+
+        <NavLink
+          to="/admin/checklists"
+          className={({ isActive }) => `mobile-tab-item ${isActive ? 'is-active' : ''}`}
+        >
+          <SideIcon name="checklist" size={20} />
+          <span>POPs</span>
+        </NavLink>
+
+        <NavLink
+          to="/admin/pendings"
+          className={({ isActive }) => `mobile-tab-item ${isActive ? 'is-active' : ''}`}
+        >
+          <div className="mobile-tab-icon-wrap">
+            <SideIcon name="bell" size={20} />
+            <span className="mobile-tab-dot-alert" />
+          </div>
+          <span>Alertas</span>
+        </NavLink>
+
+        <NavLink
+          to="/admin/units"
+          className={({ isActive }) => `mobile-tab-item ${isActive ? 'is-active' : ''}`}
+        >
+          <SideIcon name="building" size={20} />
+          <span>Lojas</span>
+        </NavLink>
+
+        <button
+          type="button"
+          className={`mobile-tab-item ${mobileOpen ? 'is-active' : ''}`}
+          onClick={() => setMobileOpen(true)}
+        >
+          <SideIcon name="more" size={20} />
+          <span>Mais</span>
+        </button>
+      </nav>
     </div>
   );
 }
