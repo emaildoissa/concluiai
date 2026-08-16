@@ -14,6 +14,7 @@ import { WhatsAppPage } from './pages/admin/WhatsAppPage';
 import { PendingTasks } from './pages/admin/PendingTasks';
 import { SectorsPage } from './pages/admin/SectorsPage';
 import { EstoquePage } from './pages/admin/EstoquePage';
+import { OperatorTasksPage } from './pages/operator/OperatorTasksPage';
 
 function Guard({ children, roles }: { children: React.ReactNode; roles?: string[] }) {
   const { user, loading } = useAuth();
@@ -26,7 +27,7 @@ function Guard({ children, roles }: { children: React.ReactNode; roles?: string[
   }
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={user.role === 'operator' ? '/operator' : '/admin'} replace />;
   }
   return <>{children}</>;
 }
@@ -42,15 +43,28 @@ export default function App() {
     );
   }
 
+  const defaultDestination = user?.role === 'operator' ? '/operator' : '/admin';
+
   return (
     <Routes>
       <Route
         path="/login"
         element={
-          user ? <Navigate to="/admin" replace /> : <LoginPage />
+          user ? <Navigate to={defaultDestination} replace /> : <LoginPage />
         }
       />
 
+      {/* Módulo do Operador (Mobile-First / PWA) */}
+      <Route
+        path="/operator"
+        element={
+          <Guard roles={['operator', 'admin', 'manager']}>
+            <OperatorTasksPage />
+          </Guard>
+        }
+      />
+
+      {/* Painel Administrativo e Gestão */}
       <Route
         path="/admin"
         element={
@@ -76,9 +90,10 @@ export default function App() {
       <Route
         path="*"
         element={
-          <Navigate to={!user ? '/login' : '/admin'} replace />
+          <Navigate to={!user ? '/login' : defaultDestination} replace />
         }
       />
     </Routes>
   );
 }
+

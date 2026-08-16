@@ -164,6 +164,9 @@ export function LoginPage() {
             <button type="button" className="btn" onClick={() => enterDemo('manager')}>
               Gerente de Unidade
             </button>
+            <button type="button" className="btn" onClick={() => enterDemo('operator')}>
+              📱 Operador — tarefas e fotos
+            </button>
           </div>
         </div>
       </div>
