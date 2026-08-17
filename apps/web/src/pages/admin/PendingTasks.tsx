@@ -34,14 +34,7 @@ interface AuditTask {
   evidence?: TaskEvidence | null;
 }
 
-interface AuditSummary {
-  totalTasks: number;
-  totalLate: number;
-  totalCriticalLate: number;
-  totalAlerted: number;
-  totalResolvedLate: number;
-  totalPending: number;
-}
+
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
