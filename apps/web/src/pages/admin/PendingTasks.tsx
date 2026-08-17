@@ -72,7 +72,6 @@ function formatDelay(minutes?: number) {
 export function PendingTasks() {
   const [activeTab, setActiveTab] = useState<'today' | 'audit'>('today');
   const [tasks, setTasks] = useState<AuditTask[]>([]);
-  const [summary, setSummary] = useState<AuditSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [notifyingId, setNotifyingId] = useState<string | null>(null);
@@ -112,18 +111,16 @@ export function PendingTasks() {
 
         const data = await apiGet<{ tasks: AuditTask[] }>(`/api/tasks/pendings?${q.toString()}`);
         setTasks(data.tasks || []);
-        setSummary(null);
       } else {
         const q = new URLSearchParams();
         q.set('startDate', selectedDate);
         q.set('endDate', selectedDate);
         if (selectedUnit) q.set('unitId', selectedUnit);
 
-        const data = await apiGet<{ tasks: AuditTask[]; summary: AuditSummary }>(
+        const data = await apiGet<{ tasks: AuditTask[] }>(
           `/api/tasks/audit-report?${q.toString()}`
         );
         setTasks(data.tasks || []);
-        setSummary(data.summary);
       }
     } catch (e) {
       setMsg({ type: 'err', text: e instanceof Error ? e.message : 'Falha ao carregar tarefas.' });
