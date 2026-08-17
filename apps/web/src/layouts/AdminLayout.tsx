@@ -165,10 +165,6 @@ export function AdminLayout() {
               ConcluíAI
               <span className="brand-pro-badge">PRO</span>
             </h1>
-            <div className="brand-status-chip">
-              <span className="dot" />
-              <span>Rede Monitorada</span>
-            </div>
           </div>
 
           {/* Botão fechar visível no drawer mobile */}

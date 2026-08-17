@@ -97,7 +97,7 @@ export function MultistoreDashboard() {
   // Filtros
   const [unitFilter, setUnitFilter] = useState<'all' | 'risk' | 'healthy' | 'attention'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'warnings' | 'approved'>('all');
+  const [evidenceFilter, setEvidenceFilter] = useState<'all' | 'attention'>('all');
 
   // Lightbox Modal
   const [selectedEvidence, setSelectedEvidence] = useState<EvidenceRow | null>(null);
@@ -202,9 +202,10 @@ export function MultistoreDashboard() {
   // Filtragem de Evidências
   const filteredEvidences = useMemo(() => {
     return evidences.filter((ev) => {
-      const isBad = (ev.ai_confidence ?? 0.5) < 0.6 || ev.review_status === 'rejected';
-      if (evidenceFilter === 'warnings') return isBad;
-      if (evidenceFilter === 'approved') return !isBad;
+      if (evidenceFilter === 'attention') {
+        const scoreQ = Math.round((ev.ai_confidence ?? 0.5) * 100);
+        return scoreQ < 80 || ev.review_status === 'rejected';
+      }
       return true;
     });
   }, [evidences, evidenceFilter]);
@@ -306,9 +307,6 @@ export function MultistoreDashboard() {
         <div className="ops-telemetry-left">
           <div className="ops-telemetry-title-row">
             <h2 className="ops-main-title">Central de Comando Multiloja</h2>
-            <span className="ops-live-pip">
-              <span className="ops-pulse-dot" /> Telemetria em Tempo Real
-            </span>
           </div>
           <p className="ops-telemetry-sub">
             <span><strong>{units.length} Unidades</strong> ativas na rede</span>
@@ -626,21 +624,14 @@ export function MultistoreDashboard() {
                 className={`ops-tab-btn ${evidenceFilter === 'all' ? 'is-active' : ''}`}
                 onClick={() => setEvidenceFilter('all')}
               >
-                Todas
+                Todas ({evidences.length})
               </button>
               <button
                 type="button"
-                className={`ops-tab-btn ${evidenceFilter === 'warnings' ? 'is-active' : ''}`}
-                onClick={() => setEvidenceFilter('warnings')}
+                className={`ops-tab-btn ${evidenceFilter === 'attention' ? 'is-active' : ''}`}
+                onClick={() => setEvidenceFilter('attention')}
               >
-                Recusadas
-              </button>
-              <button
-                type="button"
-                className={`ops-tab-btn ${evidenceFilter === 'approved' ? 'is-active' : ''}`}
-                onClick={() => setEvidenceFilter('approved')}
-              >
-                Aprovadas
+                Atenção / Incerteza
               </button>
             </div>
           </div>
