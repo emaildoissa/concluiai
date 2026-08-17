@@ -4190,6 +4190,177 @@ table.data tr:hover td {
   margin: 0;
 }
 
+/* =========================================================
+   Tactical Incident & Alert Center (PendingTasks)
+   ========================================================= */
+
+.incident-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.incident-toolbar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.incident-tabs {
+  display: inline-flex;
+  background: var(--bg-elevated);
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  gap: 3px;
+}
+
+.incident-tab-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.incident-tab-btn:hover {
+  color: #fff;
+}
+
+.incident-tab-btn.is-active {
+  background: #6366f1;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+}
+
+.incident-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.incident-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.incident-chip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.incident-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.incident-chip.is-active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #818cf8;
+}
+
+.incident-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.incident-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  position: relative;
+  transition: transform 0.15s, border-color 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.incident-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.incident-card.is-critical {
+  border-left: 4px solid #f43f5e;
+  background: linear-gradient(90deg, rgba(244, 63, 94, 0.05) 0%, var(--bg-card) 100%);
+}
+
+.incident-card.is-late {
+  border-left: 4px solid #f59e0b;
+}
+
+.incident-card.is-rejected {
+  border-left: 4px solid #f43f5e;
+}
+
+.incident-card.is-completed {
+  border-left: 4px solid #10b981;
+}
+
+.incident-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.incident-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.65rem 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.incident-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.incident-meta-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.incident-meta-val {
+  font-size: 0.82rem;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+
 
 
 

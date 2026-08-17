@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
 
@@ -70,7 +70,7 @@ const DEMO_EVIDENCES: EvidenceRow[] = [
   {
     id: 'ev-demo-3',
     photo_url: 'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&auto=format&fit=crop&q=80',
-    ai_reason: '⚠️ Detecção de resíduos de óleo e grelha desencaixada. Não atende ao padrão de fechamento exigido.',
+    ai_reason: 'Detecção de resíduos de óleo e grelha desencaixada. Não atende ao padrão de fechamento exigido.',
     ai_confidence: 0.42,
     review_status: 'rejected',
     captured_at: new Date(Date.now() - 85 * 60 * 1000).toISOString(),
@@ -177,18 +177,23 @@ export function MultistoreDashboard() {
   const totalTasks = totals.completed + totals.pending + totals.late;
   const completionRate = totalTasks > 0 ? Math.round((totals.completed / totalTasks) * 100) : 0;
   const avgScore = totals.scoreN ? Math.round((totals.scoreSum / totals.scoreN) * 10) / 10 : null;
-  const unitsInRisk = units.filter((u) => u.critical_missed > 0 || u.tasks_late > 0 || (u.score_total != null && u.score_total < 75));
+  const unitsInRisk = units.filter(
+    (u) => u.critical_missed > 0 || u.tasks_late > 0 || (u.score_total != null && u.score_total < 75)
+  );
 
-  // Filtragem de Unidades
-  const filteredUnits = useMemo(() => {
-    return units.filter((u) => {
+  // Unidades Ordenadas por Score e Filtradas
+  const rankedAndFilteredUnits = useMemo(() => {
+    const sorted = [...units].sort((a, b) => (b.score_total ?? 0) - (a.score_total ?? 0));
+    return sorted.filter((u) => {
       const matchSearch =
         u.unit_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.address && u.address.toLowerCase().includes(searchQuery.toLowerCase()));
       if (!matchSearch) return false;
 
-      if (unitFilter === 'risk') return u.critical_missed > 0 || u.tasks_late > 0 || (u.score_total != null && u.score_total < 75);
-      if (unitFilter === 'healthy') return u.score_total != null && u.score_total >= 85 && u.critical_missed === 0;
+      if (unitFilter === 'risk')
+        return u.critical_missed > 0 || u.tasks_late > 0 || (u.score_total != null && u.score_total < 75);
+      if (unitFilter === 'healthy')
+        return u.score_total != null && u.score_total >= 85 && u.critical_missed === 0;
       if (unitFilter === 'attention') return u.score_total != null && u.score_total < 85;
       return true;
     });
@@ -213,7 +218,7 @@ export function MultistoreDashboard() {
       if (r.skipped > 0) parts.push(`${r.skipped} já alertados`);
       if (r.invalid > 0) parts.push(`${r.invalid} sem telefone válido`);
       setMsg({
-        text: r.alerted || r.skipped || r.invalid ? parts.join(' · ') : 'Nenhuma tarefa crítica vencida no momento.',
+        text: r.alerted || r.skipped || r.invalid ? parts.join(' · ') : 'Nenhuma tarefa crítica pendente de alerta.',
         type: r.alerted > 0 ? 'success' : 'info',
       });
     } catch (e) {
@@ -275,6 +280,25 @@ export function MultistoreDashboard() {
     }
   }
 
+  function handleManualApproval(ev: EvidenceRow) {
+    setEvidences((prev) =>
+      prev.map((e) =>
+        e.id === ev.id
+          ? {
+              ...e,
+              review_status: 'approved',
+              ai_confidence: 1.0,
+              ai_reason: 'Aprovação manual validada pelo gestor de operações (Override).',
+            }
+          : e
+      )
+    );
+    setMsg({
+      text: 'Evidência homologada manualmente pelo gestor.',
+      type: 'success',
+    });
+  }
+
   return (
     <div className="ops-dashboard-wrap">
       {/* Barra de Telemetria Superior (Live Ops Command) */}
@@ -283,14 +307,14 @@ export function MultistoreDashboard() {
           <div className="ops-telemetry-title-row">
             <h2 className="ops-main-title">Central de Comando Multiloja</h2>
             <span className="ops-live-pip">
-              <span className="ops-pulse-dot" /> Live Monitoring
+              <span className="ops-pulse-dot" /> Telemetria em Tempo Real
             </span>
           </div>
           <p className="ops-telemetry-sub">
-            <span>🏢 <strong>{units.length} Unidades</strong> ativas</span>
+            <span><strong>{units.length} Unidades</strong> ativas na rede</span>
             <span>·</span>
             <span>
-              ⏱️ Atualizado às {lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              Sincronizado às {lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </p>
         </div>
@@ -303,7 +327,11 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Disparar lembretes via WhatsApp para tarefas críticas atrasadas"
           >
-            {busy === 'alerts' ? 'Disparando…' : '🔔 Disparar Alertas WhatsApp'}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {busy === 'alerts' ? 'Disparando...' : 'Disparar Alertas WhatsApp'}
           </button>
 
           <button
@@ -313,7 +341,10 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Recalcular métricas de Pontualidade, Execução e Qualidade"
           >
-            {busy === 'score' ? 'Auditando…' : '⚡ Auditar & Atualizar Índices'}
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            {busy === 'score' ? 'Auditando...' : 'Auditar Índices P·E·Q'}
           </button>
 
           <button
@@ -322,7 +353,19 @@ export function MultistoreDashboard() {
             onClick={() => void load()}
             disabled={loading}
           >
-            {loading ? 'Carregando…' : '🔄 Atualizar'}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+            >
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            Atualizar
           </button>
         </div>
       </div>
@@ -340,8 +383,8 @@ export function MultistoreDashboard() {
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: '#6366f1' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Índice Global de Rede</h3>
-            <span className="ops-kpi-icon">🎯</span>
+            <h3 className="ops-kpi-title">Índice Global da Rede</h3>
+            <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>Meta 85%</span>
           </div>
           <div className="ops-kpi-body">
             <div className="ops-kpi-value">{avgScore != null ? avgScore : '—'}</div>
@@ -354,48 +397,48 @@ export function MultistoreDashboard() {
                   : 'benchmark-danger'
               }`}
             >
-              {avgScore && avgScore >= 85 ? 'Excelente' : avgScore && avgScore >= 70 ? 'Regular' : 'Atenção'}
+              {avgScore && avgScore >= 85 ? 'Conforme' : avgScore && avgScore >= 70 ? 'Regular' : 'Crítico'}
             </span>
           </div>
-          <p className="ops-kpi-sub">Média ponderada: Pontualidade + Execução + Qualidade IA (0-100)</p>
+          <p className="ops-kpi-sub">Média consolidada de Pontualidade, Execução e IA</p>
         </div>
 
         {/* Execução Diária */}
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: '#10b981' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Conformidade Hoje</h3>
-            <span className="ops-kpi-icon">✅</span>
+            <h3 className="ops-kpi-title">Conformidade de Turno</h3>
+            <span className="badge badge-completed" style={{ fontSize: '0.7rem' }}>Hoje</span>
           </div>
           <div className="ops-kpi-body">
-            <div className="ops-kpi-value">{completionRate}%</div>
+            <div className="ops-kpi-value" style={{ color: '#34d399' }}>{completionRate}%</div>
             <span className="ops-kpi-benchmark benchmark-good">
               {totals.completed} de {totalTasks}
             </span>
           </div>
-          <p className="ops-kpi-sub">Tarefas de abertura, turno e fechamento executadas</p>
+          <p className="ops-kpi-sub">Tarefas de abertura, rotina e fechamento concluídas</p>
         </div>
 
         {/* Tarefas Pendentes */}
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: '#f59e0b' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Pendências no Turno</h3>
-            <span className="ops-kpi-icon">⏳</span>
+            <h3 className="ops-kpi-title">Pendências em Andamento</h3>
+            <span className="badge badge-pending" style={{ fontSize: '0.7rem' }}>Turno Atual</span>
           </div>
           <div className="ops-kpi-body">
-            <div className="ops-kpi-value">{totals.pending}</div>
-            <span className="ops-kpi-benchmark benchmark-warn">Em andamento</span>
+            <div className="ops-kpi-value" style={{ color: '#fbbf24' }}>{totals.pending}</div>
+            <span className="ops-kpi-benchmark benchmark-warn">Em execução</span>
           </div>
-          <p className="ops-kpi-sub">Tarefas programadas aguardando conclusão pelos operadores</p>
+          <p className="ops-kpi-sub">Checklists aguardando envio de evidência fotográfica</p>
         </div>
 
         {/* Riscos Críticos / Atrasos */}
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: totals.late || totals.critical ? '#f43f5e' : '#10b981' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Pontos de Atenção</h3>
-            <span className="ops-kpi-icon">🚨</span>
+            <h3 className="ops-kpi-title">Desvios & Atrasos</h3>
+            <span className="badge badge-critical" style={{ fontSize: '0.7rem' }}>Urgente</span>
           </div>
           <div className="ops-kpi-body">
             <div
@@ -414,8 +457,8 @@ export function MultistoreDashboard() {
           </div>
           <p className="ops-kpi-sub">
             {totals.critical > 0
-              ? 'Exigem intervenção imediata para manter conformidade sanitária'
-              : 'Nenhum risco sanitário ou desvio crítico ativo'}
+              ? 'Exigem intervenção operacional imediata na unidade'
+              : 'Nenhum desvio crítico registrado no turno'}
           </p>
         </div>
       </div>
@@ -426,8 +469,8 @@ export function MultistoreDashboard() {
         <div className="ops-panel">
           <div className="ops-panel-header">
             <div className="ops-panel-title-wrap">
-              <h3 className="ops-panel-title">Saúde Operacional por Unidade</h3>
-              <span className="ops-panel-badge">{filteredUnits.length} lojas</span>
+              <h3 className="ops-panel-title">Ranking Operacional por Unidade</h3>
+              <span className="ops-panel-badge">{rankedAndFilteredUnits.length} unidades</span>
             </div>
 
             <div className="ops-filter-row">
@@ -444,21 +487,21 @@ export function MultistoreDashboard() {
                   className={`ops-tab-btn ${unitFilter === 'risk' ? 'is-active' : ''}`}
                   onClick={() => setUnitFilter('risk')}
                 >
-                  ⚠️ Risco ({unitsInRisk.length})
+                  Risco ({unitsInRisk.length})
                 </button>
                 <button
                   type="button"
                   className={`ops-tab-btn ${unitFilter === 'healthy' ? 'is-active' : ''}`}
                   onClick={() => setUnitFilter('healthy')}
                 >
-                  ✅ 100% OK
+                  Conforme (85%+)
                 </button>
               </div>
 
               <input
                 type="text"
                 className="ops-search-input"
-                placeholder="Filtrar loja..."
+                placeholder="Filtrar unidade..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -466,16 +509,16 @@ export function MultistoreDashboard() {
           </div>
 
           {loading ? (
-            <div className="muted" style={{ padding: '2rem 0', textAlign: 'center' }}>
-              Carregando telemetria das unidades…
+            <div className="muted" style={{ padding: '2.5rem 0', textAlign: 'center' }}>
+              Carregando telemetria das unidades...
             </div>
-          ) : filteredUnits.length === 0 ? (
-            <div className="muted" style={{ padding: '2rem 0', textAlign: 'center' }}>
-              Nenhuma unidade encontrada com os filtros selecionados.
+          ) : rankedAndFilteredUnits.length === 0 ? (
+            <div className="muted" style={{ padding: '2.5rem 0', textAlign: 'center' }}>
+              Nenhuma unidade corresponde aos filtros selecionados.
             </div>
           ) : (
             <div className="ops-units-list">
-              {filteredUnits.map((u) => {
+              {rankedAndFilteredUnits.map((u, index) => {
                 const totalUnitTasks = u.tasks_completed + u.tasks_pending + u.tasks_late;
                 const pCompleted = totalUnitTasks > 0 ? (u.tasks_completed / totalUnitTasks) * 100 : 0;
                 const pPending = totalUnitTasks > 0 ? (u.tasks_pending / totalUnitTasks) * 100 : 0;
@@ -493,8 +536,22 @@ export function MultistoreDashboard() {
                   >
                     <div className="ops-unit-top">
                       <div className="ops-unit-info">
-                        <h4>{u.unit_name}</h4>
-                        <p className="ops-unit-address">{u.address || 'Endereço não cadastrado'}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: 800,
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              color: index === 0 ? '#34d399' : '#94a3b8',
+                            }}
+                          >
+                            #{index + 1}
+                          </span>
+                          <h4>{u.unit_name}</h4>
+                        </div>
+                        <p className="ops-unit-address">{u.address || 'Localidade padrão da rede'}</p>
                       </div>
 
                       <div className="ops-unit-score-badge">
@@ -507,14 +564,17 @@ export function MultistoreDashboard() {
                               : 'score-low'
                           }`}
                         >
-                          {u.closed_today ? '—' : u.score_total != null ? Math.round(u.score_total) : '—'}
+                          {u.closed_today ? '—' : u.score_total != null ? `${Math.round(u.score_total)}%` : '—'}
                         </div>
                         <span className="ops-score-label">Score P·E·Q</span>
                       </div>
                     </div>
 
                     {/* Barra de Progresso Segmentada Multi-Status */}
-                    <div className="ops-stacked-track" title={`Concluídas: ${u.tasks_completed} · Pendentes: ${u.tasks_pending} · Atrasadas: ${u.tasks_late}`}>
+                    <div
+                      className="ops-stacked-track"
+                      title={`Concluídas: ${u.tasks_completed} · Pendentes: ${u.tasks_pending} · Atrasadas: ${u.tasks_late}`}
+                    >
                       <div className="ops-bar-seg ops-seg-completed" style={{ width: `${pCompleted}%` }} />
                       <div className="ops-bar-seg ops-seg-pending" style={{ width: `${pPending}%` }} />
                       <div className="ops-bar-seg ops-seg-late" style={{ width: `${pLate}%` }} />
@@ -530,16 +590,16 @@ export function MultistoreDashboard() {
                             ✓ {u.tasks_completed} Concluídas
                           </span>
                           <span className="ops-stat-item" style={{ color: '#fbbf24' }}>
-                            ⏳ {u.tasks_pending} Pendentes
+                            ● {u.tasks_pending} Pendentes
                           </span>
                           {u.tasks_late > 0 && (
                             <span className="ops-stat-item" style={{ color: '#fb923c' }}>
-                              ⚠️ {u.tasks_late} Atrasadas
+                              ▲ {u.tasks_late} Atrasadas
                             </span>
                           )}
                           {u.critical_missed > 0 && (
                             <span className="ops-stat-item" style={{ color: '#f43f5e' }}>
-                              🚨 {u.critical_missed} Crítica Vencida
+                              ■ {u.critical_missed} Crítica Vencida
                             </span>
                           )}
                         </>
@@ -556,8 +616,8 @@ export function MultistoreDashboard() {
         <div className="ops-panel">
           <div className="ops-panel-header">
             <div className="ops-panel-title-wrap">
-              <h3 className="ops-panel-title">📸 Auditoria Visual por IA</h3>
-              <span className="ops-panel-badge">{filteredEvidences.length} fotos</span>
+              <h3 className="ops-panel-title">Auditoria Visual Gemini Vision</h3>
+              <span className="ops-panel-badge">{filteredEvidences.length} análises</span>
             </div>
 
             <div className="ops-tabs-pill">
@@ -573,20 +633,20 @@ export function MultistoreDashboard() {
                 className={`ops-tab-btn ${evidenceFilter === 'warnings' ? 'is-active' : ''}`}
                 onClick={() => setEvidenceFilter('warnings')}
               >
-                ⚠️ Reprovações
+                Recusadas
               </button>
               <button
                 type="button"
                 className={`ops-tab-btn ${evidenceFilter === 'approved' ? 'is-active' : ''}`}
                 onClick={() => setEvidenceFilter('approved')}
               >
-                ✅ Aprovadas
+                Aprovadas
               </button>
             </div>
           </div>
 
           {filteredEvidences.length === 0 ? (
-            <div className="muted" style={{ padding: '2rem 0', textAlign: 'center' }}>
+            <div className="muted" style={{ padding: '2.5rem 0', textAlign: 'center' }}>
               Nenhuma evidência recente encontrada neste filtro.
             </div>
           ) : (
@@ -615,7 +675,12 @@ export function MultistoreDashboard() {
                           className="ops-evidence-thumb"
                           loading="lazy"
                         />
-                        <div className="ops-thumb-zoom-icon">🔍</div>
+                        <div className="ops-thumb-zoom-icon">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        </div>
                       </div>
                     )}
 
@@ -628,12 +693,12 @@ export function MultistoreDashboard() {
                               scoreQ >= 80 ? 'badge-completed' : scoreQ >= 60 ? 'badge-pending' : 'badge-critical'
                             }`}
                           >
-                            {scoreQ}% {isRejected ? '⚠️ Recusada' : '✓ Conforme'}
+                            {scoreQ}% {isRejected ? 'Recusada' : 'Conforme'}
                           </span>
                         </div>
 
                         <div className="ops-ev-meta">
-                          📍 {unitName} · {new Date(ev.captured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          {unitName} · {new Date(ev.captured_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </div>
 
                         {directive && (
@@ -643,7 +708,7 @@ export function MultistoreDashboard() {
                         )}
 
                         <div className={`ops-ev-reason-box ${isRejected ? 'reason-bad' : 'reason-good'}`}>
-                          🤖 <strong>Parecer IA:</strong> {ev.ai_reason || 'Evidência registrada e auditada.'}
+                          <strong>Parecer IA:</strong> {ev.ai_reason || 'Evidência registrada e auditada.'}
                         </div>
                       </div>
 
@@ -654,7 +719,16 @@ export function MultistoreDashboard() {
                             className="ops-btn-reopen"
                             onClick={() => void requestAdjustment(ev, unitName, taskTitle)}
                           >
-                            ⚠️ Notificar WhatsApp & Solicitar Refação
+                            Solicitar Refação (WhatsApp)
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{ fontSize: '0.72rem', padding: '3px 8px', color: '#34d399' }}
+                            onClick={() => handleManualApproval(ev)}
+                            title="Aprovar manualmente se a foto estiver correta"
+                          >
+                            Aprovação Manual
                           </button>
                         </div>
                       )}
@@ -673,7 +747,7 @@ export function MultistoreDashboard() {
           <div className="ops-lightbox-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ops-lightbox-header">
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>
                   {selectedEvidence.task_instance?.checklist_item?.title || 'Evidência Operacional'}
                 </h3>
                 <span className="muted" style={{ fontSize: '0.82rem' }}>
@@ -683,9 +757,9 @@ export function MultistoreDashboard() {
               </div>
               <button
                 type="button"
-                className="btn-close-modal"
+                className="btn btn-ghost"
                 onClick={() => setSelectedEvidence(null)}
-                style={{ fontSize: '1.4rem' }}
+                style={{ fontSize: '1.2rem', padding: '4px 8px' }}
               >
                 ✕
               </button>
@@ -703,8 +777,7 @@ export function MultistoreDashboard() {
               {selectedEvidence.task_instance?.checklist_item?.description && (
                 <div className="task-exec-directive-card" style={{ margin: 0 }}>
                   <div className="directive-header">
-                    <span className="directive-icon">📋</span>
-                    <strong>Diretriz Operacional Exigida</strong>
+                    <strong>Diretriz Operacional do Checklist (POP)</strong>
                   </div>
                   <p className="directive-text">
                     {selectedEvidence.task_instance.checklist_item.description}
@@ -718,7 +791,7 @@ export function MultistoreDashboard() {
                 }`}
                 style={{ padding: '0.85rem 1rem', fontSize: '0.9rem' }}
               >
-                🤖 <strong>Parecer Técnico da IA:</strong>{' '}
+                <strong>Parecer Técnico da IA:</strong>{' '}
                 {selectedEvidence.ai_reason || 'Auditoria visual concluída.'}
                 <div style={{ marginTop: 6, fontSize: '0.8rem', opacity: 0.85 }}>
                   Confiança do Algoritmo: {Math.round((selectedEvidence.ai_confidence ?? 0.5) * 100)}%
