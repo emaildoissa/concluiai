@@ -73,10 +73,17 @@ export function EstoquePage() {
   const [movements, setMovements] = useState<Movement[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  
+  // Filtros & Abas
+  const [activeTab, setActiveTab] = useState<'stock' | 'movements'>('stock');
   const [unitFilter, setUnitFilter] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'low' | 'zero'>('all');
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
-  const [formType, setFormType] = useState<'in' | 'out'>('in');
+  // Modal de Movimentação Rápida
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formType, setFormType] = useState<'in' | 'out' | 'loss'>('in');
   const [formProduct, setFormProduct] = useState('');
   const [formQty, setFormQty] = useState('');
   const [formCost, setFormCost] = useState('');
@@ -120,11 +127,20 @@ export function EstoquePage() {
     void fetchAll();
   }, [unitFilter]);
 
+  // KPIs
   const kpis = useMemo(() => {
     const totalQty = stock.reduce((acc, r) => acc + (Number(r.quantity) || 0), 0);
-    const totalValue = stock.reduce((acc, r) => acc + (Number(r.quantity) || 0) * (Number(r.products?.average_cost) || 0), 0);
-    const low = stock.filter((r) => (Number(r.quantity) || 0) > 0 && (Number(r.quantity) || 0) < (Number(r.products?.min_stock) || 0)).length;
+    const totalValue = stock.reduce(
+      (acc, r) => acc + (Number(r.quantity) || 0) * (Number(r.products?.average_cost) || 0),
+      0
+    );
+    const low = stock.filter((r) => {
+      const q = Number(r.quantity) || 0;
+      const min = Number(r.products?.min_stock) || 0;
+      return q > 0 && q < min;
+    }).length;
     const zero = stock.filter((r) => (Number(r.quantity) || 0) <= 0).length;
+
     return {
       products: stock.length,
       totalQty,
@@ -134,26 +150,56 @@ export function EstoquePage() {
     };
   }, [stock]);
 
-  function stockBadge(r: StockRow) {
-    const qty = Number(r.quantity) || 0;
-    const min = Number(r.products?.min_stock) || 0;
-    if (qty <= 0) return { cls: 'badge-critical', label: 'Zerado' };
-    if (qty < min) return { cls: 'badge-pending', label: 'Baixo' };
-    return { cls: 'badge-completed', label: 'OK' };
-  }
+  // Filtragem de Saldos
+  const filteredStock = useMemo(() => {
+    return stock.filter((r) => {
+      const nameMatch = (r.products?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const catMatch = (r.products?.category_id?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = nameMatch || catMatch;
 
-  function movementBadge(m: Movement) {
-    switch (m.movement_type) {
-      case 'in':
-        return { cls: 'badge-completed', label: 'Entrada' };
-      case 'out':
-        return { cls: 'badge-late', label: 'Saída' };
-      case 'loss':
-        return { cls: 'badge-rejected', label: 'Perda' };
-      default:
-        return { cls: 'badge-info', label: MOVEMENT_LABEL[m.movement_type] || m.movement_type };
-    }
-  }
+      if (!matchesSearch) return false;
+
+      const qty = Number(r.quantity) || 0;
+      const min = Number(r.products?.min_stock) || 0;
+
+      if (statusFilter === 'low') return qty > 0 && qty < min;
+      if (statusFilter === 'zero') return qty <= 0;
+      return true;
+    });
+  }, [stock, searchQuery, statusFilter]);
+
+  // Filtragem de Movimentações
+  const filteredMovements = useMemo(() => {
+    return movements.filter((m) => {
+      const nameMatch = (m.products?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const reasonMatch = (m.reason || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const userMatch = (m.created_by?.full_name || '').toLowerCase().includes(searchQuery.toLowerCase());
+      return nameMatch || reasonMatch || userMatch;
+    });
+  }, [movements, searchQuery]);
+
+  // Item selecionado no formulário para projeção
+  const selectedProductStock = useMemo(() => {
+    if (!formProduct) return null;
+    return stock.find((s) => s.product_id === formProduct);
+  }, [formProduct, stock]);
+
+  const projectedQuantity = useMemo(() => {
+    if (!selectedProductStock) return null;
+    const current = Number(selectedProductStock.quantity) || 0;
+    const delta = Number(formQty) || 0;
+    if (formType === 'in') return current + delta;
+    return Math.max(0, current - delta);
+  }, [selectedProductStock, formQty, formType]);
+
+  const openMovementForProduct = (productId: string, defaultType: 'in' | 'out' = 'in') => {
+    setFormProduct(productId);
+    setFormType(defaultType);
+    setFormQty('');
+    setFormCost('');
+    setFormReason('');
+    setIsModalOpen(true);
+  };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -183,7 +229,8 @@ export function EstoquePage() {
         unitId: formUnit || null,
         reason: formReason.trim() || null,
       });
-      setMsg({ type: 'ok', text: 'Movimentação registrada.' });
+      setMsg({ type: 'ok', text: 'Movimentação registrada com sucesso.' });
+      setIsModalOpen(false);
       setFormProduct('');
       setFormQty('');
       setFormCost('');
@@ -193,7 +240,7 @@ export function EstoquePage() {
       if (demoMode) {
         setMsg({
           type: 'ok',
-          text: 'Modo demo: movimentação registrada localmente (sem banco de dados).',
+          text: 'Modo demo: movimentação registrada na memória local.',
         });
         const demoMove: Movement = {
           id: `mv-demo-${Date.now()}`,
@@ -205,7 +252,7 @@ export function EstoquePage() {
           created_at: new Date().toISOString(),
           unit_id: formUnit ? units.find((u) => u.id === formUnit) ?? null : null,
           products: products.find((p) => p.id === formProduct) ?? null,
-          created_by: { id: '00000000-0000-0000-0000-000000000001', full_name: 'Modo demo' },
+          created_by: { id: '00000000-0000-0000-0000-000000000001', full_name: 'Gestor Demo' },
         };
         setMovements((prev) => [demoMove, ...prev]);
         setStock((prev) => {
@@ -226,6 +273,7 @@ export function EstoquePage() {
             },
           ];
         });
+        setIsModalOpen(false);
         setFormProduct('');
         setFormQty('');
         setFormCost('');
@@ -239,16 +287,139 @@ export function EstoquePage() {
   }
 
   return (
-    <div>
+    <div className="stock-page-wrap">
+      {/* Header da Página */}
       <div className="page-header">
         <div>
-          <h2>Estoque</h2>
-          <p>Saldo por produto, movimentações (web e WhatsApp) e registro de entrada/saída.</p>
+          <h2>Gestão de Estoque & Insumos</h2>
+          <p>
+            Monitoramento de saldos por unidade, controle de perdas e extrato de auditoria (Web & WhatsApp).
+          </p>
         </div>
-        <div className="field" style={{ minWidth: 220 }}>
-          <label>Unidade</label>
-          <select value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)}>
-            <option value="">Todas as unidades</option>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              setFormProduct('');
+              setFormQty('');
+              setFormCost('');
+              setFormReason('');
+              setIsModalOpen(true);
+            }}
+          >
+            + Registrar Movimentação
+          </button>
+        </div>
+      </div>
+
+      {msg && (
+        <div
+          className={`notice ${msg.type === 'err' ? 'warn' : ''}`}
+          style={msg.type === 'ok' ? { color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' } : undefined}
+        >
+          {msg.text}
+        </div>
+      )}
+
+      {/* Grid de KPIs Interativos */}
+      <div className="stock-kpi-grid">
+        <div
+          className={`stock-kpi-card ${statusFilter === 'all' && activeTab === 'stock' ? 'is-active-filter' : ''}`}
+          onClick={() => {
+            setActiveTab('stock');
+            setStatusFilter('all');
+          }}
+        >
+          <div className="stock-kpi-header">
+            <span>Total de Itens</span>
+            <span className="badge badge-info">{kpis.products} SKUs</span>
+          </div>
+          <div className="stock-kpi-val">{kpis.totalQty}</div>
+          <div className="stock-kpi-sub">unidades físicas em estoque</div>
+        </div>
+
+        <div className="stock-kpi-card" onClick={() => setActiveTab('stock')}>
+          <div className="stock-kpi-header">
+            <span>Valor Patrimonial</span>
+            <span className="badge badge-completed">Ativo</span>
+          </div>
+          <div className="stock-kpi-val" style={{ color: '#38bdf8' }}>
+            {brl.format(kpis.totalValue)}
+          </div>
+          <div className="stock-kpi-sub">quantidade × custo médio</div>
+        </div>
+
+        <div
+          className={`stock-kpi-card ${statusFilter === 'low' ? 'is-active-filter' : ''}`}
+          onClick={() => {
+            setActiveTab('stock');
+            setStatusFilter((prev) => (prev === 'low' ? 'all' : 'low'));
+          }}
+        >
+          <div className="stock-kpi-header">
+            <span>Estoque Baixo</span>
+            <span className="badge badge-pending">Repor</span>
+          </div>
+          <div className="stock-kpi-val" style={{ color: '#fbbf24' }}>
+            {kpis.low}
+          </div>
+          <div className="stock-kpi-sub">itens abaixo do estoque mínimo</div>
+        </div>
+
+        <div
+          className={`stock-kpi-card ${statusFilter === 'zero' ? 'is-active-filter' : ''}`}
+          onClick={() => {
+            setActiveTab('stock');
+            setStatusFilter((prev) => (prev === 'zero' ? 'all' : 'zero'));
+          }}
+        >
+          <div className="stock-kpi-header">
+            <span>Itens Zerados</span>
+            <span className="badge badge-critical">Crítico</span>
+          </div>
+          <div className="stock-kpi-val" style={{ color: '#f43f5e' }}>
+            {kpis.zero}
+          </div>
+          <div className="stock-kpi-sub">necessitam compra emergencial</div>
+        </div>
+      </div>
+
+      {/* Barra de Controle de Visualização (Abas + Busca + Unidade) */}
+      <div className="stock-view-bar">
+        <div className="stock-tabs-group">
+          <button
+            type="button"
+            className={`stock-tab-btn ${activeTab === 'stock' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('stock')}
+          >
+            Posição de Estoque ({filteredStock.length})
+          </button>
+          <button
+            type="button"
+            className={`stock-tab-btn ${activeTab === 'movements' ? 'is-active' : ''}`}
+            onClick={() => setActiveTab('movements')}
+          >
+            Extrato de Movimentações ({filteredMovements.length})
+          </button>
+        </div>
+
+        <div className="stock-controls-group">
+          <input
+            type="text"
+            className="stock-search-input"
+            placeholder="Buscar por produto, categoria..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+
+          <select
+            value={unitFilter}
+            onChange={(e) => setUnitFilter(e.target.value)}
+            style={{ fontSize: '0.82rem', padding: '6px 10px', borderRadius: 8 }}
+          >
+            <option value="">Todas as Unidades</option>
             {units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -258,75 +429,103 @@ export function EstoquePage() {
         </div>
       </div>
 
-      {msg && (
-        <div className={`notice ${msg.type === 'err' ? 'warn' : ''}`} style={msg.type === 'ok' ? { color: '#86efac' } : undefined}>
-          {msg.text}
-        </div>
-      )}
-
-      <div className="grid grid-4" style={{ marginBottom: '1rem' }}>
-        <div className="card">
-          <h3>Produtos</h3>
-          <div className="stat-value">{kpis.products}</div>
-          <div className="stat-sub">itens em estoque</div>
-        </div>
-        <div className="card">
-          <h3>Saldo total</h3>
-          <div className="stat-value">{kpis.totalQty}</div>
-          <div className="stat-sub">unidades somadas</div>
-        </div>
-        <div className="card">
-          <h3>Valor em estoque</h3>
-          <div className="stat-value">{brl.format(kpis.totalValue)}</div>
-          <div className="stat-sub">quantidade × custo médio</div>
-        </div>
-        <div className="card">
-          <h3>Abaixo do mínimo</h3>
-          <div className="stat-value">{kpis.low}</div>
-          <div className="stat-sub">{kpis.zero} zerados</div>
-        </div>
-      </div>
-
-      <div className="grid grid-2">
-        <div className="card">
-          <h3 style={{ color: 'var(--text)', marginBottom: '0.5rem' }}>Saldo atual ({stock.length})</h3>
-          <div className="table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+      {/* Tabela de Saldos (Aba 1) */}
+      {activeTab === 'stock' && (
+        <div className="card" style={{ padding: '0.75rem 1rem' }}>
+          <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Produto</th>
-                  <th>Cat.</th>
-                  <th>Saldo</th>
-                  <th>Mín.</th>
-                  <th>Status</th>
-                  <th>Custo médio</th>
+                  <th>Produto & SKU</th>
+                  <th>Categoria</th>
+                  <th>Nível & Saldo Atual</th>
+                  <th>Estoque Mínimo</th>
+                  <th>Custo Médio</th>
+                  <th>Valor Total</th>
+                  <th style={{ textAlign: 'right' }}>Ações Rápidas</th>
                 </tr>
               </thead>
               <tbody>
-                {stock.map((r) => {
-                  const badge = stockBadge(r);
+                {filteredStock.map((r) => {
+                  const qty = Number(r.quantity) || 0;
+                  const min = Number(r.products?.min_stock) || 0;
+                  const cost = Number(r.products?.average_cost) || 0;
+                  const total = qty * cost;
+
+                  let statusCls = 'is-ok';
+                  let statusLabel = 'OK';
+                  let statusBadge = 'badge-completed';
+
+                  if (qty <= 0) {
+                    statusCls = 'is-critical';
+                    statusLabel = 'Zerado';
+                    statusBadge = 'badge-critical';
+                  } else if (qty < min) {
+                    statusCls = 'is-low';
+                    statusLabel = 'Baixo';
+                    statusBadge = 'badge-pending';
+                  }
+
+                  const percentOfMin = min > 0 ? Math.min(100, Math.round((qty / (min * 1.5)) * 100)) : 100;
+
                   return (
                     <tr key={`${r.product_id}-${r.unit_id}`}>
                       <td>
-                        <strong>{r.products?.name || 'Produto'}</strong>
-                        <div className="muted" style={{ fontSize: '0.8rem' }}>
-                          {r.products?.uom_id?.abbreviation || r.products?.uom_id?.name || 'un'}
+                        <strong style={{ color: '#ffffff' }}>{r.products?.name || 'Insumo'}</strong>
+                        <div className="muted" style={{ fontSize: '0.75rem' }}>
+                          {r.products?.sku ? `SKU: ${r.products.sku} · ` : ''}
+                          {r.products?.uom_id?.abbreviation || r.products?.uom_id?.name || 'unidade'}
                         </div>
                       </td>
-                      <td className="muted">{r.products?.category_id?.name || '—'}</td>
-                      <td>{Number(r.quantity) || 0}</td>
-                      <td className="muted">{Number(r.products?.min_stock) || 0}</td>
                       <td>
-                        <span className={`badge ${badge.cls}`}>{badge.label}</span>
+                        <span className="badge badge-info">{r.products?.category_id?.name || 'Geral'}</span>
                       </td>
-                      <td>{r.products?.average_cost ? brl.format(Number(r.products.average_cost)) : '—'}</td>
+                      <td>
+                        <div className="stock-level-wrap">
+                          <div className="stock-level-text">
+                            <span style={{ color: '#fff', fontSize: '0.9rem' }}>{qty}</span>
+                            <span className={`badge ${statusBadge}`} style={{ fontSize: '0.65rem', padding: '1px 5px' }}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                          <div className="stock-level-bar-track">
+                            <div className={`stock-level-bar-fill ${statusCls}`} style={{ width: `${percentOfMin}%` }} />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="muted">{min}</td>
+                      <td>{cost > 0 ? brl.format(cost) : '—'}</td>
+                      <td style={{ fontWeight: 700, color: '#f1f5f9' }}>{brl.format(total)}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#34d399' }}
+                            title="Entrada rápida"
+                            onClick={() => openMovementForProduct(r.product_id, 'in')}
+                          >
+                            + Entrada
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{ padding: '3px 8px', fontSize: '0.72rem', color: '#fda4af' }}
+                            title="Saída / Baixa rápida"
+                            onClick={() => openMovementForProduct(r.product_id, 'out')}
+                          >
+                            - Baixa
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
-                {stock.length === 0 && (
+
+                {filteredStock.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="muted" style={{ textAlign: 'center', padding: '1.5rem' }}>
-                      Nenhum produto com saldo registrado.
+                    <td colSpan={7} className="muted" style={{ textAlign: 'center', padding: '2.5rem' }}>
+                      Nenhum produto corresponde aos critérios de pesquisa.
                     </td>
                   </tr>
                 )}
@@ -334,60 +533,75 @@ export function EstoquePage() {
             </table>
           </div>
         </div>
+      )}
 
-        <div className="card">
-          <h3 style={{ color: 'var(--text)', marginBottom: '0.5rem' }}>Movimentações recentes</h3>
-          <div className="table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+      {/* Tabela de Movimentações (Aba 2) */}
+      {activeTab === 'movements' && (
+        <div className="card" style={{ padding: '0.75rem 1rem' }}>
+          <div className="table-wrap">
             <table className="data">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Tipo</th>
-                  <th>Produto</th>
-                  <th>Qtd</th>
-                  <th>Origem</th>
-                  <th>Motivo</th>
+                  <th>Data & Hora</th>
+                  <th>Operação</th>
+                  <th>Insumo</th>
+                  <th>Quantidade</th>
+                  <th>Origem / Canal</th>
+                  <th>Unidade & Responsável</th>
+                  <th>Motivo / Observação</th>
                 </tr>
               </thead>
               <tbody>
-                {movements.map((m) => {
-                  const badge = movementBadge(m);
+                {filteredMovements.map((m) => {
+                  let movBadge = 'badge-completed';
+                  if (m.movement_type === 'out') movBadge = 'badge-late';
+                  if (m.movement_type === 'loss') movBadge = 'badge-rejected';
+
                   return (
                     <tr key={m.id}>
-                      <td className="muted" style={{ whiteSpace: 'nowrap' }}>
+                      <td className="muted" style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>
                         {fmtDate(m.created_at)}
                       </td>
                       <td>
-                        <span className={`badge ${badge.cls}`}>{badge.label}</span>
+                        <span className={`badge ${movBadge}`}>
+                          {MOVEMENT_LABEL[m.movement_type] || m.movement_type}
+                        </span>
                       </td>
                       <td>
-                        <strong>{m.products?.name || 'Produto'}</strong>
-                        <div className="muted" style={{ fontSize: '0.8rem' }}>
-                          {m.unit_id?.name || '—'}
-                          {m.products?.uom_id?.abbreviation ? ` · ${m.products.uom_id.abbreviation}` : ''}
+                        <strong style={{ color: '#fff' }}>{m.products?.name || 'Insumo'}</strong>
+                        <div className="muted" style={{ fontSize: '0.75rem' }}>
+                          {m.products?.uom_id?.abbreviation ? `Unidade: ${m.products.uom_id.abbreviation}` : ''}
                         </div>
                       </td>
-                      <td>{Number(m.quantity) || 0}</td>
+                      <td style={{ fontWeight: 800, color: m.movement_type === 'in' ? '#34d399' : '#fda4af' }}>
+                        {m.movement_type === 'in' ? `+${m.quantity}` : `-${m.quantity}`}
+                      </td>
                       <td>
                         {m.source === 'whatsapp' ? (
-                          <span className="badge badge-info">WhatsApp</span>
+                          <span className="badge badge-info">WhatsApp Bot</span>
                         ) : (
-                          <span className="badge badge-completed">Web</span>
+                          <span className="badge badge-ghost">Painel Web</span>
                         )}
                       </td>
-                      <td className="muted" style={{ maxWidth: 180 }}>
+                      <td>
+                        <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 600 }}>
+                          {m.unit_id?.name || 'Central'}
+                        </div>
+                        <div className="muted" style={{ fontSize: '0.72rem' }}>
+                          {m.created_by?.full_name || 'Sistema'}
+                        </div>
+                      </td>
+                      <td className="muted" style={{ fontSize: '0.8rem' }}>
                         {m.reason || '—'}
-                        {m.created_by?.full_name ? (
-                          <div style={{ fontSize: '0.8rem' }}>{m.created_by.full_name}</div>
-                        ) : null}
                       </td>
                     </tr>
                   );
                 })}
-                {movements.length === 0 && (
+
+                {filteredMovements.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="muted" style={{ textAlign: 'center', padding: '1.5rem' }}>
-                      Nenhuma movimentação registrada.
+                    <td colSpan={7} className="muted" style={{ textAlign: 'center', padding: '2.5rem' }}>
+                      Nenhuma movimentação encontrada.
                     </td>
                   </tr>
                 )}
@@ -395,84 +609,164 @@ export function EstoquePage() {
             </table>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="card" style={{ marginTop: '1rem' }}>
-        <h3 style={{ color: 'var(--text)', marginBottom: '1rem' }}>Registrar movimentação</h3>
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <div className="field-row">
-            <div className="field">
-              <label>Tipo</label>
-              <select value={formType} onChange={(e) => setFormType(e.target.value as 'in' | 'out')}>
-                <option value="in">Entrada</option>
-                <option value="out">Saída</option>
-              </select>
+      {/* Modal de Movimentação Rápida */}
+      {isModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: 520 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>
+                Registrar Movimentação de Estoque
+              </h3>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+                onClick={() => setIsModalOpen(false)}
+              >
+                ✕
+              </button>
             </div>
-            <div className="field">
-              <label>Produto</label>
-              <select value={formProduct} onChange={(e) => setFormProduct(e.target.value)}>
-                <option value="">Selecione…</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Seletor Segmentado de Tipo */}
+              <div className="stock-type-segmented">
+                <button
+                  type="button"
+                  className={`stock-type-btn ${formType === 'in' ? 'is-active-in' : ''}`}
+                  onClick={() => setFormType('in')}
+                >
+                  + Entrada (Compra)
+                </button>
+                <button
+                  type="button"
+                  className={`stock-type-btn ${formType === 'out' ? 'is-active-out' : ''}`}
+                  onClick={() => setFormType('out')}
+                >
+                  - Saída (Consumo)
+                </button>
+                <button
+                  type="button"
+                  className={`stock-type-btn ${formType === 'loss' ? 'is-active-loss' : ''}`}
+                  onClick={() => setFormType('loss')}
+                >
+                  ! Perda / Avaria
+                </button>
+              </div>
+
+              {/* Seleção do Produto */}
+              <div className="field">
+                <label>Insumo / Produto</label>
+                <select
+                  value={formProduct}
+                  onChange={(e) => setFormProduct(e.target.value)}
+                  required
+                >
+                  <option value="">Selecione o insumo...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Projeção de Saldo em Tempo Real */}
+              {selectedProductStock && (
+                <div className="stock-proj-card">
+                  <div className="stock-proj-item">
+                    <span className="stock-proj-label">Saldo Atual</span>
+                    <span className="stock-proj-val">{Number(selectedProductStock.quantity) || 0}</span>
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '1.2rem', fontWeight: 800 }}>→</div>
+                  <div className="stock-proj-item">
+                    <span className="stock-proj-label">Saldo Projetado</span>
+                    <span
+                      className="stock-proj-val"
+                      style={{ color: formType === 'in' ? '#34d399' : '#fda4af' }}
+                    >
+                      {projectedQuantity !== null ? projectedQuantity : '—'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Campos de Quantidade e Custo */}
+              <div className="field-row">
+                <div className="field">
+                  <label>Quantidade</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="any"
+                    value={formQty}
+                    onChange={(e) => setFormQty(e.target.value)}
+                    placeholder="Ex.: 15"
+                    required
+                  />
+                </div>
+
+                <div className="field">
+                  <label>Custo Unitário (R$)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={formCost}
+                    onChange={(e) => setFormCost(e.target.value)}
+                    placeholder={formType === 'in' ? 'Ex.: 12.50' : 'Apenas entrada'}
+                    disabled={formType !== 'in'}
+                  />
+                </div>
+              </div>
+
+              {/* Unidade e Motivo */}
+              <div className="field-row">
+                <div className="field">
+                  <label>Unidade Operacional</label>
+                  <select value={formUnit} onChange={(e) => setFormUnit(e.target.value)}>
+                    <option value="">Loja Central</option>
+                    {units.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label>Motivo / Observação</label>
+                  <input
+                    type="text"
+                    value={formReason}
+                    onChange={(e) => setFormReason(e.target.value)}
+                    placeholder="Ex.: Reposição fornecedor / Quebra"
+                  />
+                </div>
+              </div>
+
+              {/* Ações do Modal */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={saving}
+                >
+                  {saving ? 'Registrando...' : 'Confirmar Movimentação'}
+                </button>
+              </div>
+            </form>
           </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Quantidade</label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={formQty}
-                onChange={(e) => setFormQty(e.target.value)}
-                placeholder="Ex.: 10"
-              />
-            </div>
-            <div className="field">
-              <label>Custo unitário (entrada)</label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={formCost}
-                onChange={(e) => setFormCost(e.target.value)}
-                placeholder={formType === 'in' ? 'Ex.: 4.50' : 'apenas entrada'}
-                disabled={formType !== 'in'}
-              />
-            </div>
-          </div>
-          <div className="field-row">
-            <div className="field">
-              <label>Unidade</label>
-              <select value={formUnit} onChange={(e) => setFormUnit(e.target.value)}>
-                <option value="">Central</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Motivo / observação</label>
-              <input
-                value={formReason}
-                onChange={(e) => setFormReason(e.target.value)}
-                placeholder="Ex.: reposição do fornecedor"
-              />
-            </div>
-          </div>
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Registrando…' : 'Registrar movimentação'}
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
