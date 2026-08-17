@@ -3,7 +3,7 @@ import { useAuth } from '../lib/auth';
 import { isSupabaseConfigured } from '../lib/config';
 
 export function LoginPage() {
-  const { login, loginDemo, demoMode } = useAuth();
+  const { login, loginDemo } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
