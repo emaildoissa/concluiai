@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { config } from '../config.js';
 import { supabase } from '../lib/supabase.js';
-import { analyzeEvidenceImage } from '../lib/gemini.js';
+import { analyzeEvidenceImage, type EvidenceVerdict } from '../lib/gemini.js';
 import { scoreTaskOnComplete } from '../services/score.js';
 
 export const evidenceRouter = Router();
@@ -93,17 +93,30 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
 
   const mimeType = imageResponse.headers.get('content-type') ?? 'image/jpeg';
 
-  const verdict = await analyzeEvidenceImage({
-    imageBase64: imageBuffer.toString('base64'),
-    mimeType,
-    taskTitle: item.title,
-    taskDescription: item.description,
-  });
+  let verdict: EvidenceVerdict;
+  let isAiFallback = false;
+
+  try {
+    verdict = await analyzeEvidenceImage({
+      imageBase64: imageBuffer.toString('base64'),
+      mimeType,
+      taskTitle: item.title,
+      taskDescription: item.description,
+    });
+  } catch (aiErr) {
+    console.error('[evidence/analyze] Provedor de IA indisponível. Ativando modo de contingência:', aiErr);
+    isAiFallback = true;
+    verdict = {
+      approved: true,
+      reason: 'Evidência fotográfica registrada. Auditoria de IA temporariamente indisponível no provedor externo; aguardando validação do gestor.',
+      confidence: 0.5,
+    };
+  }
 
   await supabase
     .from('evidences')
     .update({
-      review_status: verdict.approved ? 'approved' : 'rejected',
+      review_status: isAiFallback ? 'pending' : (verdict.approved ? 'approved' : 'rejected'),
       ai_reason: verdict.reason,
       ai_confidence: verdict.confidence,
     })
@@ -121,7 +134,7 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
     weight: item.weight,
   });
 
-  // O servidor é dono do status: só conclui com veredito aprovado,
+  // O servidor é dono do status: só conclui com veredito aprovado ou contingência,
   // e recusa (com completed_at nulo) quando a foto não passa.
   const statusPatch = verdict.approved
     ? { status: 'completed', completed_at: completedAt }
@@ -142,5 +155,6 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
     approved: verdict.approved,
     reason: verdict.reason,
     confidence: verdict.confidence,
+    is_contingency: isAiFallback,
   });
 });

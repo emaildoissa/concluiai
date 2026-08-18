@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
+import { useAuth } from '../../lib/auth';
 
 interface UnitRow {
   unit_id: string;
@@ -87,6 +88,7 @@ const DEMO_EVIDENCES: EvidenceRow[] = [
 ];
 
 export function MultistoreDashboard() {
+  const { demoMode } = useAuth();
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [evidences, setEvidences] = useState<EvidenceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +114,7 @@ export function MultistoreDashboard() {
 
       if (data?.units && data.units.length > 0) {
         setUnits(data.units);
-      } else {
+      } else if (demoMode) {
         setUnits(
           DEMO_UNITS.map((u) => ({
             unit_id: u.id,
@@ -125,27 +127,36 @@ export function MultistoreDashboard() {
             critical_missed: u.critical_missed,
           }))
         );
+      } else {
+        setUnits([]);
       }
 
       if (evData?.evidences && evData.evidences.length > 0) {
         setEvidences(evData.evidences);
-      } else {
+      } else if (demoMode) {
         setEvidences(DEMO_EVIDENCES);
+      } else {
+        setEvidences([]);
       }
     } catch {
-      setUnits(
-        DEMO_UNITS.map((u) => ({
-          unit_id: u.id,
-          unit_name: u.name,
-          address: u.address,
-          score_total: u.score_total,
-          tasks_pending: u.tasks_pending,
-          tasks_late: u.tasks_late,
-          tasks_completed: u.tasks_completed,
-          critical_missed: u.critical_missed,
-        }))
-      );
-      setEvidences(DEMO_EVIDENCES);
+      if (demoMode) {
+        setUnits(
+          DEMO_UNITS.map((u) => ({
+            unit_id: u.id,
+            unit_name: u.name,
+            address: u.address,
+            score_total: u.score_total,
+            tasks_pending: u.tasks_pending,
+            tasks_late: u.tasks_late,
+            tasks_completed: u.tasks_completed,
+            critical_missed: u.critical_missed,
+          }))
+        );
+        setEvidences(DEMO_EVIDENCES);
+      } else {
+        setUnits([]);
+        setEvidences([]);
+      }
     } finally {
       setLastSync(new Date());
       setLoading(false);
@@ -232,6 +243,26 @@ export function MultistoreDashboard() {
     }
   }
 
+  async function generateTodayTasks() {
+    setMsg(null);
+    setBusy('generate');
+    try {
+      const r = await apiPost<{ count: number; date: string }>('/api/tasks/generate-today', {});
+      setMsg({
+        text: `Rotinas geradas com sucesso para a data ${r.date}: ${r.count} tarefas criadas/atualizadas na rede.`,
+        type: 'success',
+      });
+      await load();
+    } catch (e) {
+      setMsg({
+        text: e instanceof Error ? e.message : 'Erro ao gerar tarefas do dia',
+        type: 'warn',
+      });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function recalcScore() {
     setMsg(null);
     setBusy('score');
@@ -309,7 +340,7 @@ export function MultistoreDashboard() {
             <h2 className="ops-main-title">Central de Comando Multiloja</h2>
           </div>
           <p className="ops-telemetry-sub">
-            <span><strong>{units.length} Unidades</strong> ativas na rede</span>
+            <span><strong>{units.length} Unidades</strong> cadastradas na rede</span>
             <span>·</span>
             <span>
               Sincronizado às {lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -318,6 +349,27 @@ export function MultistoreDashboard() {
         </div>
 
         <div className="ops-telemetry-actions">
+          <button
+            type="button"
+            className="ops-btn-action"
+            style={{
+              borderColor: 'rgba(56, 189, 248, 0.4)',
+              background: 'rgba(56, 189, 248, 0.1)',
+              color: '#38bdf8',
+            }}
+            onClick={() => void generateTodayTasks()}
+            disabled={busy !== null}
+            title="Gerar tarefas operacionais do dia para todas as unidades ativas"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            {busy === 'generate' ? 'Gerando...' : 'Gerar Tarefas do Dia'}
+          </button>
+
           <button
             type="button"
             className="ops-btn-action ops-btn-alerts"

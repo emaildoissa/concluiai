@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { loadDemoUnits } from '../../lib/demoData';
+import { useAuth } from '../../lib/auth';
 
 interface Unit {
   id: string;
@@ -97,6 +98,7 @@ function getSectorIcon(name: string) {
 }
 
 export function SectorsPage() {
+  const { demoMode } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,11 +128,14 @@ export function SectorsPage() {
       const data = await apiGet<{ units: Unit[] }>('/api/units');
       if (data.units && data.units.length > 0) {
         setUnits(data.units);
-      } else {
+      } else if (demoMode) {
         setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
       }
     } catch {
-      setUnits(loadDemoUnits());
+      if (demoMode) setUnits(loadDemoUnits());
+      else setUnits([]);
     }
   };
 
@@ -139,7 +144,7 @@ export function SectorsPage() {
       const data = await apiGet<{ sectors: Sector[] }>('/api/sectors');
       if (data.sectors && data.sectors.length > 0) {
         setSectors(data.sectors);
-      } else {
+      } else if (demoMode) {
         // Fallback demo sectors for units
         const demoUnits = loadDemoUnits();
         const initialSectors: Sector[] = [];
@@ -154,22 +159,27 @@ export function SectorsPage() {
           });
         });
         setSectors(initialSectors);
+      } else {
+        setSectors([]);
       }
     } catch {
-      // Mock fallback
-      const demoUnits = loadDemoUnits();
-      const initialSectors: Sector[] = [];
-      demoUnits.forEach((u, uIdx) => {
-        STANDARD_TOPOLOGY.slice(0, 4).forEach((secName, sIdx) => {
-          initialSectors.push({
-            id: `sec-${uIdx}-${sIdx}`,
-            unit_id: u.id,
-            name: secName,
-            sort_order: sIdx,
+      if (demoMode) {
+        const demoUnits = loadDemoUnits();
+        const initialSectors: Sector[] = [];
+        demoUnits.forEach((u, uIdx) => {
+          STANDARD_TOPOLOGY.slice(0, 4).forEach((secName, sIdx) => {
+            initialSectors.push({
+              id: `sec-${uIdx}-${sIdx}`,
+              unit_id: u.id,
+              name: secName,
+              sort_order: sIdx,
+            });
           });
         });
-      });
-      setSectors(initialSectors);
+        setSectors(initialSectors);
+      } else {
+        setSectors([]);
+      }
     } finally {
       setLoading(false);
     }

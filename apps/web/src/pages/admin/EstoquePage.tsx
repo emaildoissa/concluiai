@@ -101,25 +101,69 @@ export function EstoquePage() {
         apiGet<{ products: ProductOption[] }>('/api/estoque/products'),
         apiGet<{ units: UnitOption[] }>('/api/units'),
       ]);
-      setStock(stockRes.stock || []);
-      setMovements(movRes.movements || []);
-      setProducts(prodRes.products || []);
-      setUnits(unitRes.units || []);
+      if (stockRes.stock && stockRes.stock.length > 0) {
+        setStock(stockRes.stock);
+      } else if (demoMode) {
+        setStock(structuredClone(DEMO_STOCK));
+      } else {
+        setStock([]);
+      }
+
+      if (movRes.movements && movRes.movements.length > 0) {
+        setMovements(movRes.movements);
+      } else if (demoMode) {
+        setMovements(structuredClone(DEMO_MOVEMENTS));
+      } else {
+        setMovements([]);
+      }
+
+      if (prodRes.products && prodRes.products.length > 0) {
+        setProducts(prodRes.products);
+      } else if (demoMode) {
+        const demoProducts = DEMO_STOCK.map((s) => ({
+          id: s.products.id,
+          name: s.products.name,
+          uom_id: s.products.uom_id,
+        }));
+        setProducts(demoProducts);
+      } else {
+        setProducts([]);
+      }
+
+      if (unitRes.units && unitRes.units.length > 0) {
+        setUnits(unitRes.units);
+      } else if (demoMode) {
+        setUnits(
+          DEMO_UNITS.map((u) => ({
+            id: u.id,
+            name: u.name,
+          }))
+        );
+      } else {
+        setUnits([]);
+      }
     } catch {
-      setStock(structuredClone(DEMO_STOCK));
-      setMovements(structuredClone(DEMO_MOVEMENTS));
-      const demoProducts = DEMO_STOCK.map((s) => ({
-        id: s.products.id,
-        name: s.products.name,
-        uom_id: s.products.uom_id,
-      }));
-      setProducts(demoProducts);
-      setUnits(
-        DEMO_UNITS.map((u) => ({
-          id: u.id,
-          name: u.name,
-        }))
-      );
+      if (demoMode) {
+        setStock(structuredClone(DEMO_STOCK));
+        setMovements(structuredClone(DEMO_MOVEMENTS));
+        const demoProducts = DEMO_STOCK.map((s) => ({
+          id: s.products.id,
+          name: s.products.name,
+          uom_id: s.products.uom_id,
+        }));
+        setProducts(demoProducts);
+        setUnits(
+          DEMO_UNITS.map((u) => ({
+            id: u.id,
+            name: u.name,
+          }))
+        );
+      } else {
+        setStock([]);
+        setMovements([]);
+        setProducts([]);
+        setUnits([]);
+      }
     }
   }
 

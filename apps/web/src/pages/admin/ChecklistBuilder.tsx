@@ -6,6 +6,7 @@ import {
   loadDemoChecklists,
   loadDemoUnits,
 } from '../../lib/demoData';
+import { useAuth } from '../../lib/auth';
 
 type DemoChecklist = ReturnType<typeof loadDemoChecklists>[number];
 type Checklist = DemoChecklist & { sector_id?: string | null };
@@ -73,13 +74,16 @@ const PRESET_TEMPLATES = [
 ];
 
 export function ChecklistBuilder() {
+  const { demoMode } = useAuth();
   const [list, setList] = useState<Checklist[]>([]);
   const [units, setUnits] = useState<UnitRow[]>([]);
   const [sectors, setSectors] = useState<UnitRow[]>([]);
   const [editing, setEditing] = useState<Checklist | null>(null);
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'info' | 'items'>('items');
+  const [actionMsg, setActionMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Filtros
   const [shiftFilter, setShiftFilter] = useState<string>('all');
@@ -90,11 +94,17 @@ export function ChecklistBuilder() {
       const data = await apiGet<{ checklists: Checklist[] }>('/api/checklists');
       if (data.checklists && data.checklists.length > 0) {
         setList(data.checklists);
-      } else {
+      } else if (demoMode) {
         setList(loadDemoChecklists());
+      } else {
+        setList([]);
       }
     } catch {
-      setList(loadDemoChecklists());
+      if (demoMode) {
+        setList(loadDemoChecklists());
+      } else {
+        setList([]);
+      }
     }
   };
 
@@ -103,11 +113,17 @@ export function ChecklistBuilder() {
       const data = await apiGet<{ units: UnitRow[] }>('/api/units');
       if (data.units && data.units.length > 0) {
         setUnits(data.units);
-      } else {
+      } else if (demoMode) {
         setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
       }
     } catch {
-      setUnits(loadDemoUnits());
+      if (demoMode) {
+        setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
+      }
     }
   };
 
@@ -117,6 +133,25 @@ export function ChecklistBuilder() {
       setSectors(data.sectors || []);
     } catch {
       setSectors([]);
+    }
+  };
+
+  const handleGenerateToday = async () => {
+    setGenerating(true);
+    setActionMsg(null);
+    try {
+      const res = await apiPost<{ count: number; date: string }>('/api/tasks/generate-today', {});
+      setActionMsg({
+        type: 'success',
+        text: `Tarefas do dia geradas com sucesso para a data ${res.date} (${res.count} instâncias geradas/verificadas).`,
+      });
+    } catch (err) {
+      setActionMsg({
+        type: 'error',
+        text: `Erro ao gerar tarefas: ${err instanceof Error ? err.message : String(err)}`,
+      });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -266,10 +301,35 @@ export function ChecklistBuilder() {
           <p>Configure rotinas de abertura, produção e fechamento com critérios de validação por IA para a rede.</p>
         </div>
 
-        <button type="button" className="btn btn-primary" onClick={startNew}>
-          + Novo Procedimento
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleGenerateToday}
+            disabled={generating}
+            title="Gerar as instâncias de tarefas para o dia atual baseado nos checklists ativos"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            {generating ? 'Gerando...' : 'Gerar Tarefas do Dia'}
+          </button>
+
+          <button type="button" className="btn btn-primary" onClick={startNew}>
+            + Novo Procedimento
+          </button>
+        </div>
       </div>
+
+      {/* Notificação de Feedback */}
+      {actionMsg && (
+        <div className={`notice ${actionMsg.type === 'error' ? 'warn' : 'success'}`} style={{ marginBottom: '1rem' }}>
+          {actionMsg.text}
+        </div>
+      )}
 
       {/* Linha de Filtros por Turno & Busca */}
       <div className="sop-controls-row">

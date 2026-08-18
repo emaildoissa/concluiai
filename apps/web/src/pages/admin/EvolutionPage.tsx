@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import { apiGet } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
+import { useAuth } from '../../lib/auth';
 
 interface Point {
   score_date: string;
@@ -26,6 +27,7 @@ interface UnitOption {
 }
 
 export function EvolutionPage() {
+  const { demoMode } = useAuth();
   const [series, setSeries] = useState<Point[]>([]);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState<number>(14);
@@ -43,12 +45,22 @@ export function EvolutionPage() {
     void (async () => {
       try {
         const unitRes = await apiGet<{ units: UnitOption[] }>('/api/units');
-        setUnits(unitRes.units || []);
+        if (unitRes.units && unitRes.units.length > 0) {
+          setUnits(unitRes.units);
+        } else if (demoMode) {
+          setUnits(DEMO_UNITS.map((u) => ({ id: u.id, name: u.name })));
+        } else {
+          setUnits([]);
+        }
       } catch {
-        setUnits(DEMO_UNITS.map((u) => ({ id: u.id, name: u.name })));
+        if (demoMode) {
+          setUnits(DEMO_UNITS.map((u) => ({ id: u.id, name: u.name })));
+        } else {
+          setUnits([]);
+        }
       }
     })();
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     void (async () => {
@@ -57,33 +69,60 @@ export function EvolutionPage() {
         const data = await apiGet<{ series: Point[] }>(
           `/api/score/evolution?days=${days}${unitFilter ? `&unit_id=${unitFilter}` : ''}`
         );
-        setSeries(data.series || []);
-      } catch {
-        // Geração determinística de histórico para o período selecionado
-        const fallback: Point[] = [];
-        for (let i = days - 1; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
+        if (data.series && data.series.length > 0) {
+          setSeries(data.series);
+        } else if (demoMode) {
+          const fallback: Point[] = [];
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
 
-          const baseP = 78 + Math.sin(i * 0.8) * 10;
-          const baseE = 84 + Math.cos(i * 0.5) * 8;
-          const baseQ = 75 + Math.sin(i * 1.2) * 12;
-          const total = Math.round(0.35 * baseP + 0.3 * baseE + 0.35 * baseQ);
+            const baseP = 78 + Math.sin(i * 0.8) * 10;
+            const baseE = 84 + Math.cos(i * 0.5) * 8;
+            const baseQ = 75 + Math.sin(i * 1.2) * 12;
+            const total = Math.round(0.35 * baseP + 0.3 * baseE + 0.35 * baseQ);
 
-          fallback.push({
-            score_date: d.toISOString().slice(0, 10),
-            score_p: Math.min(100, Math.max(50, Math.round(baseP))),
-            score_e: Math.min(100, Math.max(50, Math.round(baseE))),
-            score_q: Math.min(100, Math.max(50, Math.round(baseQ))),
-            score_total: Math.min(100, Math.max(50, total)),
-          });
+            fallback.push({
+              score_date: d.toISOString().slice(0, 10),
+              score_p: Math.min(100, Math.max(50, Math.round(baseP))),
+              score_e: Math.min(100, Math.max(50, Math.round(baseE))),
+              score_q: Math.min(100, Math.max(50, Math.round(baseQ))),
+              score_total: Math.min(100, Math.max(50, total)),
+            });
+          }
+          setSeries(fallback);
+        } else {
+          setSeries([]);
         }
-        setSeries(fallback);
+      } catch {
+        if (demoMode) {
+          const fallback: Point[] = [];
+          for (let i = days - 1; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+
+            const baseP = 78 + Math.sin(i * 0.8) * 10;
+            const baseE = 84 + Math.cos(i * 0.5) * 8;
+            const baseQ = 75 + Math.sin(i * 1.2) * 12;
+            const total = Math.round(0.35 * baseP + 0.3 * baseE + 0.35 * baseQ);
+
+            fallback.push({
+              score_date: d.toISOString().slice(0, 10),
+              score_p: Math.min(100, Math.max(50, Math.round(baseP))),
+              score_e: Math.min(100, Math.max(50, Math.round(baseE))),
+              score_q: Math.min(100, Math.max(50, Math.round(baseQ))),
+              score_total: Math.min(100, Math.max(50, total)),
+            });
+          }
+          setSeries(fallback);
+        } else {
+          setSeries([]);
+        }
       } finally {
         setLoading(false);
       }
     })();
-  }, [days, unitFilter]);
+  }, [days, unitFilter, demoMode]);
 
   // Cálculos de KPIs do período
   const stats = useMemo(() => {

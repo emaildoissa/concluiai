@@ -91,7 +91,7 @@ function formatPhoneDisplay(phone?: string | null): string {
 }
 
 export function OperatorsPage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, demoMode } = useAuth();
   const [operators, setOperators] = useState<Operator[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -139,22 +139,34 @@ export function OperatorsPage() {
       const opData = await apiGet<{ operators: Operator[] }>('/api/operators');
       if (opData.operators && opData.operators.length > 0) {
         setOperators(opData.operators);
-      } else {
+      } else if (demoMode) {
         setOperators(DEMO_OPERATORS);
+      } else {
+        setOperators([]);
       }
     } catch {
-      setOperators(DEMO_OPERATORS);
+      if (demoMode) {
+        setOperators(DEMO_OPERATORS);
+      } else {
+        setOperators([]);
+      }
     }
 
     try {
       const unitData = await apiGet<{ units: Unit[] }>('/api/units');
       if (unitData.units && unitData.units.length > 0) {
         setUnits(unitData.units);
-      } else {
+      } else if (demoMode) {
         setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
       }
     } catch {
-      setUnits(loadDemoUnits());
+      if (demoMode) {
+        setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
+      }
     } finally {
       setLoading(false);
     }

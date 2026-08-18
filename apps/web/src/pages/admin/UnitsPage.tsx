@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import { loadDemoUnits, DEMO_UNITS } from '../../lib/demoData';
+import { useAuth } from '../../lib/auth';
 
 type Unit = (typeof DEMO_UNITS)[number] & { operation_days?: number[] | null; closed_today?: boolean };
 
@@ -41,6 +42,7 @@ function getScheduleSummary(days: number[] | null | undefined): string {
 }
 
 export function UnitsPage() {
+  const { demoMode } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -67,11 +69,17 @@ export function UnitsPage() {
       const data = await apiGet<{ units: Unit[] }>('/api/units');
       if (data.units && data.units.length > 0) {
         setUnits(data.units);
-      } else {
+      } else if (demoMode) {
         setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
       }
     } catch {
-      setUnits(loadDemoUnits());
+      if (demoMode) {
+        setUnits(loadDemoUnits());
+      } else {
+        setUnits([]);
+      }
     } finally {
       setLoading(false);
     }
