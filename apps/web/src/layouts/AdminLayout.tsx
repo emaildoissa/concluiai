@@ -90,7 +90,6 @@ const sections: NavSection[] = [
         badge: { text: 'Online', type: 'active' },
       },
       { to: '/admin/training', label: 'Central de Treinamento', icon: 'book' },
-      { to: '/admin/credentials', label: 'Configurações de IA', icon: 'gear' },
     ],
   },
 ];

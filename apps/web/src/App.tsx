@@ -9,7 +9,6 @@ import { OperatorsPage } from './pages/admin/OperatorsPage';
 import { RankingsPage } from './pages/admin/RankingsPage';
 import { EvolutionPage } from './pages/admin/EvolutionPage';
 import { TrainingPage } from './pages/admin/TrainingPage';
-import { CredentialsPage } from './pages/admin/CredentialsPage';
 import { WhatsAppPage } from './pages/admin/WhatsAppPage';
 import { PendingTasks } from './pages/admin/PendingTasks';
 import { SectorsPage } from './pages/admin/SectorsPage';
@@ -84,7 +83,6 @@ export default function App() {
         <Route path="evolution" element={<EvolutionPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="training" element={<TrainingPage />} />
-        <Route path="credentials" element={<CredentialsPage />} />
       </Route>
 
       <Route
