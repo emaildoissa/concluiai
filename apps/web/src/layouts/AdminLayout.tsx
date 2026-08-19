@@ -59,7 +59,7 @@ const sections: NavSection[] = [
   {
     title: 'Operação de Rede',
     links: [
-      { to: '/admin', end: true, label: 'Multiloja · War Room', icon: 'grid' },
+      { to: '/admin', end: true, label: 'Central de Comando', icon: 'grid' },
       { to: '/admin/checklists', label: 'Checklists & POPs', icon: 'checklist' },
       { to: '/admin/units', label: 'Unidades & Lojas', icon: 'building' },
       { to: '/admin/sectors', label: 'Setores Operacionais', icon: 'layers' },
