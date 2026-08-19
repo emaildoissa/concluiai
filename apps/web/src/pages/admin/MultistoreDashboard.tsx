@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
 import { useAuth } from '../../lib/auth';
 
@@ -924,7 +924,7 @@ export function MultistoreDashboard() {
                               style={{ padding: '4px 8px', fontSize: '0.75rem' }}
                               onClick={() =>
                                 setSelectedEvidence({
-                                  photoUrl: t.evidence!.photoUrl,
+                                  photoUrl: resolvePhotoUrl(t.evidence!.photoUrl),
                                   aiReason: t.evidence!.aiReason,
                                   aiConfidence: t.evidence!.aiConfidence,
                                   reviewStatus: t.evidence!.reviewStatus,
@@ -1091,7 +1091,7 @@ export function MultistoreDashboard() {
                         className="ops-evidence-media"
                         onClick={() =>
                           setSelectedEvidence({
-                            photoUrl: ev.photo_url,
+                            photoUrl: resolvePhotoUrl(ev.photo_url, ev.id),
                             aiReason: ev.ai_reason,
                             aiConfidence: ev.ai_confidence,
                             reviewStatus: ev.review_status,
@@ -1101,7 +1101,14 @@ export function MultistoreDashboard() {
                           })
                         }
                       >
-                        <img src={ev.photo_url} alt={taskTitle} loading="lazy" />
+                        <img
+                          src={resolvePhotoUrl(ev.photo_url, ev.id)}
+                          alt={taskTitle}
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect fill="%231e293b" width="300" height="200"/><text fill="%2364748b" font-family="sans-serif" font-size="14" x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">Foto indispon%C3%ADvel</text></svg>';
+                          }}
+                        />
                         <div className="ops-evidence-overlay">
                           <span className="ops-evidence-zoom-hint">Clique para ampliar</span>
                         </div>
@@ -1365,7 +1372,13 @@ export function MultistoreDashboard() {
 
             <div className="ops-lightbox-grid">
               <div className="ops-lightbox-image-wrap">
-                <img src={selectedEvidence.photoUrl} alt="Evidência fotográfica ampliada" />
+                <img
+                  src={resolvePhotoUrl(selectedEvidence.photoUrl)}
+                  alt="Evidência fotográfica ampliada"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect fill="%231e293b" width="600" height="400"/><text fill="%2364748b" font-family="sans-serif" font-size="18" x="50%" y="50%" text-anchor="middle" dominant-baseline="middle">Foto indispon%C3%ADvel para visualiza%C3%A7%C3%A3o</text></svg>';
+                  }}
+                />
               </div>
 
               <div className="ops-lightbox-details">

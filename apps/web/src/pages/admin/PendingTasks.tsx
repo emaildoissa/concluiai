@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import { apiGet, apiPost } from '../../lib/api';
+import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
 
 interface TaskAlert {
   alertedAt: string;
@@ -462,9 +462,12 @@ export function PendingTasks() {
                         title="Inspecionar evidência fotográfica"
                       >
                         <img
-                          src={t.evidence.photoUrl}
+                          src={resolvePhotoUrl(t.evidence.photoUrl)}
                           alt="Evidência"
                           style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }}
+                          onError={(e) => {
+                            (e.currentTarget as HTMLElement).style.display = 'none';
+                          }}
                         />
                       </button>
                     )}
@@ -574,7 +577,7 @@ export function PendingTasks() {
             <div className="ops-lightbox-body">
               <div className="ops-lightbox-img-wrap">
                 <img
-                  src={inspectEvidence.evidence.photoUrl}
+                  src={resolvePhotoUrl(inspectEvidence.evidence.photoUrl)}
                   alt="Inspeção"
                   className="ops-lightbox-img"
                 />

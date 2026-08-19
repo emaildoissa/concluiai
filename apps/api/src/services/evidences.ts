@@ -1,6 +1,92 @@
-import { getSupabaseAdmin } from '../lib/supabase.js';
+import { getSupabaseAdmin, type SupabaseClient } from '../lib/supabase.js';
 
-const STORAGE_BUCKET = 'evidences';
+export const STORAGE_BUCKET = 'evidences';
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60; // 1 hora de validade
+const SIGNED_URL_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos de cache em memória
+
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+
+/**
+ * Retorna a URL assinada ou pública de uma foto de evidência no Supabase Storage.
+ * Trata paths relativos, URLs já formatadas e faz fallback gracioso caso transform não esteja habilitado.
+ */
+export async function getSignedEvidenceUrl(
+  sb: SupabaseClient,
+  path: string | null | undefined,
+  options?: { thumb?: boolean }
+): Promise<string | null> {
+  if (!path) return null;
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+
+  // Se já for URL completa externa ou data URL
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  const now = Date.now();
+  const cacheKey = options?.thumb ? `thumb:${trimmed}` : trimmed;
+  const cached = signedUrlCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return cached.url;
+  }
+
+  // 1. Tenta gerar com transform (se thumbnail solicitado)
+  if (options?.thumb) {
+    try {
+      const { data: signed, error: signedError } = await sb.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(trimmed, SIGNED_URL_EXPIRES_IN_SECONDS, {
+          transform: { width: 300, height: 300, resize: 'cover' },
+        });
+
+      if (!signedError && signed?.signedUrl) {
+        signedUrlCache.set(cacheKey, {
+          url: signed.signedUrl,
+          expiresAt: now + SIGNED_URL_CACHE_TTL_MS,
+        });
+        return signed.signedUrl;
+      }
+    } catch {
+      // Falha no transform (ex: tier Free sem transform) -> fallback para URL assinada padrão
+    }
+  }
+
+  // 2. Tenta gerar URL assinada padrão sem transform
+  try {
+    const { data: signed, error: signedError } = await sb.storage
+      .from(STORAGE_BUCKET)
+      .createSignedUrl(trimmed, SIGNED_URL_EXPIRES_IN_SECONDS);
+
+    if (!signedError && signed?.signedUrl) {
+      signedUrlCache.set(cacheKey, {
+        url: signed.signedUrl,
+        expiresAt: now + SIGNED_URL_CACHE_TTL_MS,
+      });
+      return signed.signedUrl;
+    }
+    if (signedError) {
+      console.warn(`[getSignedEvidenceUrl] aviso ao gerar URL assinada para '${trimmed}':`, signedError.message);
+    }
+  } catch (err) {
+    console.warn(`[getSignedEvidenceUrl] erro inesperado ao assinar '${trimmed}':`, err);
+  }
+
+  // 3. Fallback: URL pública
+  try {
+    const { data: pub } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(trimmed);
+    if (pub?.publicUrl) return pub.publicUrl;
+  } catch {
+    // ignore
+  }
+
+  return trimmed;
+}
 
 export interface PurgeResult {
   oldRows: number;

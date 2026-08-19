@@ -282,3 +282,35 @@ export async function apiDelete<T>(
     headers,
   });
 }
+
+/**
+ * Converte um path de foto ou URL de evidência em uma URL válida para a tag <img>.
+ * Trata URLs completas, URLs assinadas, paths do Storage e fallback via endpoint da API.
+ */
+export function resolvePhotoUrl(photoUrl?: string | null, evidenceId?: string): string {
+  if (!photoUrl) return '';
+  const trimmed = photoUrl.trim();
+  if (!trimmed) return '';
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  // Se tiver ID da evidência, pode usar o endpoint de proxy da API
+  if (evidenceId) {
+    return buildUrl(`/api/evidences/view/${evidenceId}`);
+  }
+
+  // Se o frontend tiver a URL do Supabase configurada e for um storage path
+  if (webConfig.supabaseUrl) {
+    const base = webConfig.supabaseUrl.replace(/\/+$/, '');
+    return `${base}/storage/v1/object/public/evidences/${trimmed}`;
+  }
+
+  return trimmed;
+}

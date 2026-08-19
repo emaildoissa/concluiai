@@ -4,6 +4,7 @@ import { checkCriticalOverdueTasks } from '../jobs/alerts.js';
 import { generateTasksForDate } from '../services/tasks.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
+import { getSignedEvidenceUrl } from '../services/evidences.js';
 
 export const tasksRouter = Router();
 
@@ -120,17 +121,28 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
         .in('task_instance_id', taskIds)
         .order('captured_at', { ascending: false });
 
-      for (const ev of evs || []) {
-        if (ev.task_instance_id && !evidenceMap.has(ev.task_instance_id)) {
-          evidenceMap.set(ev.task_instance_id, {
-            photoUrl: ev.photo_url,
-            reviewStatus: ev.review_status,
-            aiReason: ev.ai_reason,
-            aiConfidence: ev.ai_confidence,
-            capturedAt: ev.captured_at,
-          });
-        }
-      }
+      const uniqueEvs = (evs || []).filter((ev) => {
+        if (!ev.task_instance_id || evidenceMap.has(ev.task_instance_id)) return false;
+        evidenceMap.set(ev.task_instance_id, {
+          photoUrl: ev.photo_url,
+          reviewStatus: ev.review_status,
+          aiReason: ev.ai_reason,
+          aiConfidence: ev.ai_confidence,
+          capturedAt: ev.captured_at,
+        });
+        return true;
+      });
+
+      await Promise.all(
+        uniqueEvs.map(async (ev) => {
+          if (!ev.task_instance_id || !ev.photo_url) return;
+          const signed = await getSignedEvidenceUrl(sb, ev.photo_url);
+          const current = evidenceMap.get(ev.task_instance_id);
+          if (current && signed) {
+            current.photoUrl = signed;
+          }
+        })
+      );
     }
 
     const now = new Date();
@@ -262,17 +274,28 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
         .in('task_instance_id', taskIds)
         .order('captured_at', { ascending: false });
 
-      for (const ev of evs || []) {
-        if (ev.task_instance_id && !evidenceMap.has(ev.task_instance_id)) {
-          evidenceMap.set(ev.task_instance_id, {
-            photoUrl: ev.photo_url,
-            reviewStatus: ev.review_status,
-            aiReason: ev.ai_reason,
-            aiConfidence: ev.ai_confidence,
-            capturedAt: ev.captured_at,
-          });
-        }
-      }
+      const uniqueEvs = (evs || []).filter((ev) => {
+        if (!ev.task_instance_id || evidenceMap.has(ev.task_instance_id)) return false;
+        evidenceMap.set(ev.task_instance_id, {
+          photoUrl: ev.photo_url,
+          reviewStatus: ev.review_status,
+          aiReason: ev.ai_reason,
+          aiConfidence: ev.ai_confidence,
+          capturedAt: ev.captured_at,
+        });
+        return true;
+      });
+
+      await Promise.all(
+        uniqueEvs.map(async (ev) => {
+          if (!ev.task_instance_id || !ev.photo_url) return;
+          const signed = await getSignedEvidenceUrl(sb, ev.photo_url);
+          const current = evidenceMap.get(ev.task_instance_id);
+          if (current && signed) {
+            current.photoUrl = signed;
+          }
+        })
+      );
     }
 
     const now = new Date();

@@ -1,17 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { getSupabaseAdmin, type SupabaseClient } from '../lib/supabase.js';
+import { getSupabaseAdmin } from '../lib/supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
+import { getSignedEvidenceUrl, STORAGE_BUCKET } from '../services/evidences.js';
 
 export const evidencesRouter = Router();
-
-const STORAGE_BUCKET = 'evidences';
-const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60; // 1h
-const THUMB_WIDTH = 300;
-
-// Cache de URLs assinadas (thread/task -> URLs) para não regenerar a cada refresh.
-const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
-const SIGNED_URL_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
 
 function startOfTodaySaoPaulo(): string {
   const now = new Date();
@@ -20,33 +13,11 @@ function startOfTodaySaoPaulo(): string {
   return sp.toISOString();
 }
 
-async function getSignedThumb(sb: SupabaseClient, path: string): Promise<string | null> {
-  const now = Date.now();
-  const cached = signedUrlCache.get(path);
-  if (cached && cached.expiresAt > now) return cached.url;
-
-  const { data: signed, error: signedError } = await sb.storage
-    .from(STORAGE_BUCKET)
-    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS, {
-      transform: { width: THUMB_WIDTH, height: THUMB_WIDTH, resize: 'cover' },
-    });
-
-  if (signedError || !signed?.signedUrl) return null;
-  signedUrlCache.set(path, {
-    url: signed.signedUrl,
-    expiresAt: now + SIGNED_URL_CACHE_TTL_MS,
-  });
-  return signed.signedUrl;
-}
-
 /**
  * GET /api/evidences
  *
  * Lista as 30 evidências mais recentes, remove duplicidades mantendo
  * apenas a mais recente por tarefa e devolve URL assinada para exibição.
- *
- * No fluxo mobile do ConcluíAI o photo_url é o path no Storage
- * (company_id/unit_id/task_id/ev-....jpg) — aqui geramos a URL assinada.
  */
 evidencesRouter.get('/', requireAuth, async (_req, res) => {
   try {
@@ -85,29 +56,26 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
 
     const seenTaskIds = new Set<string>();
 
-    const latestEvidences = (data || []).filter(
-      (evidence) => {
-        if (!evidence.task_instance_id) {
-          return true;
-        }
-
-        if (
-          seenTaskIds.has(evidence.task_instance_id)
-        ) {
-          return false;
-        }
-
-        seenTaskIds.add(evidence.task_instance_id);
+    const latestEvidences = (data || []).filter((evidence) => {
+      if (!evidence.task_instance_id) {
         return true;
-      },
-    );
+      }
 
-    // Assina a URL de cada foto (photo_url é o path no Storage) — thumbnail leve
+      if (seenTaskIds.has(evidence.task_instance_id)) {
+        return false;
+      }
+
+      seenTaskIds.add(evidence.task_instance_id);
+      return true;
+    });
+
+    // Assina a URL de cada foto (photo_url é o path no Storage)
     const withSignedUrls = await Promise.all(
       latestEvidences.map(async (evidence) => {
         const path = evidence.photo_url;
         if (!path) return { ...evidence, photo_url: null };
-        return { ...evidence, photo_url: await getSignedThumb(sb, path) };
+        const signed = await getSignedEvidenceUrl(sb, path, { thumb: true });
+        return { ...evidence, photo_url: signed };
       }),
     );
 
@@ -118,6 +86,53 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
     return res.status(500).json({
       error: 'Falha ao buscar feed de evidências.',
     });
+  }
+});
+
+/**
+ * GET /api/evidences/view/:id
+ * Endpoint de proxy/stream da imagem direto do Supabase Storage
+ */
+evidencesRouter.get('/view/:id', async (req, res) => {
+  try {
+    const sb = getSupabaseAdmin();
+    const { id } = req.params;
+
+    const { data: evidence, error } = await sb
+      .from('evidences')
+      .select('id, photo_url')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !evidence?.photo_url) {
+      return res.status(404).send('Evidência não encontrada.');
+    }
+
+    const path = evidence.photo_url.trim();
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return res.redirect(path);
+    }
+
+    const { data: fileData, error: downloadError } = await sb.storage
+      .from(STORAGE_BUCKET)
+      .download(path);
+
+    if (downloadError || !fileData) {
+      // Fallback: redireciona para url assinada
+      const signed = await getSignedEvidenceUrl(sb, path);
+      if (signed && (signed.startsWith('http://') || signed.startsWith('https://'))) {
+        return res.redirect(signed);
+      }
+      return res.status(404).send('Arquivo de foto não encontrado no Storage.');
+    }
+
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+    res.setHeader('Content-Type', fileData.type || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(buffer);
+  } catch (err) {
+    console.error('[evidence view proxy]', err);
+    return res.status(500).send('Erro ao buscar foto.');
   }
 });
 
