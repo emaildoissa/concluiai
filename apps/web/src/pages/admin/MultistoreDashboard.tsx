@@ -561,7 +561,7 @@ export function MultistoreDashboard() {
             <h2 className="ops-main-title">Central de Comando Operacional</h2>
           </div>
           <p className="ops-telemetry-sub">
-            <span><strong>{units.length} Unidades</strong> ativas na rede</span>
+            <span><strong>{units.length} {units.length === 1 ? 'Unidade' : 'Unidades'}</strong> ativas na rede</span>
             <span>·</span>
             <span>
               Sincronizado às {lastSync.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -654,8 +654,8 @@ export function MultistoreDashboard() {
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: '#6366f1' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Índice Global da Rede</h3>
-            <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>Meta 85%</span>
+            <h3 className="ops-kpi-title">Índice Global</h3>
+            <span className="badge badge-info">Meta 85%</span>
           </div>
           <div className="ops-kpi-body">
             <div className="ops-kpi-value">{avgScore != null ? avgScore : '—'}</div>
@@ -671,7 +671,7 @@ export function MultistoreDashboard() {
               {avgScore && avgScore >= 85 ? 'Conforme' : avgScore && avgScore >= 70 ? 'Regular' : 'Crítico'}
             </span>
           </div>
-          <p className="ops-kpi-sub">Média de Pontualidade, Execução e IA</p>
+          <p className="ops-kpi-sub">Pontualidade, Execução e IA</p>
         </div>
 
         {/* Lojas em Risco */}
@@ -685,8 +685,8 @@ export function MultistoreDashboard() {
         >
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Lojas em Atenção / Risco</h3>
-            <span className={`badge ${unitsInRisk.length > 0 ? 'badge-critical' : 'badge-completed'}`} style={{ fontSize: '0.7rem' }}>
+            <h3 className="ops-kpi-title">Lojas em Risco</h3>
+            <span className={`badge ${unitsInRisk.length > 0 ? 'badge-critical' : 'badge-completed'}`}>
               {unitsInRisk.length > 0 ? 'Exige Ação' : '100% OK'}
             </span>
           </div>
@@ -695,10 +695,10 @@ export function MultistoreDashboard() {
               {unitsInRisk.length}
             </div>
             <span className={`ops-kpi-benchmark ${unitsInRisk.length > 0 ? 'benchmark-danger' : 'benchmark-good'}`}>
-              de {units.length} lojas
+              {units.length === 1 ? 'de 1 loja' : `de ${units.length} lojas`}
             </span>
           </div>
-          <p className="ops-kpi-sub">Com pendências críticas ou score &lt; 75%</p>
+          <p className="ops-kpi-sub">Pendências críticas ou score &lt; 75%</p>
         </div>
 
         {/* Fila de Atrasos */}
@@ -713,17 +713,19 @@ export function MultistoreDashboard() {
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
             <h3 className="ops-kpi-title">Tarefas em Atraso</h3>
-            <span className="badge badge-late" style={{ fontSize: '0.7rem' }}>Janela Excedida</span>
+            <span className={`badge ${taskCounts.late > 0 ? 'badge-late' : 'badge-completed'}`}>
+              {taskCounts.late > 0 ? 'Atrasadas' : 'Em Dia'}
+            </span>
           </div>
           <div className="ops-kpi-body">
             <div className="ops-kpi-value" style={{ color: taskCounts.late > 0 ? '#fbbf24' : '#34d399' }}>
               {taskCounts.late}
             </div>
             <span className={`ops-kpi-benchmark ${taskCounts.late > 0 ? 'benchmark-warn' : 'benchmark-good'}`}>
-              {taskCounts.pending} pendentes
+              {taskCounts.late > 0 ? 'Janela Excedida' : 'No Horário'}
             </span>
           </div>
-          <p className="ops-kpi-sub">Atrasaram o horário estipulado no POP</p>
+          <p className="ops-kpi-sub">Fora da tolerância do POP</p>
         </div>
 
         {/* Auditorias Gemini IA */}
@@ -738,8 +740,8 @@ export function MultistoreDashboard() {
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
             <h3 className="ops-kpi-title">Auditorias Gemini IA</h3>
-            <span className={`badge ${taskCounts.rejected > 0 ? 'badge-critical' : 'badge-completed'}`} style={{ fontSize: '0.7rem' }}>
-              {taskCounts.rejected > 0 ? `${taskCounts.rejected} Recusadas` : '100% Aprovadas'}
+            <span className={`badge ${taskCounts.rejected > 0 ? 'badge-critical' : 'badge-completed'}`}>
+              {taskCounts.rejected > 0 ? `${taskCounts.rejected} Recusada${taskCounts.rejected > 1 ? 's' : ''}` : '100% OK'}
             </span>
           </div>
           <div className="ops-kpi-body">
@@ -750,7 +752,7 @@ export function MultistoreDashboard() {
               {completionRate}% concluído
             </span>
           </div>
-          <p className="ops-kpi-sub">Evidências fotográficas validadas</p>
+          <p className="ops-kpi-sub">Fotos validadas por visão computacional</p>
         </div>
       </div>
 
