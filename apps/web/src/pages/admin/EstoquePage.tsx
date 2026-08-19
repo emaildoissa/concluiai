@@ -657,17 +657,17 @@ export function EstoquePage() {
 
       {/* Modal de Movimentação Rápida */}
       {isModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal" style={{ maxWidth: 520 }}>
+        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>
                 Registrar Movimentação de Estoque
               </h3>
               <button
                 type="button"
-                className="btn btn-ghost"
-                style={{ padding: '4px 8px', fontSize: '0.85rem' }}
+                className="btn-close-modal"
                 onClick={() => setIsModalOpen(false)}
+                aria-label="Fechar modal"
               >
                 ✕
               </button>

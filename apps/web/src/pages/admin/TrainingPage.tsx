@@ -415,41 +415,17 @@ export function TrainingPage() {
 
       {/* Modal Moderno de Cadastro de Treinamento */}
       {isModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            display: 'grid',
-            placeItems: 'center',
-            zIndex: 999,
-            padding: '1rem',
-          }}
-          onClick={() => setIsModalOpen(false)}
-        >
-          <div
-            className="card"
-            style={{
-              width: '100%',
-              maxWidth: '560px',
-              padding: '1.75rem',
-              background: 'var(--bg-card)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: 'var(--radius)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.5)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="modal" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#ffffff' }}>
                 Novo Material de Treinamento
               </h3>
               <button
                 type="button"
-                className="btn btn-ghost btn-sm"
+                className="btn-close-modal"
                 onClick={() => setIsModalOpen(false)}
-                style={{ padding: '0.2rem 0.5rem' }}
+                aria-label="Fechar modal"
               >
                 ✕
               </button>
