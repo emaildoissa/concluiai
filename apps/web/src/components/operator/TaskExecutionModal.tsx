@@ -15,6 +15,10 @@ export interface TaskItemData {
   checked?: boolean;
   notes?: string | null;
   completed_at?: string | null;
+  assigned_to?: string | null;
+  assigned_name?: string | null;
+  sector_id?: string | null;
+  sector_name?: string | null;
   checklist_item?: {
     id: string;
     title: string;

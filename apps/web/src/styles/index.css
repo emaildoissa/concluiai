@@ -1641,6 +1641,74 @@ table.data tr:hover td {
   color: #38bdf8;
 }
 
+/* Escopo de Tarefas do Operador (Minhas Tarefas / Meu Setor / Loja) */
+.op-scope-strip {
+  display: flex;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 0.85rem;
+}
+
+.op-scope-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.op-scope-btn.is-active {
+  background: var(--bg-elevated, #1e293b);
+  color: #38bdf8;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.op-scope-count {
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.op-scope-btn.is-active .op-scope-count {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+}
+
+.tag-sector {
+  background: rgba(139, 92, 246, 0.15) !important;
+  color: #a78bfa !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+}
+
+.tag-assigned-self {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+.tag-assigned-other {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #cbd5e1 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
 /* Filtros Rápidos (Tabs Segmentadas) */
 .op-filter-strip {
   display: grid;

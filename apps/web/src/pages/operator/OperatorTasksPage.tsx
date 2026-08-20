@@ -102,12 +102,16 @@ function getDeadlineInfo(dueAtIso: string, status: string): {
   }
 }
 
+type TaskScopeTab = 'my_tasks' | 'my_sector' | 'all_unit';
+
 export function OperatorTasksPage() {
   const { user, logout, demoMode, isAdmin, isManager } = useAuth();
 
   const [units, setUnits] = useState<UnitOption[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [tasks, setTasks] = useState<TaskItemData[]>([]);
+  const [userSectorIds, setUserSectorIds] = useState<string[]>([]);
+  const [scopeTab, setScopeTab] = useState<TaskScopeTab>('my_tasks');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -147,6 +151,27 @@ export function OperatorTasksPage() {
     void loadUnits();
   }, [demoMode, user?.unit_id]);
 
+  // Carrega vínculos de setor do operador logado
+  useEffect(() => {
+    async function loadUserSectors() {
+      if (!user?.id || demoMode) return;
+      try {
+        const sb = getSupabase();
+        if (!sb) return;
+        const { data } = await sb
+          .from('profiles_sectors')
+          .select('sector_id')
+          .eq('profile_id', user.id);
+        if (data) {
+          setUserSectorIds(data.map((row: any) => row.sector_id));
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar setores do operador:', err);
+      }
+    }
+    void loadUserSectors();
+  }, [user?.id, demoMode]);
+
   // Carrega tarefas do dia
   const loadTasks = useCallback(async (isSilent = false) => {
     const unitId = selectedUnitId || user?.unit_id;
@@ -173,6 +198,9 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
+          assigned_to: user?.id,
+          assigned_name: user?.full_name || 'Você',
+          sector_name: 'Cozinha',
           checklist_item: {
             id: 'item-1',
             title: 'Panela de Arroz · Higienização da Cuba',
@@ -190,6 +218,9 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
+          assigned_to: user?.id,
+          assigned_name: user?.full_name || 'Você',
+          sector_name: 'Cozinha',
           checklist_item: {
             id: 'item-2',
             title: 'Controle de Temperatura · Freezer 1',
@@ -207,6 +238,7 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
+          sector_name: 'Cozinha',
           checklist_item: {
             id: 'item-3',
             title: 'Higienização da Bancada de Inox',
@@ -224,6 +256,7 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Fechamento & Limpeza Noturna',
           checklist_shift: 'Noite',
+          sector_name: 'Limpeza',
           checklist_item: {
             id: 'item-4',
             title: 'Limpeza Pesada de Coifa, Fogão e Ralos',
@@ -249,10 +282,14 @@ export function OperatorTasksPage() {
         .from('task_instances')
         .select(
           `
-          id, scheduled_date, due_at, status, checked, notes, completed_at, unit_id,
+          id, scheduled_date, due_at, status, checked, notes, completed_at, unit_id, assigned_to,
+          assigned_profile:profiles!assigned_to ( id, full_name ),
           checklist_item:checklist_items (
             id, title, description, is_critical, requires_photo, requires_gps, due_time, execution_mode,
-            checklist:checklists ( name, shift )
+            checklist:checklists (
+              id, name, shift, sector_id,
+              sector:sectors ( id, name )
+            )
           )
         `
         )
@@ -267,6 +304,12 @@ export function OperatorTasksPage() {
         const checklist = Array.isArray(item?.checklist)
           ? item.checklist[0]
           : item?.checklist;
+        const sector = Array.isArray(checklist?.sector)
+          ? checklist.sector[0]
+          : checklist?.sector;
+        const assignedProfile = Array.isArray(row.assigned_profile)
+          ? row.assigned_profile[0]
+          : row.assigned_profile;
 
         return {
           id: row.id,
@@ -277,6 +320,10 @@ export function OperatorTasksPage() {
           checked: row.checked,
           notes: row.notes,
           completed_at: row.completed_at,
+          assigned_to: row.assigned_to,
+          assigned_name: assignedProfile?.full_name || null,
+          sector_id: checklist?.sector_id || sector?.id || null,
+          sector_name: sector?.name || null,
           checklist_name: checklist?.name || 'Checklist Geral',
           checklist_shift: checklist?.shift || null,
           checklist_item: {
@@ -308,14 +355,54 @@ export function OperatorTasksPage() {
     }
   }, [selectedUnitId, loadTasks, demoMode]);
 
-  // Cálculos de métricas e status derivados
+  // Tarefas filtradas pelo Escopo Operacional (Minhas / Meu Setor / Toda a Loja)
+  const scopedTasks = useMemo(() => {
+    if (scopeTab === 'all_unit') return tasks;
+
+    if (scopeTab === 'my_tasks') {
+      return tasks.filter((t) => {
+        if (t.assigned_to === user?.id) return true;
+        // Se a tarefa não possui atribuição nominal e o usuário não tem setor exclusivo
+        if (!t.assigned_to && userSectorIds.length === 0) return true;
+        return false;
+      });
+    }
+
+    if (scopeTab === 'my_sector') {
+      return tasks.filter((t) => {
+        if (t.assigned_to === user?.id) return true;
+        if (t.sector_id && userSectorIds.includes(t.sector_id)) return true;
+        if (userSectorIds.length === 0) return true;
+        return false;
+      });
+    }
+
+    return tasks;
+  }, [tasks, scopeTab, user?.id, userSectorIds]);
+
+  // Contagem para badges em cada aba de escopo
+  const scopeCounts = useMemo(() => {
+    const myTasksCount = tasks.filter(
+      (t) => t.assigned_to === user?.id || (!t.assigned_to && userSectorIds.length === 0)
+    ).length;
+    const mySectorCount = tasks.filter(
+      (t) =>
+        t.assigned_to === user?.id ||
+        (t.sector_id && userSectorIds.includes(t.sector_id)) ||
+        userSectorIds.length === 0
+    ).length;
+    const allUnitCount = tasks.length;
+    return { myTasks: myTasksCount, mySector: mySectorCount, allUnit: allUnitCount };
+  }, [tasks, user?.id, userSectorIds]);
+
+  // Cálculos de métricas e status derivados dentro do escopo ativo
   const stats = useMemo(() => {
     const now = Date.now();
     let late = 0;
     let pending = 0;
     let completed = 0;
 
-    for (const t of tasks) {
+    for (const t of scopedTasks) {
       if (t.status === 'completed') {
         completed += 1;
       } else {
@@ -329,12 +416,12 @@ export function OperatorTasksPage() {
     }
 
     return {
-      all: tasks.length,
+      all: scopedTasks.length,
       late,
       pending,
       completed,
     };
-  }, [tasks]);
+  }, [scopedTasks]);
 
   // Agrupamento por Checklist
   const groups = useMemo(() => {
@@ -354,7 +441,7 @@ export function OperatorTasksPage() {
 
     const q = searchQuery.toLowerCase().trim();
 
-    for (const t of tasks) {
+    for (const t of scopedTasks) {
       const gName = t.checklist_name || 'Checklist Geral';
       let g = map.get(gName);
       if (!g) {
@@ -390,7 +477,9 @@ export function OperatorTasksPage() {
         t.checklist_item?.title.toLowerCase().includes(q) ||
         t.checklist_name?.toLowerCase().includes(q) ||
         (t.checklist_item?.description &&
-          t.checklist_item.description.toLowerCase().includes(q));
+          t.checklist_item.description.toLowerCase().includes(q)) ||
+        (t.sector_name && t.sector_name.toLowerCase().includes(q)) ||
+        (t.assigned_name && t.assigned_name.toLowerCase().includes(q));
 
       if (matchesFilter && matchesSearch) {
         g.tasks.push(t);
@@ -501,14 +590,44 @@ export function OperatorTasksPage() {
         <div className="op-date-chip">{todayFormatted}</div>
         <div className="op-progress-overview">
           {stats.all === 0
-            ? 'Nenhuma tarefa atribuída'
+            ? 'Nenhuma tarefa neste escopo'
             : stats.completed === stats.all
             ? '🎉 100% das tarefas concluídas!'
             : `${stats.completed} de ${stats.all} concluídas`}
         </div>
       </div>
 
-      {/* Filtros Rápidos Interativos (Tabs) */}
+      {/* Seletor de Escopo Operacional (Opção 3: Híbrido) */}
+      <nav className="op-scope-strip" aria-label="Escopo das tarefas">
+        <button
+          type="button"
+          className={`op-scope-btn ${scopeTab === 'my_tasks' ? 'is-active' : ''}`}
+          onClick={() => setScopeTab('my_tasks')}
+        >
+          <span>🎯 Minhas Tarefas</span>
+          <span className="op-scope-count">{scopeCounts.myTasks}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`op-scope-btn ${scopeTab === 'my_sector' ? 'is-active' : ''}`}
+          onClick={() => setScopeTab('my_sector')}
+        >
+          <span>🍳 Meu Setor</span>
+          <span className="op-scope-count">{scopeCounts.mySector}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`op-scope-btn ${scopeTab === 'all_unit' ? 'is-active' : ''}`}
+          onClick={() => setScopeTab('all_unit')}
+        >
+          <span>🏪 Toda a Loja</span>
+          <span className="op-scope-count">{scopeCounts.allUnit}</span>
+        </button>
+      </nav>
+
+      {/* Filtros Rápidos Interativos (Tabs de Status) */}
       <div className="op-filter-strip" role="tablist" aria-label="Filtrar tarefas por status">
         <button
           type="button"
@@ -751,6 +870,22 @@ export function OperatorTasksPage() {
                             {/* Tags & Prazos */}
                             <div className="op-task-footer">
                               <div className="op-tags-wrap">
+                                {task.sector_name && (
+                                  <span className="op-tag tag-sector">
+                                    📍 {task.sector_name}
+                                  </span>
+                                )}
+
+                                {task.assigned_to === user?.id ? (
+                                  <span className="op-tag tag-assigned-self">
+                                    👤 Sua tarefa
+                                  </span>
+                                ) : task.assigned_name ? (
+                                  <span className="op-tag tag-assigned-other">
+                                    👤 {task.assigned_name}
+                                  </span>
+                                ) : null}
+
                                 {task.checklist_item?.is_critical && (
                                   <span className="op-tag tag-critical">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
