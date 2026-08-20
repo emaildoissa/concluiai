@@ -487,20 +487,41 @@ export function ChecklistBuilder() {
         <div className="modal-backdrop" onClick={() => { if (!saving) setOpen(false); }}>
           <div className="sop-modal-shell" onClick={(e) => e.stopPropagation()}>
             <div className="sop-modal-header">
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800 }}>
-                  {list.some((c) => c.id === editing.id) ? 'Editar Protocolo Operacional' : 'Novo Protocolo Operacional'}
-                </h3>
-                <span className="muted" style={{ fontSize: '0.8rem' }}>
-                  {editing.name || 'Definição de diretrizes operacionais'}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div className="sop-modal-header-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                    <path d="m9 14 2 2 4-4" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>
+                    {list.some((c) => c.id === editing.id) ? 'Editar Protocolo Operacional' : 'Novo Protocolo Operacional'}
+                  </h3>
+                  <span style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginTop: '2px' }}>
+                    {editing.name || 'Definição de diretrizes e processos operacionais'}
+                  </span>
+                </div>
               </div>
 
               <button
                 type="button"
                 className="btn-close-modal"
                 onClick={() => { if (!saving) setOpen(false); }}
-                style={{ fontSize: '1.2rem' }}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  width: '32px',
+                  height: '32px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  transition: 'all 0.15s ease'
+                }}
               >
                 ✕
               </button>
@@ -513,14 +534,16 @@ export function ChecklistBuilder() {
                 className={`sop-modal-tab-btn ${activeTab === 'info' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('info')}
               >
-                1. Parâmetros & Unidades ({editing.unit_ids.length} selecionadas)
+                <span>⚙️ 1. Parâmetros & Unidades</span>
+                <span className="sop-tab-badge">{editing.unit_ids.length} un.</span>
               </button>
               <button
                 type="button"
                 className={`sop-modal-tab-btn ${activeTab === 'items' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('items')}
               >
-                2. Roteiro & Diretrizes IA ({editing.items.length} itens)
+                <span>📝 2. Roteiro & Diretrizes IA</span>
+                <span className="sop-tab-badge">{editing.items.length} itens</span>
               </button>
             </div>
 
@@ -739,7 +762,20 @@ export function ChecklistBuilder() {
                           <button
                             type="button"
                             className="btn btn-sm btn-ghost"
-                            style={{ fontSize: '0.72rem', padding: '2px 7px', color: '#818cf8' }}
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
+                              border: '1px solid rgba(129, 140, 248, 0.35)',
+                              borderRadius: '8px',
+                              color: '#c7d2fe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
                             onClick={() => autoEnrichDirective(idx)}
                           >
                             ⚡ Gerar Diretriz com IA
