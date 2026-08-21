@@ -34,6 +34,22 @@ html,
 body,
 #root {
   min-height: 100%;
+  max-width: 100vw;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.touch-scroll-bar,
+.hide-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.touch-scroll-bar::-webkit-scrollbar,
+.hide-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 body {
@@ -1456,7 +1472,10 @@ table.data tr:hover td {
 
   /* Ajuste no Main para não sobrepor a Bottom Bar */
   .main {
-    padding-bottom: 84px;
+    padding: 0.85rem 0.75rem 84px;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .grid-4,
@@ -1650,15 +1669,24 @@ table.data tr:hover td {
   padding: 4px;
   gap: 4px;
   margin-bottom: 0.85rem;
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.op-scope-strip::-webkit-scrollbar {
+  display: none;
 }
 
 .op-scope-btn {
-  flex: 1;
+  flex: 1 0 auto;
+  min-width: max-content;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0.6rem 0.5rem;
+  padding: 0.6rem 0.75rem;
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -2723,7 +2751,7 @@ table.data tr:hover td {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  padding: 1.15rem 1.5rem;
+  padding: 1rem 1.15rem;
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -2731,12 +2759,15 @@ table.data tr:hover td {
   gap: 1rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(12px);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .ops-telemetry-left {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  max-width: 100%;
 }
 
 .ops-telemetry-title-row {
@@ -2748,7 +2779,7 @@ table.data tr:hover td {
 
 .ops-main-title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: clamp(1.15rem, 3.8vw, 1.4rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
@@ -2783,22 +2814,32 @@ table.data tr:hover td {
 
 .ops-telemetry-sub {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex-wrap: wrap;
 }
 
 .ops-telemetry-actions {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.ops-telemetry-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .ops-btn-action {
+  white-space: nowrap;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -3718,20 +3759,22 @@ table.data tr:hover td {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 24px;
   max-width: 900px;
-  width: 100%;
-  max-height: 90vh;
+  width: min(900px, calc(100vw - 1rem));
+  max-height: min(92vh, calc(100dvh - 1rem));
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(99, 102, 241, 0.15);
+  box-sizing: border-box;
 }
 
 .sop-modal-header {
-  padding: 1.25rem 1.75rem;
+  padding: 1.15rem 1.25rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.75rem;
   background: linear-gradient(90deg, rgba(99, 102, 241, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%);
 }
 
@@ -3750,9 +3793,17 @@ table.data tr:hover td {
 .sop-modal-nav-tabs {
   display: flex;
   gap: 0.5rem;
-  padding: 0.5rem 1.75rem;
+  padding: 0.5rem 1rem;
   background: rgba(15, 23, 42, 0.6);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.sop-modal-nav-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .sop-modal-tab-btn {
@@ -3762,12 +3813,14 @@ table.data tr:hover td {
   color: #94a3b8;
   font-size: 0.85rem;
   font-weight: 600;
-  padding: 0.6rem 1rem;
+  padding: 0.55rem 0.85rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .sop-modal-tab-btn:hover {
@@ -3909,7 +3962,7 @@ table.data tr:hover td {
 
 .sop-units-selection-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
   gap: 0.75rem;
 }
 
@@ -4701,22 +4754,32 @@ table.data tr:hover td {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 0.85rem 1.15rem;
+  padding: 0.75rem 0.85rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .incident-tabs {
-  display: inline-flex;
+  display: flex;
   background: var(--bg-elevated);
   padding: 3px;
   border-radius: 10px;
   border: 1px solid var(--border);
   gap: 3px;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.incident-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .incident-tab-btn {
@@ -4729,6 +4792,8 @@ table.data tr:hover td {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .incident-tab-btn:hover {
@@ -4744,15 +4809,23 @@ table.data tr:hover td {
 .incident-filters {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 0.65rem;
+  max-width: 100%;
 }
 
 .incident-chips {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.incident-chips::-webkit-scrollbar {
+  display: none;
 }
 
 .incident-chip {
@@ -4765,6 +4838,8 @@ table.data tr:hover td {
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .incident-chip:hover {
