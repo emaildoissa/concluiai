@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTodayBR, getDaysAgoBR } from '@concluiai/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { recalculateDailyScores } from '../services/score.js';
@@ -120,10 +121,8 @@ scoreRouter.get('/evolution', requireAuth, async (req, res) => {
 });
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return getTodayBR();
 }
 function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return getDaysAgoBR(n);
 }

@@ -254,3 +254,26 @@ export const RECURRENCE_LABELS: Record<Checklist['recurrence'], string> = {
   weekly: 'Semanal',
   once: 'Única',
 };
+
+/**
+ * Retorna a data atual no fuso horário do Brasil (America/Sao_Paulo) no formato YYYY-MM-DD.
+ * Evita o bug de fuso horário UTC em que a partir das 21:00 BRT (00:00 UTC) a data vira o dia seguinte.
+ */
+export function getTodayBR(date: Date = new Date()): string {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(date);
+}
+
+/**
+ * Retorna a data de N dias atrás no fuso horário do Brasil (America/Sao_Paulo) no formato YYYY-MM-DD.
+ */
+export function getDaysAgoBR(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return getTodayBR(d);
+}

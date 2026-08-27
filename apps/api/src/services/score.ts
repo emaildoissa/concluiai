@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { getTodayBR } from '@concluiai/shared';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { isOperationDay } from '../lib/operation-days.js';
 
@@ -91,7 +92,7 @@ export async function recalculateDailyScores(params?: {
   date?: string; // YYYY-MM-DD
 }): Promise<{ unitsProcessed: number }> {
   const sb = getSupabaseAdmin();
-  const date = params?.date || new Date().toISOString().slice(0, 10);
+  const date = params?.date || getTodayBR();
 
   let unitsQuery = sb.from('units').select('id, operation_days').eq('is_active', true);
   if (params?.unitId) unitsQuery = unitsQuery.eq('id', params.unitId);

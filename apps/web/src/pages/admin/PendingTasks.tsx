@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
+import { getTodayBR } from '@concluiai/shared';
 import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
 
 interface TaskAlert {
@@ -33,8 +34,6 @@ interface AuditTask {
   alert?: TaskAlert | null;
   evidence?: TaskEvidence | null;
 }
-
-
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pendente',
@@ -72,7 +71,7 @@ export function PendingTasks() {
 
   // Filtros rápidos
   const [quickFilter, setQuickFilter] = useState<'all' | 'critical' | 'late' | 'rejected'>('all');
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState(() => getTodayBR());
   const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [unitsList, setUnitsList] = useState<{ id: string; name: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,7 +99,7 @@ export function PendingTasks() {
       if (activeTab === 'today') {
         const q = new URLSearchParams();
         if (selectedUnit) q.set('unitId', selectedUnit);
-        q.set('date', new Date().toISOString().slice(0, 10));
+        q.set('date', getTodayBR());
 
         const data = await apiGet<{ tasks: AuditTask[] }>(`/api/tasks/pendings?${q.toString()}`);
         setTasks(data.tasks || []);

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTodayBR } from '@concluiai/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { checkCriticalOverdueTasks } from '../jobs/alerts.js';
 import { generateTasksForDate } from '../services/tasks.js';
@@ -18,7 +19,7 @@ tasksRouter.post(
   requireRole('admin', 'manager'),
   async (req, res) => {
     try {
-      const date = (req.body?.date as string) || new Date().toISOString().slice(0, 10);
+      const date = (req.body?.date as string) || getTodayBR();
       const companyId = req.user?.company_id;
       const { created } = await generateTasksForDate({ date, companyId });
       return res.json({ created, date });
@@ -83,7 +84,7 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
     if (status) query = query.eq('status', status);
     else query = query.in('status', NOT_DONE_STATUSES);
     if (date) query = query.eq('scheduled_date', date);
-    else query = query.eq('scheduled_date', new Date().toISOString().slice(0, 10));
+    else query = query.eq('scheduled_date', getTodayBR());
 
     query = query.order('due_at', { ascending: true });
 
@@ -216,7 +217,7 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
       status?: string;
     };
 
-    const start = startDate || new Date().toISOString().slice(0, 10);
+    const start = startDate || getTodayBR();
     const end = endDate || start;
 
     const { data: units } = await sb.from('units').select('id').eq('company_id', companyId);

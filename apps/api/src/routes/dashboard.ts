@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTodayBR } from '@concluiai/shared';
 import { requireAuth } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { isOperationDay } from '../lib/operation-days.js';
@@ -12,7 +13,7 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
     const companyId = req.user?.company_id;
     if (!companyId) return res.status(400).json({ error: 'Perfil sem company_id' });
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayBR();
     const todayDate = today;
 
     // Tenta o RPC agregado (1 query). Se ainda não existir no banco, cai no fallback JS.
