@@ -25,7 +25,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     .select(
       `
       id, due_at, status, unit_id,
-      unit:units ( id, name ),
+      unit:units ( id, name, company_id ),
       checklist_item:checklist_items ( id, title, is_critical )
     `
     )
@@ -68,13 +68,29 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
       continue;
     }
 
-    // Gerentes da unidade + admins da company
-    const { data: managers } = await sb
+    // Gerentes da unidade + admins ativos da empresa (independente de unit_id)
+    const companyId = (unit as { company_id?: string } | null)?.company_id;
+    let recipientQuery = sb
       .from('profiles')
-      .select('id, phone, full_name, role')
-      .eq('unit_id', task.unit_id)
-      .in('role', ['manager', 'admin'])
-      .eq('is_active', true);
+      .select('id, phone, full_name, role, unit_id')
+      .eq('is_active', true)
+      .in('role', ['manager', 'admin']);
+
+    if (companyId) {
+      recipientQuery = recipientQuery
+        .eq('company_id', companyId)
+        .or(`unit_id.eq.${task.unit_id},role.eq.admin`);
+    } else {
+      recipientQuery = recipientQuery.eq('unit_id', task.unit_id);
+    }
+
+    const { data: managers } = await recipientQuery;
+
+    if (!managers || managers.length === 0) {
+      console.warn(`[alerts] ⚠️ Nenhum gerente/admin encontrado para a unidade ${unit?.name || task.unit_id} (tarefa: '${item.title}')`);
+      invalid += 1;
+      continue;
+    }
 
     const message = buildCriticalAlertMessage({
       unitName: unit?.name || 'Unidade',
@@ -109,6 +125,12 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
       }
     }
     if (taskSent > 0) alerted += 1;
+  }
+
+  if ((tasks || []).length > 0) {
+    console.log(
+      `[alerts] Processadas ${tasks?.length} tarefas atrasadas: ${alerted} disparadas, ${skipped} já alertadas (anti-spam), ${invalid} ignoradas/sem destinatário`
+    );
   }
 
   return { alerted, skipped, invalid };
