@@ -19,19 +19,53 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
   const sb = getSupabaseAdmin();
   const now = new Date().toISOString();
 
-  // Tarefas vencidas ainda pendentes/late, com item crítico
-  const { data: tasks, error } = await sb
+  // 1. Atualiza status para 'late' para qualquer tarefa pendente que já venceu (independente de ser crítica)
+  try {
+    await sb
+      .from('task_instances')
+      .update({ status: 'late' })
+      .in('status', ['pending', 'in_progress'])
+      .lt('due_at', now);
+  } catch (err) {
+    console.error('[alerts] erro ao atualizar status late:', err);
+  }
+
+  // 2. Busca IDs das tarefas que já possuem alerta enviado/mockado (anti-spam no banco de dados)
+  const { data: recentAlerts, error: alertLogsErr } = await sb
+    .from('alert_logs')
+    .select('task_instance_id')
+    .in('status', ['sent', 'mock'])
+    .not('task_instance_id', 'is', null);
+
+  if (alertLogsErr) {
+    console.error('[alerts] erro ao consultar alert_logs:', alertLogsErr);
+  }
+
+  const alertedTaskIds = Array.from(
+    new Set((recentAlerts || []).map((a) => a.task_instance_id).filter((id): id is string => Boolean(id)))
+  );
+
+  // 3. Consulta tarefas vencidas que sejam CRÍTICAS e AINDA NÃO ALERTADAS
+  let query = sb
     .from('task_instances')
     .select(
       `
       id, due_at, status, unit_id,
       unit:units ( id, name, company_id ),
-      checklist_item:checklist_items ( id, title, is_critical )
+      checklist_item:checklist_items!inner ( id, title, is_critical )
     `
     )
     .in('status', ['pending', 'in_progress', 'late'])
     .lt('due_at', now)
-    .limit(50);
+    .eq('checklist_item.is_critical', true)
+    .order('due_at', { ascending: false })
+    .limit(100);
+
+  if (alertedTaskIds.length > 0) {
+    query = query.not('id', 'in', `(${alertedTaskIds.join(',')})`);
+  }
+
+  const { data: tasks, error } = await query;
 
   if (error) {
     console.error('[alerts] query error', error);
@@ -48,25 +82,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
       : task.checklist_item;
     const unit = Array.isArray(task.unit) ? task.unit[0] : task.unit;
 
-    // Marca late mesmo se não crítica
-    if (task.status !== 'late') {
-      await sb.from('task_instances').update({ status: 'late' }).eq('id', task.id);
-    }
-
     if (!item?.is_critical) continue;
-
-    // Disparo ÚNICO por tarefa (anti-spam): se já foi alertado (sent/mock), nunca mais reenvia via WhatsApp
-    const { data: alreadyAlerted } = await sb
-      .from('alert_logs')
-      .select('id')
-      .eq('task_instance_id', task.id)
-      .in('status', ['sent', 'mock'])
-      .limit(1);
-
-    if (alreadyAlerted && alreadyAlerted.length > 0) {
-      skipped += 1;
-      continue;
-    }
 
     // Gerentes da unidade + admins ativos da empresa (independente de unit_id)
     const companyId = (unit as { company_id?: string } | null)?.company_id;
@@ -87,7 +103,9 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     const { data: managers } = await recipientQuery;
 
     if (!managers || managers.length === 0) {
-      console.warn(`[alerts] ⚠️ Nenhum gerente/admin encontrado para a unidade ${unit?.name || task.unit_id} (tarefa: '${item.title}')`);
+      console.warn(
+        `[alerts] ⚠️ Nenhum gerente/admin encontrado para a unidade ${unit?.name || task.unit_id} (tarefa: '${item.title}')`
+      );
       invalid += 1;
       continue;
     }
@@ -107,7 +125,9 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
       }
       const { valid } = normalizePhoneBR(mgr.phone);
       if (!valid) {
-        console.warn(`[alerts] gerente ${mgr.full_name} com telefone inválido para WhatsApp: ${mgr.phone}`);
+        console.warn(
+          `[alerts] gerente ${mgr.full_name} com telefone inválido para WhatsApp: ${mgr.phone}`
+        );
         invalid += 1;
         continue;
       }
@@ -127,11 +147,11 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     if (taskSent > 0) alerted += 1;
   }
 
-  if ((tasks || []).length > 0) {
+  if (alerted > 0 || invalid > 0) {
     console.log(
-      `[alerts] Processadas ${tasks?.length} tarefas atrasadas: ${alerted} disparadas, ${skipped} já alertadas (anti-spam), ${invalid} ignoradas/sem destinatário`
+      `[alerts] Processadas ${tasks?.length || 0} tarefas pendentes de alerta: ${alerted} disparadas com sucesso, ${invalid} com falha/sem destinatário`
     );
   }
 
   return { alerted, skipped, invalid };
-}
+}
