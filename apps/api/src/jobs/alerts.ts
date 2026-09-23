@@ -1,6 +1,7 @@
 import { hasSupabaseConfig } from '../config.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { buildCriticalAlertMessage, normalizePhoneBR, sendWhatsAppMessage } from '../services/whatsapp.js';
+import { getWhatsAppSettings } from '../services/settings.js';
 
 export interface AlertRunResult {
   alerted: number;
@@ -30,7 +31,14 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     console.error('[alerts] erro ao atualizar status late:', err);
   }
 
-  // 2. Busca IDs das tarefas que já possuem alerta enviado/mockado (anti-spam no banco de dados)
+  // 2. Consulta configurações do WhatsApp (se alertas estão habilitados)
+  const settings = await getWhatsAppSettings();
+  if (settings.alertsEnabled === false) {
+    // Alertas via WhatsApp desativados pelo usuário (modo somente painel)
+    return { alerted: 0, skipped: 0, invalid: 0 };
+  }
+
+  // 3. Busca IDs das tarefas que já possuem alerta enviado/mockado (anti-spam no banco de dados)
   const { data: recentAlerts, error: alertLogsErr } = await sb
     .from('alert_logs')
     .select('task_instance_id')
@@ -45,7 +53,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     new Set((recentAlerts || []).map((a) => a.task_instance_id).filter((id): id is string => Boolean(id)))
   );
 
-  // 3. Consulta tarefas vencidas que sejam CRÍTICAS e AINDA NÃO ALERTADAS
+  // 4. Consulta tarefas vencidas que sejam CRÍTICAS e AINDA NÃO ALERTADAS
   let query = sb
     .from('task_instances')
     .select(
@@ -110,12 +118,15 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
       continue;
     }
 
-    const message = buildCriticalAlertMessage({
-      unitName: unit?.name || 'Unidade',
-      taskTitle: item.title,
-      dueAt: new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-      isCritical: true,
-    });
+    const message = buildCriticalAlertMessage(
+      {
+        unitName: unit?.name || 'Unidade',
+        taskTitle: item.title,
+        dueAt: new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+        isCritical: true,
+      },
+      settings.alertTemplate
+    );
 
     let taskSent = 0;
     for (const mgr of managers || []) {

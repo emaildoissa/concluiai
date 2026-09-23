@@ -10,6 +10,8 @@ export interface WhatsAppSettings {
   instance: string;
   instanceNumber: string;
   phoneNumberId?: string;
+  alertsEnabled?: boolean;
+  alertTemplate?: string;
 }
 
 const SETTINGS_KEY = 'whatsapp';
@@ -24,6 +26,8 @@ export function sanitize(value: WhatsAppSettings): WhatsAppSettings {
     instance: value.instance?.trim() ?? '',
     instanceNumber: value.instanceNumber?.trim() ?? '',
     phoneNumberId: value.phoneNumberId?.trim() ?? '',
+    alertsEnabled: value.alertsEnabled !== false, // default true
+    alertTemplate: value.alertTemplate?.trim() || undefined,
   };
 }
 
@@ -38,6 +42,7 @@ export async function getWhatsAppSettings(): Promise<WhatsAppSettings> {
     instance: config.whatsapp.instance,
     instanceNumber: config.whatsapp.instanceNumber,
     phoneNumberId: config.whatsapp.phoneNumberId,
+    alertsEnabled: true,
   };
 
   const sb = getSupabaseAdmin();
@@ -65,6 +70,8 @@ export async function saveWhatsAppSettings(
     instance: input.instance ?? current.instance,
     instanceNumber: input.instanceNumber ?? current.instanceNumber,
     phoneNumberId: input.phoneNumberId ?? current.phoneNumberId,
+    alertsEnabled: input.alertsEnabled !== undefined ? input.alertsEnabled : current.alertsEnabled,
+    alertTemplate: input.alertTemplate !== undefined ? input.alertTemplate : current.alertTemplate,
     token: current.token,
   };
 
@@ -77,6 +84,8 @@ export async function saveWhatsAppSettings(
     instance: input.instance ?? current.instance,
     instanceNumber: input.instanceNumber ?? current.instanceNumber,
     phoneNumberId: input.phoneNumberId ?? current.phoneNumberId,
+    alertsEnabled: input.alertsEnabled !== undefined ? input.alertsEnabled : current.alertsEnabled,
+    alertTemplate: input.alertTemplate !== undefined ? input.alertTemplate : current.alertTemplate,
     token: input.token ? input.token.trim() : current.token,
   };
 
@@ -96,5 +105,7 @@ function storedToValue(current: WhatsAppSettings, patch: WhatsAppSettings): What
     instance: patch.instance ?? current.instance,
     instanceNumber: patch.instanceNumber ?? current.instanceNumber,
     phoneNumberId: patch.phoneNumberId ?? current.phoneNumberId,
+    alertsEnabled: patch.alertsEnabled !== undefined ? patch.alertsEnabled : current.alertsEnabled,
+    alertTemplate: patch.alertTemplate !== undefined ? patch.alertTemplate : current.alertTemplate,
   };
 }

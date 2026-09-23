@@ -7,6 +7,9 @@ interface WhatsAppConfig {
   instance: string;
   instanceNumber: string;
   phoneNumberId: string;
+  alertsEnabled?: boolean;
+  alertTemplate?: string;
+  defaultAlertTemplate?: string;
   hasToken: boolean;
   tokenHint?: string;
 }
@@ -18,6 +21,14 @@ interface WhatsAppStatus {
   error?: string;
   details?: Record<string, unknown>;
 }
+
+const DEFAULT_TEMPLATE_FALLBACK =
+  `{prioridade} ConcluíAI\n` +
+  `Unidade: {unidade}\n` +
+  `Tarefa: {tarefa}\n` +
+  `Prazo: {prazo}\n` +
+  `Status: não executada no prazo.\n` +
+  `Acesse o painel para acompanhar.`;
 
 const PROVIDERS = [
   {
@@ -46,6 +57,15 @@ const PROVIDERS = [
   },
 ];
 
+const TEMPLATE_VARS = [
+  { key: '{unidade}', label: 'Unidade' },
+  { key: '{tarefa}', label: 'Tarefa' },
+  { key: '{prazo}', label: 'Prazo' },
+  { key: '{prioridade}', label: 'Prioridade (🚨/⚠️)' },
+  { key: '{status}', label: 'Status' },
+  { key: '{link_painel}', label: 'Link do Painel' },
+];
+
 export function WhatsAppPage() {
   const [cfg, setCfg] = useState<WhatsAppConfig | null>(null);
   const [status, setStatus] = useState<WhatsAppStatus | null>(null);
@@ -62,6 +82,9 @@ export function WhatsAppPage() {
   const [instanceNumber, setInstanceNumber] = useState('');
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [token, setToken] = useState('');
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
+  const [alertTemplate, setAlertTemplate] = useState(DEFAULT_TEMPLATE_FALLBACK);
+  const [defaultTemplate, setDefaultTemplate] = useState(DEFAULT_TEMPLATE_FALLBACK);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -73,6 +96,9 @@ export function WhatsAppPage() {
       setInstance(data.instance || '');
       setInstanceNumber(data.instanceNumber || '');
       setPhoneNumberId(data.phoneNumberId || '');
+      setAlertsEnabled(data.alertsEnabled !== false);
+      setAlertTemplate(data.alertTemplate || data.defaultAlertTemplate || DEFAULT_TEMPLATE_FALLBACK);
+      setDefaultTemplate(data.defaultAlertTemplate || DEFAULT_TEMPLATE_FALLBACK);
 
       const st = await apiGet<WhatsAppStatus>('/api/settings/whatsapp/status').catch(() => null);
       if (st) setStatus(st);
@@ -97,10 +123,12 @@ export function WhatsAppPage() {
         instance,
         instanceNumber,
         phoneNumberId,
+        alertsEnabled,
+        alertTemplate,
         token: token || undefined,
       });
       setToken('');
-      setMsg({ type: 'ok', text: 'Configurações de mensageria salvas e propagadas em tempo real.' });
+      setMsg({ type: 'ok', text: 'Configurações de mensageria e modelo de alerta salvos com sucesso.' });
       await loadData();
     } catch (e) {
       setMsg({ type: 'err', text: e instanceof Error ? e.message : 'Falha ao salvar configurações.' });
@@ -109,7 +137,31 @@ export function WhatsAppPage() {
     }
   }
 
-  async function handleTestSend() {
+  function renderPreviewText(tmpl: string) {
+    const now = new Date();
+    const formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}/${now.getFullYear()}, ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    return tmpl
+      .replace(/\{prioridade\}/g, '🚨 CRÍTICA')
+      .replace(/\{unidade\}/g, 'Matriz - Centro')
+      .replace(/\{tarefa\}/g, 'Higienização da Câmara Fria')
+      .replace(/\{prazo\}/g, formattedDate)
+      .replace(/\{status\}/g, 'não executada no prazo')
+      .replace(/\{link_painel\}/g, 'https://painel.concluiai.com.br');
+  }
+
+  function handleInsertTag(tag: string) {
+    setAlertTemplate((prev) => (prev ? `${prev} ${tag}` : tag));
+  }
+
+  function handleResetTemplate() {
+    setAlertTemplate(defaultTemplate);
+  }
+
+  async function handleTestSend(customMsg?: string) {
     if (!testPhone.trim()) {
       setTestResult({
         ok: false,
@@ -122,11 +174,14 @@ export function WhatsAppPage() {
     try {
       const res = await apiPost<{ ok: boolean; status?: string; details?: unknown }>(
         '/api/settings/whatsapp/test',
-        { toPhone: testPhone }
+        {
+          toPhone: testPhone,
+          customMessage: customMsg,
+        }
       );
       setTestResult({
         ok: true,
-        message: `Disparo de diagnóstico concluído com sucesso para ${testPhone}.`,
+        message: `Disparo de teste concluído com sucesso para ${testPhone}.`,
         payload: res.details,
       });
     } catch (e) {
@@ -223,6 +278,185 @@ export function WhatsAppPage() {
         </div>
       </div>
 
+      {/* Card de Modalidade de Alertas & Notificações */}
+      <div className="card" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                Alertas de Tarefas Atrasadas para Gerentes
+              </h3>
+              <span className={`badge ${alertsEnabled ? 'badge-completed' : 'badge-info'}`}>
+                {alertsEnabled ? 'ALERTAS ATIVADOS' : 'MODO APENAS PAINEL'}
+              </span>
+            </div>
+            <p style={{ margin: '0.35rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: 650 }}>
+              Quando ativado, o robô monitora as tarefas e notifica os gerentes da unidade quando o prazo for ultrapassado.
+              Desative caso esteja em fase de teste inicial ou não deseje mensagens no WhatsApp da empresa.
+            </p>
+          </div>
+
+          <label className="switch-toggle" style={{ cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={alertsEnabled}
+              onChange={(e) => setAlertsEnabled(e.target.checked)}
+              style={{ display: 'none' }}
+            />
+            <div className={`switch-track ${alertsEnabled ? 'active' : ''}`}>
+              <div className="switch-thumb" />
+            </div>
+          </label>
+        </div>
+
+        {!alertsEnabled && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.85rem 1rem',
+              borderRadius: 8,
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              color: '#38bdf8',
+              fontSize: '0.84rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            <span>ℹ️</span>
+            <div>
+              <strong>Modo de Teste / Somente Painel Ativo:</strong> Nenhuma mensagem será enviada aos gerentes no WhatsApp. As tarefas atrasadas continuarão sendo marcadas como "Em Atraso" normalmente no painel.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Editor do Modelo de Mensagem com Prévia Visual WhatsApp */}
+      <div className="card" style={{ padding: '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+              Modelo da Mensagem de Alerta (Gerente)
+            </h3>
+            <p style={{ margin: '0.2rem 0 0', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              Personalize o texto que os gerentes recebem quando uma tarefa crítica não for executada no prazo.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={handleResetTemplate}
+            title="Restaurar mensagem padrão original"
+          >
+            Restaurar Mensagem Padrão
+          </button>
+        </div>
+
+        <div className="wa-template-layout">
+          {/* Coluna Esquerda: Editor de Texto e Tags */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  marginBottom: '0.4rem',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Variáveis Dinâmicas Disponíveis (Clique para Inserir):
+              </label>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {TEMPLATE_VARS.map((v) => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    className="wa-tag-chip"
+                    onClick={() => handleInsertTag(v.key)}
+                  >
+                    <code>{v.key}</code>
+                    <span>{v.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: 'block',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  marginBottom: '0.35rem',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Corpo do Alerta:
+              </label>
+              <textarea
+                rows={7}
+                value={alertTemplate}
+                onChange={(e) => setAlertTemplate(e.target.value)}
+                placeholder="Escreva o modelo da mensagem..."
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 0.9rem',
+                  background: 'var(--bg-soft)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderRadius: 8,
+                  color: '#ffffff',
+                  fontSize: '0.88rem',
+                  lineHeight: 1.5,
+                  fontFamily: 'inherit',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Coluna Direita: Prévia Visual Estilo WhatsApp */}
+          <div>
+            <label
+              style={{
+                display: 'block',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                marginBottom: '0.4rem',
+                color: 'var(--text-muted)',
+              }}
+            >
+              Prévia em Tempo Real (Visão do Gerente):
+            </label>
+
+            <div className="wa-preview-screen">
+              <div className="wa-preview-header">
+                <div className="wa-preview-avatar">🤖</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#ffffff' }}>ConcluíAI Alertas</div>
+                  <div style={{ fontSize: '0.7rem', color: '#34d399' }}>online</div>
+                </div>
+              </div>
+
+              <div className="wa-preview-chat-body">
+                <div className="wa-chat-bubble">
+                  <div className="wa-chat-text">{renderPreviewText(alertTemplate)}</div>
+                  <div className="wa-chat-footer">
+                    <span>14:02</span>
+                    <span className="wa-check-icon">✓✓</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Seletor Visual de Provedor */}
       <div>
         <label
@@ -236,7 +470,7 @@ export function WhatsAppPage() {
             color: 'var(--text-muted)',
           }}
         >
-          Selecione o Provedor de Mensageria
+          Provedor de Conexão WhatsApp
         </label>
 
         <div className="wa-provider-grid">
@@ -275,10 +509,10 @@ export function WhatsAppPage() {
         {provider === 'mock' ? (
           <div style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.5 }}>
             <p style={{ margin: '0 0 0.5rem' }}>
-              O modo <strong>Mock</strong> não realiza conexões HTTP externas. Ele simula respostas com sucesso para todas
+              O modo <strong>Mock (Simulador)</strong> não realiza conexões HTTP externas. Ele simula respostas com sucesso para todas
               as mensagens enviadas por rotinas ou alertas de supervisores.
             </p>
-            <p style={{ margin: 0 }}>Ideal para validações em ambiente de desenvolvimento ou testes de fluxo.</p>
+            <p style={{ margin: 0 }}>Ideal para testes rápidos, validações em homologação ou demonstrações sem ler QR Code.</p>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -504,7 +738,7 @@ export function WhatsAppPage() {
 
       {/* Terminal de Teste e Diagnóstico em Tempo Real */}
       <div className="wa-console-card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#ffffff' }}>
               Console de Diagnóstico & Disparo Imediato
@@ -513,6 +747,16 @@ export function WhatsAppPage() {
               Envie uma mensagem de teste para validar a entrega no WhatsApp do gerente ou operador.
             </p>
           </div>
+
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => void handleTestSend(renderPreviewText(alertTemplate))}
+            disabled={testing || !testPhone.trim()}
+            title="Envia a mensagem com o modelo de alerta configurado"
+          >
+            Testar com Modelo de Alerta
+          </button>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -540,7 +784,7 @@ export function WhatsAppPage() {
             onClick={() => void handleTestSend()}
             disabled={testing}
           >
-            {testing ? 'Disparando Teste…' : 'Enviar Mensagem de Teste'}
+            {testing ? 'Disparando Teste…' : 'Enviar Mensagem Padrão'}
           </button>
         </div>
 

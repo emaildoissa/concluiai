@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getWhatsAppSettings, saveWhatsAppSettings, type WhatsAppProvider } from '../services/settings.js';
-import { normalizePhoneBR, sendWhatsAppMessage } from '../services/whatsapp.js';
+import { DEFAULT_CRITICAL_ALERT_TEMPLATE, normalizePhoneBR, sendWhatsAppMessage } from '../services/whatsapp.js';
 import { resolveEvolutionConfig } from '../services/evolution.js';
 
 export const settingsRouter = Router();
@@ -16,6 +16,9 @@ settingsRouter.get('/whatsapp', requireAuth, async (_req, res) => {
       instance: s.instance,
       instanceNumber: s.instanceNumber,
       phoneNumberId: s.phoneNumberId ?? '',
+      alertsEnabled: s.alertsEnabled !== false,
+      alertTemplate: s.alertTemplate || DEFAULT_CRITICAL_ALERT_TEMPLATE,
+      defaultAlertTemplate: DEFAULT_CRITICAL_ALERT_TEMPLATE,
       hasToken: Boolean(s.token),
       tokenHint: s.token ? `••••${s.token.slice(-4)}` : '',
     });
@@ -69,12 +72,14 @@ settingsRouter.get('/whatsapp/status', requireAuth, async (_req, res) => {
 /** POST /api/settings/whatsapp/test — envia mensagem de teste */
 settingsRouter.post('/whatsapp/test', requireAuth, requireRole('admin', 'manager'), async (req, res) => {
   try {
-    const { toPhone } = (req.body ?? {}) as { toPhone?: string };
+    const { toPhone, customMessage } = (req.body ?? {}) as { toPhone?: string; customMessage?: string };
     if (!toPhone) {
       return res.status(400).json({ error: 'Informe o telefone de destino para o teste' });
     }
 
-    const testMessage = `🤖 ConcluíAI — Teste de integração WhatsApp realizado com sucesso em ${new Date().toLocaleString('pt-BR')}!`;
+    const testMessage =
+      customMessage?.trim() ||
+      `🤖 ConcluíAI — Teste de integração WhatsApp realizado com sucesso em ${new Date().toLocaleString('pt-BR')}!`;
     const result = await sendWhatsAppMessage({
       toPhone,
       message: testMessage,
@@ -110,6 +115,8 @@ settingsRouter.put('/whatsapp', requireAuth, requireRole('admin', 'manager'), as
       instanceNumber?: string;
       token?: string;
       phoneNumberId?: string;
+      alertsEnabled?: boolean;
+      alertTemplate?: string;
     };
 
     if (body.instanceNumber) {
@@ -126,6 +133,8 @@ settingsRouter.put('/whatsapp', requireAuth, requireRole('admin', 'manager'), as
       instanceNumber: body.instanceNumber,
       token: body.token,
       phoneNumberId: body.phoneNumberId,
+      alertsEnabled: body.alertsEnabled,
+      alertTemplate: body.alertTemplate,
     });
     return res.json({
       ok: true,
@@ -134,6 +143,8 @@ settingsRouter.put('/whatsapp', requireAuth, requireRole('admin', 'manager'), as
       instance: s.instance,
       instanceNumber: s.instanceNumber,
       phoneNumberId: s.phoneNumberId ?? '',
+      alertsEnabled: s.alertsEnabled !== false,
+      alertTemplate: s.alertTemplate || DEFAULT_CRITICAL_ALERT_TEMPLATE,
       hasToken: Boolean(s.token),
     });
   } catch (err) {

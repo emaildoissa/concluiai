@@ -272,20 +272,33 @@ async function sendViaTwilio(
   }
 }
 
-/** Mensagem padrão de tarefa crítica vencida */
-export function buildCriticalAlertMessage(params: {
-  unitName: string;
-  taskTitle: string;
-  dueAt: string;
-  isCritical: boolean;
-}): string {
-  const flag = params.isCritical ? '🚨 CRÍTICA' : '⚠️';
-  return (
-    `${flag} ConcluíAI\n` +
-    `Unidade: ${params.unitName}\n` +
-    `Tarefa: ${params.taskTitle}\n` +
-    `Prazo: ${params.dueAt}\n` +
-    `Status: não executada no prazo.\n` +
-    `Acesse o painel para acompanhar.`
-  );
+export const DEFAULT_CRITICAL_ALERT_TEMPLATE =
+  `{prioridade} ConcluíAI\n` +
+  `Unidade: {unidade}\n` +
+  `Tarefa: {tarefa}\n` +
+  `Prazo: {prazo}\n` +
+  `Status: não executada no prazo.\n` +
+  `Acesse o painel para acompanhar.`;
+
+/** Mensagem de tarefa crítica vencida formatada com template */
+export function buildCriticalAlertMessage(
+  params: {
+    unitName: string;
+    taskTitle: string;
+    dueAt: string;
+    isCritical: boolean;
+    panelUrl?: string;
+  },
+  customTemplate?: string
+): string {
+  const prioridade = params.isCritical ? '🚨 CRÍTICA' : '⚠️';
+  const template = customTemplate?.trim() || DEFAULT_CRITICAL_ALERT_TEMPLATE;
+
+  return template
+    .replace(/\{prioridade\}/g, prioridade)
+    .replace(/\{unidade\}/g, params.unitName || 'Unidade')
+    .replace(/\{tarefa\}/g, params.taskTitle || 'Tarefa')
+    .replace(/\{prazo\}/g, params.dueAt || 'Vencido')
+    .replace(/\{status\}/g, 'não executada no prazo')
+    .replace(/\{link_painel\}/g, params.panelUrl || '');
 }
