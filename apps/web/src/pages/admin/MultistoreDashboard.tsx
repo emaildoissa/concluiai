@@ -820,26 +820,6 @@ export function MultistoreDashboard() {
                   <span>Recalcular pontualidade, execução e qualidade</span>
                 </div>
               </button>
-
-              <button
-                type="button"
-                className="ops-sheet-item"
-                onClick={() => {
-                  setActionsMenuOpen(false);
-                  void loadData();
-                }}
-                disabled={loading}
-              >
-                <div className="ops-sheet-item-icon" style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.15)' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                  </svg>
-                </div>
-                <div className="ops-sheet-item-content">
-                  <strong>Sincronizar Painel</strong>
-                  <span>Atualizar todas as métricas em tempo real</span>
-                </div>
-              </button>
             </div>
           </div>
         </div>
