@@ -678,7 +678,7 @@ export function MultistoreDashboard() {
           </button>
         </div>
 
-        {/* Ações no Mobile (Menu Compacto & Dropdown) */}
+        {/* Ações no Mobile (Trigger) */}
         <div className="ops-actions-mobile">
           <button
             type="button"
@@ -703,111 +703,147 @@ export function MultistoreDashboard() {
             </svg>
           </button>
 
-          <div style={{ position: 'relative' }}>
-            <button
-              type="button"
-              className={`ops-mobile-menu-trigger ${actionsMenuOpen ? 'is-active' : ''}`}
-              onClick={() => setActionsMenuOpen(!actionsMenuOpen)}
-              aria-label="Menu de Ações Rápidas"
+          <button
+            type="button"
+            className={`ops-mobile-menu-trigger ${actionsMenuOpen ? 'is-active' : ''}`}
+            onClick={() => setActionsMenuOpen(!actionsMenuOpen)}
+            aria-label="Menu de Ações Rápidas"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>Ações</span>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transform: actionsMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              <span>Ações</span>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ transform: actionsMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-
-            {actionsMenuOpen && (
-              <>
-                <div className="ops-mobile-dropdown-backdrop" onClick={() => setActionsMenuOpen(false)} />
-                <div className="ops-mobile-dropdown-menu">
-                  <div className="ops-mobile-dropdown-header">
-                    <span>Ações Operacionais</span>
-                    <button type="button" className="ops-mobile-close-btn" onClick={() => setActionsMenuOpen(false)}>✕</button>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="ops-mobile-menu-item"
-                    onClick={() => {
-                      setActionsMenuOpen(false);
-                      void generateTodayTasks();
-                    }}
-                    disabled={busy !== null}
-                  >
-                    <div className="ops-menu-item-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                        <line x1="12" y1="18" x2="12" y2="12" />
-                        <line x1="9" y1="15" x2="15" y2="15" />
-                      </svg>
-                    </div>
-                    <div className="ops-menu-item-text">
-                      <strong>Gerar Rotinas do Dia</strong>
-                      <span>Criar checklists e rotinas para todas as lojas</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="ops-mobile-menu-item"
-                    onClick={() => {
-                      setActionsMenuOpen(false);
-                      void runAlerts();
-                    }}
-                    disabled={busy !== null}
-                  >
-                    <div className="ops-menu-item-icon" style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e' }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                      </svg>
-                    </div>
-                    <div className="ops-menu-item-text">
-                      <strong>Cobrar Atrasos no WhatsApp</strong>
-                      <span>Disparar alertas para tarefas em atraso</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="ops-mobile-menu-item"
-                    onClick={() => {
-                      setActionsMenuOpen(false);
-                      void recalcScore();
-                    }}
-                    disabled={busy !== null}
-                  >
-                    <div className="ops-menu-item-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        <path d="M9 12l2 2 4-4" />
-                      </svg>
-                    </div>
-                    <div className="ops-menu-item-text">
-                      <strong>Auditar Índices P·E·Q</strong>
-                      <span>Recalcular pontualidade, execução e qualidade</span>
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
         </div>
       </div>
+
+      {/* Modal Action Sheet para Mobile (Fixo na Raiz - 100% Opaco e Visível) */}
+      {actionsMenuOpen && (
+        <div className="ops-sheet-portal">
+          <div className="ops-sheet-backdrop" onClick={() => setActionsMenuOpen(false)} />
+          <div className="ops-sheet-container">
+            <div className="ops-sheet-handle" />
+            <div className="ops-sheet-header">
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#ffffff' }}>
+                  Ações Operacionais
+                </h3>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                  Comandos de rede e sincronização em tempo real
+                </p>
+              </div>
+              <button
+                type="button"
+                className="ops-sheet-close"
+                onClick={() => setActionsMenuOpen(false)}
+                aria-label="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="ops-sheet-body">
+              <button
+                type="button"
+                className="ops-sheet-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  void generateTodayTasks();
+                }}
+                disabled={busy !== null}
+              >
+                <div className="ops-sheet-item-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="12" y1="18" x2="12" y2="12" />
+                    <line x1="9" y1="15" x2="15" y2="15" />
+                  </svg>
+                </div>
+                <div className="ops-sheet-item-content">
+                  <strong>Gerar Rotinas do Dia</strong>
+                  <span>Criar checklists operacionais para todas as unidades</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="ops-sheet-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  void runAlerts();
+                }}
+                disabled={busy !== null}
+              >
+                <div className="ops-sheet-item-icon" style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', borderColor: 'rgba(244, 63, 94, 0.3)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                  </svg>
+                </div>
+                <div className="ops-sheet-item-content">
+                  <strong>Cobrar Atrasos no WhatsApp</strong>
+                  <span>Disparar alertas para pendências e tarefas vencidas</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="ops-sheet-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  void recalcScore();
+                }}
+                disabled={busy !== null}
+              >
+                <div className="ops-sheet-item-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                </div>
+                <div className="ops-sheet-item-content">
+                  <strong>Auditar Índices P·E·Q</strong>
+                  <span>Recalcular pontualidade, execução e qualidade</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                className="ops-sheet-item"
+                onClick={() => {
+                  setActionsMenuOpen(false);
+                  void loadData();
+                }}
+                disabled={loading}
+              >
+                <div className="ops-sheet-item-icon" style={{ background: 'rgba(255, 255, 255, 0.08)', color: '#ffffff', borderColor: 'rgba(255, 255, 255, 0.15)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                  </svg>
+                </div>
+                <div className="ops-sheet-item-content">
+                  <strong>Sincronizar Painel</strong>
+                  <span>Atualizar todas as métricas em tempo real</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notificação / Feedback de Ação */}
       {msg && (
