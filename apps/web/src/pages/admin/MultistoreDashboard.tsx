@@ -237,6 +237,7 @@ export function MultistoreDashboard() {
   const [notifyingTaskId, setNotifyingTaskId] = useState<string | null>(null);
   const [notifiedFeedback, setNotifiedFeedback] = useState<Record<string, 'sent' | 'opened'>>({});
   const [lastSync, setLastSync] = useState<Date>(new Date());
+  const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
 
   // Aba Tática Ativa
   const [activeTab, setActiveTab] = useState<'tasks' | 'evidences' | 'units'>('tasks');
@@ -602,7 +603,8 @@ export function MultistoreDashboard() {
           </p>
         </div>
 
-        <div className="ops-telemetry-actions">
+        {/* Ações no Desktop */}
+        <div className="ops-telemetry-actions ops-actions-desktop">
           <button
             type="button"
             className="ops-btn-action"
@@ -615,7 +617,7 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Gerar tarefas operacionais do dia para todas as unidades ativas"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
               <line x1="12" y1="18" x2="12" y2="12" />
@@ -631,7 +633,7 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Disparar lembretes via WhatsApp para tarefas críticas atrasadas"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
@@ -645,8 +647,9 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Recalcular métricas de Pontualidade, Execução e Qualidade"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M9 12l2 2 4-4" />
             </svg>
             {busy === 'score' ? 'Auditando...' : 'Auditar Índices P·E·Q'}
           </button>
@@ -656,6 +659,7 @@ export function MultistoreDashboard() {
             className="ops-btn-action ops-btn-refresh"
             onClick={() => void loadData()}
             disabled={loading}
+            title="Sincronizar e recarregar dados do painel"
           >
             <svg
               width="14"
@@ -663,14 +667,145 @@ export function MultistoreDashboard() {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2.5"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
             >
-              <polyline points="23 4 23 10 17 10" />
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
             Atualizar
           </button>
+        </div>
+
+        {/* Ações no Mobile (Menu Compacto & Dropdown) */}
+        <div className="ops-actions-mobile">
+          <button
+            type="button"
+            className="ops-mobile-icon-btn"
+            onClick={() => void loadData()}
+            disabled={loading}
+            title="Atualizar dados"
+            aria-label="Atualizar dados"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+          </button>
+
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              className={`ops-mobile-menu-trigger ${actionsMenuOpen ? 'is-active' : ''}`}
+              onClick={() => setActionsMenuOpen(!actionsMenuOpen)}
+              aria-label="Menu de Ações Rápidas"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+              <span>Ações</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ transform: actionsMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {actionsMenuOpen && (
+              <>
+                <div className="ops-mobile-dropdown-backdrop" onClick={() => setActionsMenuOpen(false)} />
+                <div className="ops-mobile-dropdown-menu">
+                  <div className="ops-mobile-dropdown-header">
+                    <span>Ações Operacionais</span>
+                    <button type="button" className="ops-mobile-close-btn" onClick={() => setActionsMenuOpen(false)}>✕</button>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="ops-mobile-menu-item"
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      void generateTodayTasks();
+                    }}
+                    disabled={busy !== null}
+                  >
+                    <div className="ops-menu-item-icon" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="12" y1="18" x2="12" y2="12" />
+                        <line x1="9" y1="15" x2="15" y2="15" />
+                      </svg>
+                    </div>
+                    <div className="ops-menu-item-text">
+                      <strong>Gerar Rotinas do Dia</strong>
+                      <span>Criar checklists e rotinas para todas as lojas</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ops-mobile-menu-item"
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      void runAlerts();
+                    }}
+                    disabled={busy !== null}
+                  >
+                    <div className="ops-menu-item-icon" style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                      </svg>
+                    </div>
+                    <div className="ops-menu-item-text">
+                      <strong>Cobrar Atrasos no WhatsApp</strong>
+                      <span>Disparar alertas para tarefas em atraso</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="ops-mobile-menu-item"
+                    onClick={() => {
+                      setActionsMenuOpen(false);
+                      void recalcScore();
+                    }}
+                    disabled={busy !== null}
+                  >
+                    <div className="ops-menu-item-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        <path d="M9 12l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <div className="ops-menu-item-text">
+                      <strong>Auditar Índices P·E·Q</strong>
+                      <span>Recalcular pontualidade, execução e qualidade</span>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
