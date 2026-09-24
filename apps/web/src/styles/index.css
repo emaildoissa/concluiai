@@ -2943,83 +2943,70 @@ table.data tr:hover td {
   box-shadow: 0 0 16px rgba(56, 189, 248, 0.4);
 }
 
-/* Mobile Action Sheet Portal (100% Sólido & Alto Contraste) */
-.ops-sheet-portal {
+/* Floating Popover Dropdown (Posicionado Logo Abaixo do Botão) */
+.ops-popover-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 99999;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9998;
 }
 
-.ops-sheet-backdrop {
+.ops-popover-dropdown {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  animation: sheetFadeIn 0.2s ease-out;
-}
-
-.ops-sheet-container {
-  position: relative;
-  width: 100%;
-  max-width: 520px;
-  margin: 0 auto;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 310px;
+  max-width: calc(100vw - 32px);
   background: #111a2e;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-bottom: none;
-  border-radius: 22px 22px 0 0;
-  padding: 1.15rem 1.25rem 2rem;
-  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.9);
-  z-index: 100000;
-  animation: sheetSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 16px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.85);
+  padding: 0.75rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
   box-sizing: border-box;
 }
 
-@keyframes sheetFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-@keyframes sheetSlideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.ops-sheet-handle {
-  width: 44px;
-  height: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
-  margin: 0 auto 1rem;
-}
-
-.ops-sheet-header {
+.ops-popover-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.15rem;
-  padding-bottom: 0.75rem;
+  padding: 0.3rem 0.45rem 0.55rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
 
-.ops-sheet-close {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
+.ops-popover-close {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #cbd5e1;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3027,22 +3014,22 @@ table.data tr:hover td {
   transition: all 0.15s ease;
 }
 
-.ops-sheet-close:active {
+.ops-popover-close:active {
   background: rgba(255, 255, 255, 0.2);
   transform: scale(0.92);
 }
 
-.ops-sheet-body {
+.ops-popover-body {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.45rem;
 }
 
-.ops-sheet-item {
+.ops-popover-item {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.85rem 1rem;
+  gap: 0.75rem;
+  padding: 0.65rem 0.8rem;
   border-radius: 12px;
   background: #18243b;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -3053,22 +3040,22 @@ table.data tr:hover td {
   box-sizing: border-box;
 }
 
-.ops-sheet-item:hover,
-.ops-sheet-item:active {
+.ops-popover-item:hover,
+.ops-popover-item:active {
   background: #20304f;
   border-color: rgba(56, 189, 248, 0.4);
   transform: translateY(-1px);
 }
 
-.ops-sheet-item:disabled {
+.ops-popover-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.ops-sheet-item-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+.ops-popover-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   border: 1px solid transparent;
   display: flex;
   align-items: center;
@@ -3076,22 +3063,22 @@ table.data tr:hover td {
   flex-shrink: 0;
 }
 
-.ops-sheet-item-content {
+.ops-popover-item-content {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.12rem;
 }
 
-.ops-sheet-item-content strong {
-  font-size: 0.92rem;
+.ops-popover-item-content strong {
+  font-size: 0.86rem;
   color: #ffffff;
   font-weight: 700;
 }
 
-.ops-sheet-item-content span {
-  font-size: 0.76rem;
+.ops-popover-item-content span {
+  font-size: 0.72rem;
   color: #94a3b8;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 /* Executive Mission KPIs */
