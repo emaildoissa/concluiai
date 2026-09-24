@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { getTodayBR } from '@concluiai/shared';
 import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
+import { buildWhatsAppReminderMessage, openDirectWhatsApp } from '../../lib/whatsapp';
 
 interface TaskAlert {
   alertedAt: string;
@@ -67,6 +68,7 @@ export function PendingTasks() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [notifyingId, setNotifyingId] = useState<string | null>(null);
+  const [notifiedFeedback, setNotifiedFeedback] = useState<Record<string, 'sent' | 'opened'>>({});
   const [bulkAlerting, setBulkAlerting] = useState(false);
 
   // Filtros rápidos
@@ -154,26 +156,53 @@ export function PendingTasks() {
     return { total, late, criticalLate, alerted, pending, rejected };
   }, [tasks]);
 
-  // Cobrança individual
+  // Cobrança individual inteligente
   async function notifyOperator(task: AuditTask) {
-    const targetLabel = task.operator?.phone
-      ? `${task.operator.fullName} (${task.operator.phone})`
-      : `${task.operator?.fullName || 'o operador'}`;
-
-    if (!confirm(`Disparar lembrete via WhatsApp para ${targetLabel}?`)) {
+    const phone = task.operator?.phone;
+    if (!phone) {
+      setMsg({
+        type: 'err',
+        text: `O operador ${task.operator?.fullName || ''} não possui telefone cadastrado.`,
+      });
       return;
     }
+
     setNotifyingId(task.id);
     setMsg(null);
+
+    const reminderMsg = buildWhatsAppReminderMessage({
+      unitName: task.unit?.name,
+      taskTitle: task.item?.title,
+      dueAt: task.dueDate,
+      operatorName: task.operator?.fullName,
+    });
+
     try {
-      await apiPost<{ ok: boolean }>(`/api/tasks/${task.id}/notify`, {});
+      const res = await apiPost<{ ok: boolean; notified?: string }>(`/api/tasks/${task.id}/notify`, {});
+      if (res.ok && res.notified === 'sent') {
+        setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'sent' }));
+        setMsg({
+          type: 'ok',
+          text: `Lembrete disparado via robô para ${task.operator?.fullName || 'o operador'}.`,
+        });
+        await loadData();
+        return;
+      }
+      // Se não for disparo real do robô (mock, offline ou sem gateway), abre o WhatsApp Web diretamente
+      openDirectWhatsApp(phone, reminderMsg);
+      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
       setMsg({
         type: 'ok',
-        text: `Lembrete enviado com sucesso para ${task.operator?.fullName || 'o operador'} via WhatsApp.`,
+        text: `WhatsApp aberto diretamente para cobrar ${task.operator?.fullName || 'o operador'}.`,
       });
-      await loadData();
-    } catch (e) {
-      setMsg({ type: 'err', text: e instanceof Error ? e.message : 'Falha ao enviar lembrete.' });
+    } catch {
+      // Se a chamada de API falhar (ex: Evolution desligada/sem QR Code), abre WhatsApp direto
+      openDirectWhatsApp(phone, reminderMsg);
+      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
+      setMsg({
+        type: 'ok',
+        text: `WhatsApp aberto com cobrança pré-formatada para ${task.operator?.fullName || 'o operador'}.`,
+      });
     } finally {
       setNotifyingId(null);
     }
@@ -474,7 +503,13 @@ export function PendingTasks() {
                     {t.status !== 'completed' && (
                       <button
                         type="button"
-                        className="btn btn-sm btn-primary"
+                        className="btn btn-sm"
+                        style={{
+                          background: notifiedFeedback[t.id] ? 'rgba(16, 185, 129, 0.25)' : 'var(--primary)',
+                          borderColor: notifiedFeedback[t.id] ? '#10b981' : 'var(--primary)',
+                          color: '#ffffff',
+                          transition: 'all 0.2s ease',
+                        }}
                         onClick={() => void notifyOperator(t)}
                         disabled={notifyingId === t.id || !t.operator?.phone}
                         title={
@@ -486,7 +521,13 @@ export function PendingTasks() {
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                         </svg>
-                        {notifyingId === t.id ? 'Enviando...' : 'Cobrar Operador'}
+                        {notifyingId === t.id
+                          ? 'Processando...'
+                          : notifiedFeedback[t.id] === 'sent'
+                          ? '✓ Enviado!'
+                          : notifiedFeedback[t.id] === 'opened'
+                          ? '✓ WhatsApp Aberto'
+                          : 'Cobrar Operador'}
                       </button>
                     )}
                   </div>
@@ -524,9 +565,12 @@ export function PendingTasks() {
 
                   <div className="incident-meta-item">
                     <span className="incident-meta-label">Telemetria de Alerta</span>
-                    <span className="incident-meta-val" style={{ color: t.alert ? '#34d399' : '#94a3b8' }}>
+                    <span
+                      className="incident-meta-val"
+                      style={{ color: t.alert ? (t.alert.status === 'mock' ? '#38bdf8' : '#34d399') : '#94a3b8' }}
+                    >
                       {t.alert
-                        ? `Notificado às ${new Date(t.alert.alertedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+                        ? `${t.alert.status === 'mock' ? 'Simulado' : 'Notificado'} às ${new Date(t.alert.alertedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
                         : 'Nenhum alerta disparado'}
                     </span>
                   </div>

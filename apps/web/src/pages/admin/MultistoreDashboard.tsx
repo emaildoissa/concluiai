@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
 import { useAuth } from '../../lib/auth';
+import { buildWhatsAppReminderMessage, openDirectWhatsApp } from '../../lib/whatsapp';
 
 interface UnitRow {
   unit_id: string;
@@ -234,6 +235,7 @@ export function MultistoreDashboard() {
   const [msg, setMsg] = useState<{ text: string; type: 'info' | 'success' | 'warn' } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notifyingTaskId, setNotifyingTaskId] = useState<string | null>(null);
+  const [notifiedFeedback, setNotifiedFeedback] = useState<Record<string, 'sent' | 'opened'>>({});
   const [lastSync, setLastSync] = useState<Date>(new Date());
 
   // Aba Tática Ativa
@@ -484,20 +486,51 @@ export function MultistoreDashboard() {
     }
   }
 
-  async function handleNotifyOperator(taskId: string) {
-    setNotifyingTaskId(taskId);
-    setMsg(null);
-    try {
-      await apiPost<{ ok: boolean; notified?: string }>(`/api/tasks/${taskId}/notify`, {});
-      setMsg({
-        type: 'success',
-        text: 'Lembrete de pendência enviado via WhatsApp para o operador responsável.',
-      });
-      await loadData();
-    } catch (e) {
+  async function handleNotifyOperator(task: OperationalTask) {
+    const phone = task.operator?.phone;
+    if (!phone) {
       setMsg({
         type: 'warn',
-        text: e instanceof Error ? e.message : 'Falha ao enviar lembrete via WhatsApp.',
+        text: `O operador ${task.operator?.fullName || ''} não possui telefone cadastrado para cobrança.`,
+      });
+      return;
+    }
+
+    setNotifyingTaskId(task.id);
+    setMsg(null);
+
+    const reminderMsg = buildWhatsAppReminderMessage({
+      unitName: task.unit?.name,
+      taskTitle: task.item?.title,
+      dueAt: task.dueDate,
+      operatorName: task.operator?.fullName,
+    });
+
+    try {
+      const r = await apiPost<{ ok: boolean; notified?: string }>(`/api/tasks/${task.id}/notify`, {});
+      if (r.ok && r.notified === 'sent') {
+        setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'sent' }));
+        setMsg({
+          type: 'success',
+          text: `Lembrete disparado via robô para ${task.operator?.fullName || 'operador'}.`,
+        });
+        await loadData();
+        return;
+      }
+      // Se não for disparo real do robô (mock, offline ou sem gateway), abre o WhatsApp Web diretamente
+      openDirectWhatsApp(phone, reminderMsg);
+      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
+      setMsg({
+        type: 'info',
+        text: `WhatsApp aberto diretamente para cobrar ${task.operator?.fullName || 'o operador'}.`,
+      });
+    } catch {
+      // Se a chamada de API falhar (ex: Evolution desligada/sem QR Code), abre WhatsApp direto
+      openDirectWhatsApp(phone, reminderMsg);
+      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
+      setMsg({
+        type: 'info',
+        text: `WhatsApp aberto com cobrança pré-formatada para ${task.operator?.fullName || 'o operador'}.`,
       });
     } finally {
       setNotifyingTaskId(null);
@@ -952,17 +985,31 @@ export function MultistoreDashboard() {
                               style={{
                                 padding: '4px 10px',
                                 fontSize: '0.75rem',
-                                background: 'rgba(34, 197, 94, 0.15)',
-                                borderColor: 'rgba(34, 197, 94, 0.35)',
-                                color: '#4ade80',
+                                background: notifiedFeedback[t.id]
+                                  ? 'rgba(16, 185, 129, 0.25)'
+                                  : 'rgba(34, 197, 94, 0.15)',
+                                borderColor: notifiedFeedback[t.id] ? '#10b981' : 'rgba(34, 197, 94, 0.35)',
+                                color: notifiedFeedback[t.id] ? '#34d399' : '#4ade80',
+                                transition: 'all 0.2s ease',
                               }}
-                              onClick={() => void handleNotifyOperator(t.id)}
+                              onClick={() => void handleNotifyOperator(t)}
                               disabled={notifyingTaskId === t.id}
+                              title={
+                                t.operator?.phone
+                                  ? `Cobrar ${t.operator.fullName} no WhatsApp`
+                                  : 'Operador sem telefone cadastrado'
+                              }
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                               </svg>
-                              {notifyingTaskId === t.id ? 'Enviando...' : 'Cobrar WhatsApp'}
+                              {notifyingTaskId === t.id
+                                ? 'Processando...'
+                                : notifiedFeedback[t.id] === 'sent'
+                                ? '✓ Enviado!'
+                                : notifiedFeedback[t.id] === 'opened'
+                                ? '✓ WhatsApp Aberto'
+                                : 'Cobrar WhatsApp'}
                             </button>
                           )}
                         </div>
@@ -1001,9 +1048,13 @@ export function MultistoreDashboard() {
 
                         {t.alert && (
                           <div className="incident-meta-item">
-                            <span className="incident-meta-label">Cobrança Automática</span>
-                            <span className="incident-meta-val" style={{ color: '#38bdf8' }}>
-                              Enviada às {new Date(t.alert.alertedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            <span className="incident-meta-label">Cobrança Registrada</span>
+                            <span
+                              className="incident-meta-val"
+                              style={{ color: t.alert.status === 'mock' ? '#38bdf8' : '#34d399' }}
+                            >
+                              {t.alert.status === 'mock' ? 'Simulada' : 'Enviada'} às{' '}
+                              {new Date(t.alert.alertedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         )}
