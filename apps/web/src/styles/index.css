@@ -5217,6 +5217,10 @@ table.data tr:hover td {
     font-size: 0.72rem;
     padding: 5px 9px;
   }
+
+  .incident-hint {
+    display: none;
+  }
 }
 
 .incident-list {

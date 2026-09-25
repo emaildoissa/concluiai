@@ -1169,34 +1169,27 @@ export function MultistoreDashboard() {
             ABA 2: FEED DE AUDITORIA VISUAL GEMINI IA (EVIDENCES)
            ========================================================================= */}
         {activeTab === 'evidences' && (
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
-              <div className="ops-tabs-pill">
+          <div className="incident-wrap">
+            <div className="incident-toolbar" style={{ margin: 0, padding: '0.65rem 0.85rem' }}>
+              <div className="incident-chips">
                 <button
                   type="button"
-                  className={`ops-tab-btn ${evidenceFilter === 'all' ? 'is-active' : ''}`}
+                  className={`incident-chip ${evidenceFilter === 'all' ? 'is-active' : ''}`}
                   onClick={() => setEvidenceFilter('all')}
                 >
                   Todas as Fotos ({evidences.length})
                 </button>
                 <button
                   type="button"
-                  className={`ops-tab-btn ${evidenceFilter === 'attention' ? 'is-active' : ''}`}
+                  className={`incident-chip ${evidenceFilter === 'attention' ? 'is-active' : ''}`}
                   onClick={() => setEvidenceFilter('attention')}
                 >
                   Exigem Atenção / Recusadas
                 </button>
               </div>
 
-              <span className="muted" style={{ fontSize: '0.78rem' }}>
-                Clique na foto para ampliar e auditar os detalhes
+              <span className="muted incident-hint" style={{ fontSize: '0.78rem' }}>
+                Clique na foto para ampliar
               </span>
             </div>
 
@@ -1314,41 +1307,34 @@ export function MultistoreDashboard() {
             ABA 3: DESEMPENHO POR UNIDADE / LOJA (UNITS)
            ========================================================================= */}
         {activeTab === 'units' && (
-          <div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
-              <div className="ops-tabs-pill">
+          <div className="incident-wrap">
+            <div className="incident-toolbar" style={{ margin: 0, padding: '0.65rem 0.85rem' }}>
+              <div className="incident-chips">
                 <button
                   type="button"
-                  className={`ops-tab-btn ${unitFilter === 'all' ? 'is-active' : ''}`}
+                  className={`incident-chip ${unitFilter === 'all' ? 'is-active' : ''}`}
                   onClick={() => setUnitFilter('all')}
                 >
                   Todas ({units.length})
                 </button>
                 <button
                   type="button"
-                  className={`ops-tab-btn ${unitFilter === 'risk' ? 'is-active' : ''}`}
+                  className={`incident-chip ${unitFilter === 'risk' ? 'is-active' : ''}`}
                   onClick={() => setUnitFilter('risk')}
                 >
                   Em Risco ({unitsInRisk.length})
                 </button>
                 <button
                   type="button"
-                  className={`ops-tab-btn ${unitFilter === 'healthy' ? 'is-active' : ''}`}
+                  className={`incident-chip ${unitFilter === 'healthy' ? 'is-active' : ''}`}
                   onClick={() => setUnitFilter('healthy')}
                 >
                   Conforme (85%+)
                 </button>
               </div>
 
-              <span className="muted" style={{ fontSize: '0.78rem' }}>
-                Clique em uma unidade para filtrar suas tarefas
+              <span className="muted incident-hint" style={{ fontSize: '0.78rem' }}>
+                Clique na unidade para filtrar tarefas
               </span>
             </div>
 
