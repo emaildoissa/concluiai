@@ -53,7 +53,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     new Set((recentAlerts || []).map((a) => a.task_instance_id).filter((id): id is string => Boolean(id)))
   );
 
-  // 4. Consulta tarefas vencidas que sejam CRÍTICAS e AINDA NÃO ALERTADAS
+  // 4. Consulta tarefas vencidas que sejam CRÍTICAS
   let query = sb
     .from('task_instances')
     .select(
@@ -69,11 +69,7 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     .order('due_at', { ascending: false })
     .limit(100);
 
-  if (alertedTaskIds.length > 0) {
-    query = query.not('id', 'in', `(${alertedTaskIds.join(',')})`);
-  }
-
-  const { data: tasks, error } = await query;
+  const { data: allOverdueTasks, error } = await query;
 
   if (error) {
     console.error('[alerts] query error', error);
@@ -84,7 +80,16 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
   let skipped = 0;
   let invalid = 0;
 
-  for (const task of tasks || []) {
+  // Filtra as que já foram alertadas vs as pendentes de novo alerta
+  const tasksToProcess = (allOverdueTasks || []).filter((task) => {
+    if (alertedTaskIds.includes(task.id)) {
+      skipped += 1;
+      return false;
+    }
+    return true;
+  });
+
+  for (const task of tasksToProcess) {
     const item = Array.isArray(task.checklist_item)
       ? task.checklist_item[0]
       : task.checklist_item;
@@ -158,9 +163,9 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
     if (taskSent > 0) alerted += 1;
   }
 
-  if (alerted > 0 || invalid > 0) {
+  if (alerted > 0 || invalid > 0 || skipped > 0) {
     console.log(
-      `[alerts] Processadas ${tasks?.length || 0} tarefas pendentes de alerta: ${alerted} disparadas com sucesso, ${invalid} com falha/sem destinatário`
+      `[alerts] Processadas ${allOverdueTasks?.length || 0} tarefas críticas em atraso: ${alerted} disparadas, ${skipped} já alertadas (anti-spam), ${invalid} sem destinatário`
     );
   }
 

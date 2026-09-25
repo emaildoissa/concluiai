@@ -429,13 +429,27 @@ export function MultistoreDashboard() {
     setBusy('alerts');
     try {
       const r = await apiPost<{ alerted: number; skipped: number; invalid: number }>('/api/tasks/run-alerts', {});
-      const parts = [`${r.alerted} alertas WhatsApp disparados`];
-      if (r.skipped > 0) parts.push(`${r.skipped} já alertados`);
-      if (r.invalid > 0) parts.push(`${r.invalid} sem telefone válido`);
-      setMsg({
-        text: r.alerted || r.skipped || r.invalid ? parts.join(' · ') : 'Nenhuma tarefa crítica pendente de alerta.',
-        type: r.alerted > 0 ? 'success' : 'info',
-      });
+      if (r.alerted > 0) {
+        const parts = [`${r.alerted} alerta(s) WhatsApp disparado(s)`];
+        if (r.skipped > 0) parts.push(`${r.skipped} já alertado(s) hoje`);
+        if (r.invalid > 0) parts.push(`${r.invalid} sem telefone`);
+        setMsg({ text: parts.join(' · '), type: 'success' });
+      } else if (r.skipped > 0) {
+        setMsg({
+          text: `${r.skipped} tarefa(s) crítica(s) em atraso já foram alertadas hoje (proteção anti-spam). Para cobrar novamente agora, use o botão "Cobrar WhatsApp" direto no card da tarefa.`,
+          type: 'info',
+        });
+      } else if (r.invalid > 0) {
+        setMsg({
+          text: `Encontradas tarefas em atraso, porém ${r.invalid} gerente(s)/unidade(s) estão sem telefone de WhatsApp cadastrado.`,
+          type: 'warn',
+        });
+      } else {
+        setMsg({
+          text: 'Nenhuma tarefa crítica em atraso pendente de alerta.',
+          type: 'info',
+        });
+      }
       await loadData();
     } catch (e) {
       setMsg({
