@@ -881,52 +881,43 @@ export function MultistoreDashboard() {
       </div>
 
       {/* Segmented Workspace Central (3 Abas Táticas) */}
-      <div className="card" style={{ padding: '1.25rem' }}>
+      <div className="card ops-card-workspace">
         {/* Navegação por Abas Principais */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            marginBottom: '1.25rem',
-            paddingBottom: '1rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
+        <div className="ops-workspace-nav">
           <div className="incident-tabs">
             <button
               type="button"
               className={`incident-tab-btn ${activeTab === 'tasks' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('tasks')}
             >
-              Fila de Tarefas & Cobrança ({taskCounts.total})
+              <span className="tab-label-desktop">Fila de Tarefas & Cobrança ({taskCounts.total})</span>
+              <span className="tab-label-mobile">Tarefas ({taskCounts.total})</span>
             </button>
             <button
               type="button"
               className={`incident-tab-btn ${activeTab === 'evidences' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('evidences')}
             >
-              Auditoria Visual Gemini IA ({evidences.length})
+              <span className="tab-label-desktop">Auditoria Visual Gemini IA ({evidences.length})</span>
+              <span className="tab-label-mobile">Fotos IA ({evidences.length})</span>
             </button>
             <button
               type="button"
               className={`incident-tab-btn ${activeTab === 'units' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('units')}
             >
-              Desempenho por Loja ({units.length})
+              <span className="tab-label-desktop">Desempenho por Loja ({units.length})</span>
+              <span className="tab-label-mobile">Lojas ({units.length})</span>
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div className="ops-search-wrap">
             <input
               type="text"
               className="ops-search-input"
               placeholder="Buscar tarefa, operador ou loja..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: 260 }}
             />
           </div>
         </div>

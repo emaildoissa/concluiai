@@ -5017,6 +5017,35 @@ table.data tr:hover td {
   gap: 1.35rem;
 }
 
+.ops-card-workspace {
+  padding: 1.25rem;
+}
+
+.ops-workspace-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin-bottom: 1.15rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ops-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tab-label-mobile {
+  display: none;
+}
+
+.tab-label-desktop {
+  display: inline;
+}
+
 .incident-toolbar {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -5118,6 +5147,76 @@ table.data tr:hover td {
   background: rgba(99, 102, 241, 0.2);
   border-color: rgba(99, 102, 241, 0.5);
   color: #818cf8;
+}
+
+/* Responsividade Mobile para Workspace e Filtros */
+@media (max-width: 768px) {
+  .ops-card-workspace {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .tab-label-desktop {
+    display: none;
+  }
+
+  .tab-label-mobile {
+    display: inline;
+  }
+
+  .ops-workspace-nav {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .incident-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    box-sizing: border-box;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .incident-tab-btn {
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 0.76rem;
+    white-space: nowrap;
+    justify-content: center;
+    display: flex;
+    align-items: center;
+  }
+
+  .ops-search-wrap {
+    width: 100%;
+  }
+
+  .ops-search-input {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .incident-toolbar {
+    padding: 0.6rem 0.65rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .incident-chips {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 6px;
+    padding: 2px 2px 4px;
+  }
+
+  .incident-chip {
+    font-size: 0.72rem;
+    padding: 5px 9px;
+  }
 }
 
 .incident-list {
