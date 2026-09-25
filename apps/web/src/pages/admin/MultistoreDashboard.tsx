@@ -424,43 +424,6 @@ export function MultistoreDashboard() {
   }, [units, unitFilter, searchQuery]);
 
   // Ações de Automação
-  async function runAlerts() {
-    setMsg(null);
-    setBusy('alerts');
-    try {
-      const r = await apiPost<{ alerted: number; skipped: number; invalid: number }>('/api/tasks/run-alerts', {});
-      if (r.alerted > 0) {
-        const parts = [`${r.alerted} alerta(s) WhatsApp disparado(s)`];
-        if (r.skipped > 0) parts.push(`${r.skipped} já alertado(s) hoje`);
-        if (r.invalid > 0) parts.push(`${r.invalid} sem telefone`);
-        setMsg({ text: parts.join(' · '), type: 'success' });
-      } else if (r.skipped > 0) {
-        setMsg({
-          text: `${r.skipped} tarefa(s) crítica(s) em atraso já foram alertadas hoje (proteção anti-spam). Para cobrar novamente agora, use o botão "Cobrar WhatsApp" direto no card da tarefa.`,
-          type: 'info',
-        });
-      } else if (r.invalid > 0) {
-        setMsg({
-          text: `Encontradas tarefas em atraso, porém ${r.invalid} gerente(s)/unidade(s) estão sem telefone de WhatsApp cadastrado.`,
-          type: 'warn',
-        });
-      } else {
-        setMsg({
-          text: 'Nenhuma tarefa crítica em atraso pendente de alerta.',
-          type: 'info',
-        });
-      }
-      await loadData();
-    } catch (e) {
-      setMsg({
-        text: e instanceof Error ? e.message : 'Erro ao processar alertas',
-        type: 'warn',
-      });
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function generateTodayTasks() {
     setMsg(null);
     setBusy('generate');
@@ -641,20 +604,6 @@ export function MultistoreDashboard() {
 
           <button
             type="button"
-            className="ops-btn-action ops-btn-alerts"
-            onClick={() => void runAlerts()}
-            disabled={busy !== null}
-            title="Disparar lembretes via WhatsApp para tarefas críticas atrasadas"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-            </svg>
-            {busy === 'alerts' ? 'Disparando...' : 'Cobrar Atrasos no WhatsApp'}
-          </button>
-
-          <button
-            type="button"
             className="ops-btn-action ops-btn-score"
             onClick={() => void recalcScore()}
             disabled={busy !== null}
@@ -789,27 +738,6 @@ export function MultistoreDashboard() {
                 <div className="ops-sheet-item-content">
                   <strong>Gerar Rotinas do Dia</strong>
                   <span>Criar checklists operacionais para todas as unidades</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="ops-sheet-item"
-                onClick={() => {
-                  setActionsMenuOpen(false);
-                  void runAlerts();
-                }}
-                disabled={busy !== null}
-              >
-                <div className="ops-sheet-item-icon" style={{ background: 'rgba(244, 63, 94, 0.15)', color: '#f43f5e', borderColor: 'rgba(244, 63, 94, 0.3)' }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                  </svg>
-                </div>
-                <div className="ops-sheet-item-content">
-                  <strong>Cobrar Atrasos no WhatsApp</strong>
-                  <span>Disparar alertas para pendências e tarefas vencidas</span>
                 </div>
               </button>
 

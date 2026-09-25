@@ -21,17 +21,17 @@ export function buildWhatsAppReminderMessage(params: {
   dueAt?: string;
   operatorName?: string;
 }): string {
-  const opGreeting = params.operatorName ? `Olá, ${params.operatorName}!\n` : '';
+  const opGreeting = params.operatorName ? `Olá, ${params.operatorName}!\n\n` : '';
   const dueFormatted = params.dueAt
     ? new Date(params.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : 'no horário previsto';
 
   return (
-    `${opGreeting}⏰ *ConcluíAI — Lembrete de Tarefa*\n\n` +
-    `📍 *Unidade:* ${params.unitName || 'Loja'}\n` +
-    `📋 *Tarefa:* ${params.taskTitle || 'Tarefa Operacional'}\n` +
-    `⏳ *Horário Limite:* ${dueFormatted} (Em atraso)\n\n` +
-    `⚠️ *Por favor, realize a tarefa e envie a foto no app ConcluíAI assim que possível!*`
+    `${opGreeting}*ConcluíAI — Lembrete de Tarefa*\n\n` +
+    `*Unidade:* ${params.unitName || 'Loja'}\n` +
+    `*Tarefa:* ${params.taskTitle || 'Tarefa Operacional'}\n` +
+    `*Horário Limite:* ${dueFormatted} (Em atraso)\n\n` +
+    `*Por favor, realize a tarefa e envie a foto no app ConcluíAI assim que possível!*`
   );
 }
 
