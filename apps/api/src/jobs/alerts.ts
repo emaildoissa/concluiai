@@ -1,6 +1,11 @@
 import { hasSupabaseConfig } from '../config.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
-import { buildCriticalAlertMessage, normalizePhoneBR, sendWhatsAppMessage } from '../services/whatsapp.js';
+import {
+  buildCriticalAlertMessage,
+  buildNonComplianceAlertMessage,
+  normalizePhoneBR,
+  sendWhatsAppMessage,
+} from '../services/whatsapp.js';
 import { getWhatsAppSettings } from '../services/settings.js';
 
 export interface AlertRunResult {
@@ -170,4 +175,108 @@ export async function checkCriticalOverdueTasks(): Promise<AlertRunResult> {
   }
 
   return { alerted, skipped, invalid };
-}
+}
+
+/**
+  * Dispara alerta imediato de não-conformidade (ex: temperatura ou pH fora da faixa)
+  * diretamente para o WhatsApp dos gerentes e administradores daquela unidade.
+  */
+export async function dispatchNonComplianceAlert(params: {
+  taskId: string;
+  unitId: string;
+  itemTitle: string;
+  recordedValue: number;
+  unitOfMeasurement?: string | null;
+  minValue?: number | null;
+  maxValue?: number | null;
+  operatorName?: string;
+  actionTaken?: string | null;
+}): Promise<{ alerted: number; recipients: string[] }> {
+  if (!hasSupabaseConfig()) {
+    console.log('[alerts:non-compliance] Sem supabase configurado (mock run)');
+    return { alerted: 0, recipients: [] };
+  }
+
+  const settings = await getWhatsAppSettings();
+  if (settings.alertsEnabled === false) {
+    console.log('[alerts:non-compliance] Alertas WhatsApp desativados nas configurações');
+    return { alerted: 0, recipients: [] };
+  }
+
+  const sb = getSupabaseAdmin();
+
+  const { data: unit } = await sb
+    .from('units')
+    .select('id, name, company_id')
+    .eq('id', params.unitId)
+    .maybeSingle();
+
+  const unitName = unit?.name || 'Unidade';
+  const companyId = unit?.company_id;
+
+  let recipientQuery = sb
+    .from('profiles')
+    .select('id, phone, full_name, role, unit_id')
+    .eq('is_active', true)
+    .in('role', ['manager', 'admin']);
+
+  if (companyId) {
+    recipientQuery = recipientQuery
+      .eq('company_id', companyId)
+      .or(`unit_id.eq.${params.unitId},role.eq.admin`);
+  } else {
+    recipientQuery = recipientQuery.eq('unit_id', params.unitId);
+  }
+
+  const { data: managers } = await recipientQuery;
+  if (!managers || managers.length === 0) {
+    console.warn(`[alerts:non-compliance] Nenhum gerente ou admin encontrado para a unidade ${unitName}`);
+    return { alerted: 0, recipients: [] };
+  }
+
+  const message = buildNonComplianceAlertMessage({
+    unitName,
+    taskTitle: params.itemTitle,
+    recordedValue: params.recordedValue,
+    unitOfMeasurement: params.unitOfMeasurement,
+    minValue: params.minValue,
+    maxValue: params.maxValue,
+    operatorName: params.operatorName,
+    actionTaken: params.actionTaken,
+  });
+
+  let alerted = 0;
+  const sentRecipients: string[] = [];
+
+  for (const mgr of managers) {
+    if (!mgr.phone) continue;
+    const { valid } = normalizePhoneBR(mgr.phone);
+    if (!valid) continue;
+
+    try {
+      const result = await sendWhatsAppMessage({
+        toPhone: mgr.phone,
+        message,
+        taskInstanceId: params.taskId,
+        unitId: params.unitId,
+        recipientProfileId: mgr.id,
+      });
+
+      if (result.status === 'sent' || result.status === 'mock') {
+        alerted += 1;
+        sentRecipients.push(mgr.full_name || mgr.phone);
+      }
+    } catch (err) {
+      console.error(`[alerts:non-compliance] Erro ao enviar para ${mgr.phone}:`, err);
+    }
+  }
+
+  if (alerted > 0) {
+    console.log(
+      `[alerts:non-compliance] 🚨 Alerta disparado para ${alerted} gerentes: ${sentRecipients.join(', ')} (Item: '${params.itemTitle}', Valor: ${params.recordedValue})`
+    );
+  }
+
+  return { alerted, recipients: sentRecipients };
+}
+

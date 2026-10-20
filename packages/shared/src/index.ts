@@ -124,9 +124,12 @@ export interface Checklist {
   unit_ids?: string[];
 }
 
+export type ChecklistExecutionMode = 'photo' | 'check' | 'both' | 'numeric';
+export type ChecklistItemType = 'boolean' | 'numeric' | 'options';
+
 export interface ChecklistItem {
   id: string;
-  checklist_id: string;
+  checklist_id?: string;
   title: string;
   description?: string | null;
   is_critical: boolean;
@@ -135,6 +138,12 @@ export interface ChecklistItem {
   due_time?: string | null; // HH:MM
   sort_order: number;
   weight: number;
+  execution_mode?: ChecklistExecutionMode;
+  item_type?: ChecklistItemType;
+  unit_of_measurement?: string | null; // ex: '°C', 'pH', '%', 'bar', 'kg'
+  min_value?: number | null;
+  max_value?: number | null;
+  alert_on_non_compliant?: boolean;
 }
 
 export interface TaskInstance {
@@ -145,6 +154,11 @@ export interface TaskInstance {
   scheduled_date: string;
   due_at: string;
   status: TaskStatus;
+  checked?: boolean;
+  notes?: string | null;
+  recorded_value?: number | null;
+  is_compliant?: boolean | null;
+  non_compliance_action?: string | null;
   completed_at?: string | null;
   score_p?: number | null;
   score_e?: number | null;

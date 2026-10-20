@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import type { Shift } from '@concluiai/shared';
+import type { ChecklistItem, Shift } from '@concluiai/shared';
 import { RECURRENCE_LABELS, SHIFT_LABELS } from '@concluiai/shared';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import {
@@ -8,9 +8,9 @@ import {
 } from '../../lib/demoData';
 import { useAuth } from '../../lib/auth';
 
-type DemoChecklist = ReturnType<typeof loadDemoChecklists>[number];
+type Item = ChecklistItem;
+type DemoChecklist = Omit<ReturnType<typeof loadDemoChecklists>[number], 'items'> & { items: Item[] };
 type Checklist = DemoChecklist & { sector_id?: string | null };
-type Item = Checklist['items'][number];
 interface UnitRow { id: string; name: string; address?: string }
 
 const emptyItem = (order = 1): Item => ({
@@ -23,17 +23,79 @@ const emptyItem = (order = 1): Item => ({
   due_time: '09:00',
   sort_order: order,
   weight: 1,
+  execution_mode: 'photo',
+  item_type: 'boolean',
+  unit_of_measurement: null,
+  min_value: null,
+  max_value: null,
+  alert_on_non_compliant: true,
 });
 
 const PRESET_TEMPLATES = [
   {
     category: 'Controle Térmico',
-    label: 'Freezer / Refrigeração',
-    title: 'Controle de Temperatura do Freezer 1',
-    description: 'Checar display digital do freezer. Faixa regulamentar: entre -18°C e -22°C. A foto deve enquadrar nitidamente o visor digital indicando a temperatura atual.',
+    label: 'Freezer (-18°C a -22°C)',
+    title: 'Controle de Temperatura · Freezer 1',
+    description: 'Checar visor digital do freezer de peixes/carnes. Registrar a temperatura observada no termômetro.',
     is_critical: true,
     due_time: '09:00',
-    mode: 'photo',
+    mode: 'numeric',
+    item_type: 'numeric',
+    unit_of_measurement: '°C',
+    min_value: -22,
+    max_value: -18,
+  },
+  {
+    category: 'Controle Térmico',
+    label: 'Geladeira (1°C a 4.5°C)',
+    title: 'Controle de Temperatura · Geladeira Principal',
+    description: 'Verificar termômetro interno do refrigerador de insumos e laticínios. Registrar valor aferido.',
+    is_critical: true,
+    due_time: '09:00',
+    mode: 'numeric',
+    item_type: 'numeric',
+    unit_of_measurement: '°C',
+    min_value: 1.0,
+    max_value: 4.5,
+  },
+  {
+    category: 'Qualidade / Sushi',
+    label: 'pH do Arroz (4.1 a 4.5)',
+    title: 'Aferição de pH do Arroz Temperado (Shari)',
+    description: 'Inserir medidor de pH calibrado ou fita no centro da bacia de arroz de sushi. Registrar o índice de acidez.',
+    is_critical: true,
+    due_time: '11:00',
+    mode: 'numeric',
+    item_type: 'numeric',
+    unit_of_measurement: 'pH',
+    min_value: 4.1,
+    max_value: 4.5,
+  },
+  {
+    category: 'Segurança Alimentar',
+    label: 'Óleo de Fritadeira (0% a 25%)',
+    title: 'Saturação de Compostos Polares do Óleo',
+    description: 'Medir porcentagem de degradação do óleo com fita ou medidor eletrônico. Se passar de 25%, descartar imediatamente.',
+    is_critical: true,
+    due_time: '16:00',
+    mode: 'numeric',
+    item_type: 'numeric',
+    unit_of_measurement: '%',
+    min_value: 0,
+    max_value: 25,
+  },
+  {
+    category: 'Distribuição Térmica',
+    label: 'Buffet Quente (60°C a 90°C)',
+    title: 'Temperatura da Pista Quente / Banho-Maria',
+    description: 'Aferir temperatura dos alimentos servidos no buffet quente com termômetro espeto limpo.',
+    is_critical: true,
+    due_time: '12:00',
+    mode: 'numeric',
+    item_type: 'numeric',
+    unit_of_measurement: '°C',
+    min_value: 60,
+    max_value: 90,
   },
   {
     category: 'Sanitização',
@@ -43,6 +105,10 @@ const PRESET_TEMPLATES = [
     is_critical: true,
     due_time: '10:00',
     mode: 'photo',
+    item_type: 'boolean',
+    unit_of_measurement: null,
+    min_value: null,
+    max_value: null,
   },
   {
     category: 'Superfícies',
@@ -52,6 +118,10 @@ const PRESET_TEMPLATES = [
     is_critical: false,
     due_time: '10:30',
     mode: 'photo',
+    item_type: 'boolean',
+    unit_of_measurement: null,
+    min_value: null,
+    max_value: null,
   },
   {
     category: 'Segurança',
@@ -61,6 +131,10 @@ const PRESET_TEMPLATES = [
     is_critical: true,
     due_time: '08:30',
     mode: 'both',
+    item_type: 'boolean',
+    unit_of_measurement: null,
+    min_value: null,
+    max_value: null,
   },
   {
     category: 'Fechamento',
@@ -70,6 +144,10 @@ const PRESET_TEMPLATES = [
     is_critical: true,
     due_time: '23:00',
     mode: 'photo',
+    item_type: 'boolean',
+    unit_of_measurement: null,
+    min_value: null,
+    max_value: null,
   },
 ];
 
@@ -95,13 +173,13 @@ export function ChecklistBuilder() {
       if (data.checklists && data.checklists.length > 0) {
         setList(data.checklists);
       } else if (demoMode) {
-        setList(loadDemoChecklists());
+        setList(loadDemoChecklists() as Checklist[]);
       } else {
         setList([]);
       }
     } catch {
       if (demoMode) {
-        setList(loadDemoChecklists());
+        setList(loadDemoChecklists() as Checklist[]);
       } else {
         setList([]);
       }
@@ -252,6 +330,11 @@ export function ChecklistBuilder() {
       due_time: t.due_time,
       execution_mode: t.mode,
       requires_photo: t.mode === 'photo' || t.mode === 'both',
+      item_type: (t as any).item_type || (t.mode === 'numeric' ? 'numeric' : 'boolean'),
+      unit_of_measurement: (t as any).unit_of_measurement ?? null,
+      min_value: (t as any).min_value ?? null,
+      max_value: (t as any).max_value ?? null,
+      alert_on_non_compliant: true,
     } as any);
   }
 
@@ -813,23 +896,124 @@ export function ChecklistBuilder() {
                         </div>
 
                         <div className="field">
-                          <label>Tipo de Evidência</label>
+                          <label>Tipo de Evidência / Auditoria</label>
                           <select
-                            value={(it as any).execution_mode ?? 'photo'}
+                            value={
+                              (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
+                                ? 'numeric'
+                                : (it as any).execution_mode ?? 'photo'
+                            }
                             onChange={(e) => {
                               const mode = e.target.value;
+                              const isNum = mode === 'numeric';
                               updateItem(idx, {
                                 execution_mode: mode,
+                                item_type: isNum ? 'numeric' : 'boolean',
                                 requires_photo: mode === 'photo' || mode === 'both',
+                                unit_of_measurement: isNum ? (it as any).unit_of_measurement || '°C' : null,
                               } as any);
                             }}
                           >
                             <option value="photo">Foto Obrigatória (Auditoria IA)</option>
                             <option value="check">Confirmação Simples (Check)</option>
                             <option value="both">Check + Foto Opcional</option>
+                            <option value="numeric">📏 Medição Quantitativa (Temperatura, pH, etc)</option>
                           </select>
                         </div>
                       </div>
+
+                      {/* Configuração Específica de Medição Quantitativa */}
+                      {((it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric') && (
+                        <div
+                          style={{
+                            background: 'rgba(99, 102, 241, 0.08)',
+                            border: '1px solid rgba(129, 140, 248, 0.25)',
+                            borderRadius: 10,
+                            padding: '12px 14px',
+                            marginBottom: 12,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#a5b4fc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                                <circle cx="12" cy="12" r="10" />
+                                <line x1="12" y1="8" x2="12" y2="12" />
+                                <line x1="12" y1="16" x2="12.01" y2="16" />
+                              </svg>
+                              Parâmetros de Validação Numérica em Tempo Real
+                            </span>
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              {['°C', 'pH', '%', 'bar'].map((u) => (
+                                <button
+                                  key={u}
+                                  type="button"
+                                  onClick={() => updateItem(idx, { unit_of_measurement: u } as any)}
+                                  className="sop-chip-btn"
+                                  style={{
+                                    fontSize: '0.7rem',
+                                    padding: '2px 8px',
+                                    background: (it as any).unit_of_measurement === u ? '#6366f1' : 'rgba(255,255,255,0.06)',
+                                    color: (it as any).unit_of_measurement === u ? '#fff' : '#cbd5e1',
+                                  }}
+                                >
+                                  {u}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="field-row" style={{ marginBottom: 8 }}>
+                            <div className="field">
+                              <label style={{ fontSize: '0.78rem' }}>Unidade de Medida</label>
+                              <input
+                                placeholder="ex: °C, pH, %, bar, kg"
+                                value={(it as any).unit_of_measurement || ''}
+                                onChange={(e) => updateItem(idx, { unit_of_measurement: e.target.value } as any)}
+                                style={{ fontSize: '0.82rem' }}
+                              />
+                            </div>
+                            <div className="field">
+                              <label style={{ fontSize: '0.78rem' }}>Limite Mínimo Aceitável</label>
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="ex: 1.0 (ou vazio)"
+                                value={(it as any).min_value ?? ''}
+                                onChange={(e) =>
+                                  updateItem(idx, {
+                                    min_value: e.target.value === '' ? null : Number(e.target.value),
+                                  } as any)
+                                }
+                                style={{ fontSize: '0.82rem' }}
+                              />
+                            </div>
+                            <div className="field">
+                              <label style={{ fontSize: '0.78rem' }}>Limite Máximo Aceitável</label>
+                              <input
+                                type="number"
+                                step="any"
+                                placeholder="ex: 4.5 (ou vazio)"
+                                value={(it as any).max_value ?? ''}
+                                onChange={(e) =>
+                                  updateItem(idx, {
+                                    max_value: e.target.value === '' ? null : Number(e.target.value),
+                                  } as any)
+                                }
+                                style={{ fontSize: '0.82rem' }}
+                              />
+                            </div>
+                          </div>
+
+                          <label className="checkbox" style={{ fontSize: '0.8rem', color: '#e2e8f0', margin: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={(it as any).alert_on_non_compliant ?? true}
+                              onChange={(e) => updateItem(idx, { alert_on_non_compliant: e.target.checked } as any)}
+                            />
+                            🚨 Disparar alerta imediato no WhatsApp dos gerentes se o valor aferido estiver fora da faixa
+                          </label>
+                        </div>
+                      )}
 
                       {/* Toggles Crítico / GPS / Excluir */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>

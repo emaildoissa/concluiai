@@ -302,3 +302,46 @@ export function buildCriticalAlertMessage(
     .replace(/\{status\}/g, 'não executada no prazo')
     .replace(/\{link_painel\}/g, params.panelUrl || '');
 }
+
+/** Formata mensagem de não-conformidade imediata para envio via WhatsApp aos gerentes */
+export function buildNonComplianceAlertMessage(params: {
+  unitName: string;
+  taskTitle: string;
+  recordedValue: number;
+  unitOfMeasurement?: string | null;
+  minValue?: number | null;
+  maxValue?: number | null;
+  operatorName?: string;
+  actionTaken?: string | null;
+}): string {
+  const unitStr = params.unitOfMeasurement ? ` ${params.unitOfMeasurement.trim()}` : '';
+  const rangeStr =
+    params.minValue != null && params.maxValue != null
+      ? `${params.minValue} a ${params.maxValue}${unitStr}`
+      : params.minValue != null
+      ? `>= ${params.minValue}${unitStr}`
+      : params.maxValue != null
+      ? `<= ${params.maxValue}${unitStr}`
+      : 'padrão definido';
+
+  let msg =
+    `🚨 *ALERTA: NÃO CONFORMIDADE OPERACIONAL*\n` +
+    `*ConcluíAI — Auditoria em Tempo Real*\n\n` +
+    `🏪 *Unidade:* ${params.unitName}\n` +
+    `📋 *Item:* ${params.taskTitle}\n` +
+    `⚠️ *Valor Aferido:* *${params.recordedValue}${unitStr}*\n` +
+    `🎯 *Faixa Regulamentar:* ${rangeStr}\n`;
+
+  if (params.operatorName) {
+    msg += `👤 *Operador:* ${params.operatorName}\n`;
+  }
+  if (params.actionTaken) {
+    msg += `🛠️ *Ação Imediata Registrada:* ${params.actionTaken}\n`;
+  } else {
+    msg += `⚠️ *Atenção:* Nenhuma ação de contingência informada.\n`;
+  }
+
+  msg += `\nAcesse o painel para auditar o procedimento.`;
+  return msg;
+}
+

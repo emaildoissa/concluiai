@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getTodayBR } from '@concluiai/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-import { checkCriticalOverdueTasks } from '../jobs/alerts.js';
+import { checkCriticalOverdueTasks, dispatchNonComplianceAlert } from '../jobs/alerts.js';
 import { generateTasksForDate } from '../services/tasks.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
@@ -67,9 +67,9 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
 
     let query = sb.from('task_instances').select(
       `
-        id, status, due_at, scheduled_date, completed_at, notes,
+        id, status, due_at, scheduled_date, completed_at, notes, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value ),
         operator:profiles ( id, full_name, phone )
       `
     );
@@ -176,10 +176,22 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
         scheduledDate: t.scheduled_date,
         completedAt: t.completed_at,
         notes: t.notes,
+        recordedValue: t.recorded_value,
+        isCompliant: t.is_compliant,
+        nonComplianceAction: t.non_compliance_action,
         isLate,
         delayMinutes,
         unit: unit ? { id: unit.id, name: unit.name, address: unit.address } : null,
-        item: item ? { title: item.title, isCritical: item.is_critical } : null,
+        item: item
+          ? {
+              title: item.title,
+              isCritical: item.is_critical,
+              itemType: item.item_type,
+              unitOfMeasurement: item.unit_of_measurement,
+              minValue: item.min_value,
+              maxValue: item.max_value,
+            }
+          : null,
         operator: operator
           ? { id: operator.id, fullName: operator.full_name, phone: operator.phone }
           : null,
@@ -228,9 +240,9 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
       .from('task_instances')
       .select(
         `
-        id, status, due_at, scheduled_date, completed_at, notes, score_p, score_e, score_q,
+        id, status, due_at, scheduled_date, completed_at, notes, score_p, score_e, score_q, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value ),
         operator:profiles ( id, full_name, phone )
       `
       )
@@ -329,13 +341,25 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
         scheduledDate: t.scheduled_date,
         completedAt: t.completed_at,
         notes: t.notes,
+        recordedValue: t.recorded_value,
+        isCompliant: t.is_compliant,
+        nonComplianceAction: t.non_compliance_action,
         isLate,
         delayMinutes,
         scoreP: t.score_p,
         scoreE: t.score_e,
         scoreQ: t.score_q,
         unit: unit ? { id: unit.id, name: unit.name, address: unit.address } : null,
-        item: item ? { title: item.title, isCritical: item.is_critical } : null,
+        item: item
+          ? {
+              title: item.title,
+              isCritical: item.is_critical,
+              itemType: item.item_type,
+              unitOfMeasurement: item.unit_of_measurement,
+              minValue: item.min_value,
+              maxValue: item.max_value,
+            }
+          : null,
         operator: operator
           ? { id: operator.id, fullName: operator.full_name, phone: operator.phone }
           : null,
@@ -441,3 +465,115 @@ tasksRouter.post('/:id/notify', requireAuth, requireRole('admin', 'manager'), as
     return res.status(500).json({ error: 'Falha ao enviar lembrete' });
   }
 });
+
+/**
+ * POST /api/tasks/:id/complete
+ * Conclui uma tarefa com suporte a medições quantitativas (temperatura, pH, etc)
+ * e disparo de alerta imediato via WhatsApp aos gerentes se houver não-conformidade.
+ */
+tasksRouter.post('/:id/complete', requireAuth, async (req, res) => {
+  try {
+    const sb = getSupabaseAdmin();
+    const { id } = req.params as { id: string };
+    const { checked, notes, recorded_value, non_compliance_action } = req.body;
+
+    // Busca tarefa com item e unidade
+    const { data: task, error: findErr } = await sb
+      .from('task_instances')
+      .select(`
+        id, unit_id, assigned_to, status, due_at,
+        unit:units ( id, name, company_id ),
+        checklist_item:checklist_items (
+          id, title, is_critical, item_type, unit_of_measurement,
+          min_value, max_value, alert_on_non_compliant
+        )
+      `)
+      .eq('id', id)
+      .maybeSingle();
+
+    if (findErr || !task) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+
+    const item = Array.isArray(task.checklist_item) ? task.checklist_item[0] : task.checklist_item;
+    const unit = Array.isArray(task.unit) ? task.unit[0] : task.unit;
+
+    let is_compliant: boolean | null = null;
+    let numVal: number | null = null;
+
+    if (recorded_value !== undefined && recorded_value !== null && recorded_value !== '') {
+      numVal = typeof recorded_value === 'number' ? recorded_value : Number(String(recorded_value).replace(',', '.'));
+      if (!isNaN(numVal)) {
+        const minVal = item?.min_value != null ? Number(item.min_value) : null;
+        const maxVal = item?.max_value != null ? Number(item.max_value) : null;
+
+        const meetsMin = minVal == null || numVal >= minVal;
+        const meetsMax = maxVal == null || numVal <= maxVal;
+        is_compliant = meetsMin && meetsMax;
+      }
+    }
+
+    const now = new Date().toISOString();
+
+    const updatePayload: Record<string, any> = {
+      status: 'completed',
+      completed_at: now,
+      checked: Boolean(checked ?? true),
+      notes: notes?.trim() || null,
+      recorded_value: numVal,
+      is_compliant,
+      non_compliance_action: non_compliance_action?.trim() || null,
+    };
+
+    if (!task.assigned_to && req.user?.id) {
+      updatePayload.assigned_to = req.user.id;
+    }
+
+    const { error: updErr } = await sb
+      .from('task_instances')
+      .update(updatePayload)
+      .eq('id', id);
+
+    if (updErr) {
+      console.error('[tasks/complete update error]', updErr);
+      throw updErr;
+    }
+
+    // Se houve não-conformidade e o item requer alerta:
+    let alertDispatched = false;
+    if (
+      is_compliant === false &&
+      item?.alert_on_non_compliant !== false &&
+      numVal !== null
+    ) {
+      // Dispara alerta imediato aos gerentes da loja
+      dispatchNonComplianceAlert({
+        taskId: id,
+        unitId: task.unit_id,
+        itemTitle: item?.title || 'Item Quantitativo',
+        recordedValue: numVal,
+        unitOfMeasurement: item?.unit_of_measurement || '',
+        minValue: item?.min_value,
+        maxValue: item?.max_value,
+        operatorName: req.user?.full_name || 'Operador',
+        actionTaken: non_compliance_action,
+      }).catch((err) => {
+        console.error('[tasks/complete alert failure]', err);
+      });
+      alertDispatched = true;
+    }
+
+    return res.json({
+      success: true,
+      taskId: id,
+      is_compliant,
+      recorded_value: numVal,
+      alert_dispatched: alertDispatched,
+      completed_at: now,
+    });
+  } catch (err: any) {
+    console.error('[tasks/:id/complete]', err);
+    return res.status(500).json({ error: err.message || 'Falha ao registrar conclusão de tarefa' });
+  }
+});
+

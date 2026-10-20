@@ -14,6 +14,9 @@ export interface TaskItemData {
   status: 'pending' | 'in_progress' | 'completed' | 'late' | 'rejected' | 'skipped';
   checked?: boolean;
   notes?: string | null;
+  recorded_value?: number | null;
+  is_compliant?: boolean | null;
+  non_compliance_action?: string | null;
   completed_at?: string | null;
   assigned_to?: string | null;
   assigned_name?: string | null;
@@ -26,7 +29,12 @@ export interface TaskItemData {
     is_critical?: boolean;
     requires_photo?: boolean;
     requires_gps?: boolean;
-    execution_mode?: 'photo' | 'check' | 'both';
+    execution_mode?: 'photo' | 'check' | 'both' | 'numeric';
+    item_type?: 'boolean' | 'numeric' | 'options';
+    unit_of_measurement?: string | null;
+    min_value?: number | null;
+    max_value?: number | null;
+    alert_on_non_compliant?: boolean;
   };
   checklist_name?: string;
   checklist_shift?: string | null;
@@ -61,10 +69,39 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
   const item = task.checklist_item;
   const title = item?.title || 'Tarefa';
   const mode = item?.execution_mode ?? (item?.requires_photo ? 'photo' : 'check');
-  const allowCheck = mode === 'check' || mode === 'both';
+  const isNumeric =
+    item?.item_type === 'numeric' ||
+    mode === 'numeric' ||
+    item?.min_value != null ||
+    item?.max_value != null;
+  const allowCheck = (mode === 'check' || mode === 'both') && !isNumeric;
   const needPhoto = mode === 'photo';
   const photoOptional = mode === 'both';
   const isFinished = task.status === 'completed';
+
+  const [recordedValue, setRecordedValue] = useState<string>(
+    task.recorded_value != null ? String(task.recorded_value) : ''
+  );
+  const [actionTaken, setActionTaken] = useState<string>(
+    task.non_compliance_action || ''
+  );
+
+  // Validação dinâmica em tempo real
+  const parsedNum = (() => {
+    if (!recordedValue.trim()) return null;
+    const n = Number(recordedValue.replace(',', '.'));
+    return isNaN(n) ? null : n;
+  })();
+
+  const minVal = item?.min_value != null ? Number(item.min_value) : null;
+  const maxVal = item?.max_value != null ? Number(item.max_value) : null;
+
+  const liveCompliance = (() => {
+    if (parsedNum === null) return null;
+    const meetsMin = minVal == null || parsedNum >= minVal;
+    const meetsMax = maxVal == null || parsedNum <= maxVal;
+    return meetsMin && meetsMax;
+  })();
 
   // Timer durante a análise da IA
   useEffect(() => {
@@ -114,6 +151,51 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Falha ao confirmar a tarefa.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Concluir Medição Quantitativa (Temperatura, pH, etc.)
+  const handleCompleteNumeric = async () => {
+    if (!user) return;
+    if (parsedNum === null) {
+      setErrorMsg('Por favor, informe um valor numérico válido.');
+      return;
+    }
+    if (liveCompliance === false && !actionTaken.trim()) {
+      setErrorMsg('Atenção: como o valor está Não Conforme, descreva a ação imediata tomada antes de prosseguir.');
+      return;
+    }
+
+    setBusy(true);
+    setErrorMsg(null);
+
+    try {
+      if (demoMode) {
+        await new Promise((r) => setTimeout(r, 700));
+        task.recorded_value = parsedNum;
+        task.is_compliant = liveCompliance;
+        task.non_compliance_action = actionTaken.trim() || null;
+        task.status = 'completed';
+        task.completed_at = new Date().toISOString();
+        onSuccess();
+        onClose();
+        return;
+      }
+
+      await apiPost(`/api/tasks/${task.id}/complete`, {
+        recorded_value: parsedNum,
+        non_compliance_action: actionTaken.trim() || null,
+        notes: notes.trim() || null,
+        checked: true,
+      });
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || 'Falha ao salvar a medição.');
     } finally {
       setBusy(false);
     }
@@ -258,6 +340,11 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
           {/* Badges e Prazo */}
           <div className="task-exec-badges">
             {item?.is_critical && <span className="badge badge-critical">🚨 TAREFA CRÍTICA</span>}
+            {isNumeric && (
+              <span className="badge" style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#c7d2fe', border: '1px solid rgba(129, 140, 248, 0.3)' }}>
+                📏 Faixa: {minVal != null ? minVal : '—'} a {maxVal != null ? maxVal : '—'} {item?.unit_of_measurement || ''}
+              </span>
+            )}
             <span className="badge badge-time">⏰ Prazo: {formatDue(task.due_at)}</span>
             <span
               className={`badge ${
@@ -342,6 +429,181 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
           {/* Formulário de Execução (quando não estiver enviando) */}
           {phase === 'view' && !isFinished && (
             <div className="task-exec-body">
+              {/* Módulo de Medição Quantitativa (Temperatura, pH, Saturação etc) */}
+              {isNumeric && (
+                <div
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    borderRadius: 12,
+                    padding: 16,
+                    marginBottom: 16,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>🌡️</span>
+                      <span>Registro de Medição Aferida</span>
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                      Padrão: {minVal != null ? minVal : '—'} a {maxVal != null ? maxVal : '—'} {item?.unit_of_measurement || ''}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '0 0 12px 0' }}>
+                    Digite exatamente o valor observado no termômetro, fita ou mostrador do equipamento:
+                  </p>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input
+                      type="number"
+                      step="any"
+                      value={recordedValue}
+                      onChange={(e) => setRecordedValue(e.target.value)}
+                      placeholder={`ex: ${minVal ?? '0'}`}
+                      disabled={isFinished || busy}
+                      style={{
+                        fontSize: '1.4rem',
+                        fontWeight: 700,
+                        textAlign: 'center',
+                        padding: '10px 14px',
+                        borderRadius: 10,
+                        border:
+                          liveCompliance === true
+                            ? '2px solid #10b981'
+                            : liveCompliance === false
+                            ? '2px solid #ef4444'
+                            : '1px solid rgba(255,255,255,0.2)',
+                        background:
+                          liveCompliance === true
+                            ? 'rgba(16, 185, 129, 0.1)'
+                            : liveCompliance === false
+                            ? 'rgba(239, 68, 68, 0.1)'
+                            : 'rgba(0,0,0,0.25)',
+                        color: '#fff',
+                        flex: 1,
+                        transition: 'all 0.2s ease',
+                      }}
+                    />
+                    {item?.unit_of_measurement && (
+                      <span
+                        style={{
+                          fontSize: '1.15rem',
+                          fontWeight: 700,
+                          padding: '11px 16px',
+                          background: 'rgba(255,255,255,0.08)',
+                          borderRadius: 10,
+                          color: '#e2e8f0',
+                          border: '1px solid rgba(255,255,255,0.1)',
+                        }}
+                      >
+                        {item.unit_of_measurement}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Feedback Visual Imediato em Tempo Real */}
+                  {parsedNum !== null && (
+                    <div style={{ marginTop: 12 }}>
+                      {liveCompliance === true ? (
+                        <div
+                          style={{
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            border: '1px solid #10b981',
+                            color: '#6ee7b7',
+                            padding: '10px 12px',
+                            borderRadius: 8,
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8,
+                          }}
+                        >
+                          <span style={{ fontSize: '1.1rem' }}>✅</span>
+                          <div>
+                            <div>VALOR CONFORME</div>
+                            <div style={{ fontSize: '0.78rem', fontWeight: 400, opacity: 0.9 }}>
+                              A aferição está dentro da faixa regulamentar aceita ({minVal} a {maxVal} {item?.unit_of_measurement}).
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.18)',
+                            border: '1px solid #ef4444',
+                            color: '#fca5a5',
+                            padding: '12px 14px',
+                            borderRadius: 8,
+                            fontSize: '0.85rem',
+                          }}
+                        >
+                          <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, color: '#f87171' }}>
+                            <span>🚨</span>
+                            <span>ATENÇÃO: NÃO CONFORME!</span>
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.4 }}>
+                            O valor registrado ({parsedNum} {item?.unit_of_measurement}) está <strong>fora dos limites seguros</strong> ({minVal ?? ''} a {maxVal ?? ''} {item?.unit_of_measurement}).
+                            Um alerta prioritário será enviado via WhatsApp aos gerentes da loja.
+                          </p>
+
+                          <div style={{ marginTop: 10 }}>
+                            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#fecaca', marginBottom: 4 }}>
+                              Ação de Contingência Imediata (Obrigatória):
+                            </label>
+                            <input
+                              value={actionTaken}
+                              onChange={(e) => setActionTaken(e.target.value)}
+                              placeholder="Ex: Ajustado termostato, avisado gerente, descartado lote..."
+                              style={{
+                                width: '100%',
+                                padding: '8px 10px',
+                                fontSize: '0.85rem',
+                                borderRadius: 6,
+                                border: '1px solid rgba(239, 68, 68, 0.5)',
+                                background: 'rgba(0, 0, 0, 0.35)',
+                                color: '#fff',
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Observações Opcionais */}
+                  <textarea
+                    className="notes-input"
+                    rows={2}
+                    placeholder="Observações adicionais (opcional)..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    disabled={isFinished || busy}
+                    style={{ marginTop: 12 }}
+                  />
+
+                  {/* Botão de Envio Numérico */}
+                  <button
+                    type="button"
+                    className={`btn btn-block ${liveCompliance === false ? 'btn-danger' : 'btn-primary'}`}
+                    disabled={
+                      parsedNum === null ||
+                      (liveCompliance === false && !actionTaken.trim()) ||
+                      busy
+                    }
+                    onClick={handleCompleteNumeric}
+                    style={{ marginTop: 12, padding: '12px', fontWeight: 700 }}
+                  >
+                    {busy
+                      ? 'Registrando...'
+                      : liveCompliance === false
+                      ? '⚠️ Confirmar Não Conformidade & Alertar'
+                      : '✓ Confirmar e Finalizar Medição'}
+                  </button>
+                </div>
+              )}
+
               {/* Opção de Check */}
               {allowCheck && (
                 <div className="task-check-card">
@@ -403,10 +665,40 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
           {/* Rodapé quando finalizado */}
           {isFinished && phase === 'view' && (
             <div className="notice" style={{ marginTop: 16 }}>
-              ✅ <strong>Tarefa concluída!</strong>
-              {task.completed_at && (
-                <div style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                  Finalizada às {new Date(task.completed_at).toLocaleTimeString('pt-BR')}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  ✅ <strong>Tarefa concluída!</strong>
+                  {task.completed_at && (
+                    <div style={{ fontSize: '0.8rem', marginTop: 4 }}>
+                      Finalizada às {new Date(task.completed_at).toLocaleTimeString('pt-BR')}
+                    </div>
+                  )}
+                </div>
+                {task.recorded_value != null && (
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                      {task.recorded_value} {item?.unit_of_measurement || ''}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 6,
+                        background: task.is_compliant === false ? '#ef4444' : '#10b981',
+                        color: '#fff',
+                        display: 'inline-block',
+                      }}
+                    >
+                      {task.is_compliant === false ? 'NÃO CONFORME' : 'CONFORME'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {task.non_compliance_action && (
+                <div style={{ marginTop: 8, fontSize: '0.82rem', color: '#fca5a5' }}>
+                  <strong>Ação registrada:</strong> {task.non_compliance_action}
                 </div>
               )}
             </div>

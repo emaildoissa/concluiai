@@ -224,10 +224,14 @@ export function OperatorTasksPage() {
           checklist_item: {
             id: 'item-2',
             title: 'Controle de Temperatura · Freezer 1',
-            description: 'Checar display digital do freezer 1. Faixa esperada: entre -18°C e -22°C. A foto deve enquadrar claramente os números do mostrador.',
+            description: 'Checar visor digital do freezer de peixes/carnes. Registrar a temperatura observada (faixa padrão: entre -18°C e -22°C).',
             is_critical: true,
-            execution_mode: 'photo',
-            requires_photo: true,
+            execution_mode: 'numeric',
+            item_type: 'numeric',
+            unit_of_measurement: '°C',
+            min_value: -22,
+            max_value: -18,
+            requires_photo: false,
           },
         },
         {
@@ -266,6 +270,30 @@ export function OperatorTasksPage() {
             requires_photo: true,
           },
         },
+        {
+          id: 'demo-5',
+          unit_id: unitId || '22222222-2222-2222-2222-222222222221',
+          scheduled_date: todayIso,
+          due_at: `${todayIso}T11:00:00-03:00`,
+          status: 'pending',
+          checklist_name: 'Abertura de Cozinha & Preparo',
+          checklist_shift: 'Manhã',
+          assigned_to: user?.id,
+          assigned_name: user?.full_name || 'Você',
+          sector_name: 'Sushi Bar',
+          checklist_item: {
+            id: 'item-5',
+            title: 'Aferição do pH do Arroz de Sushi (Shari)',
+            description: 'Medir o pH no centro da bacia do arroz temperado. Faixa padrão ANVISA: entre 4.1 e 4.5.',
+            is_critical: true,
+            execution_mode: 'numeric',
+            item_type: 'numeric',
+            unit_of_measurement: 'pH',
+            min_value: 4.1,
+            max_value: 4.5,
+            requires_photo: false,
+          },
+        },
       ];
 
       setTasks(mockTasks);
@@ -282,10 +310,11 @@ export function OperatorTasksPage() {
         .from('task_instances')
         .select(
           `
-          id, scheduled_date, due_at, status, checked, notes, completed_at, unit_id, assigned_to,
+          id, scheduled_date, due_at, status, checked, notes, recorded_value, is_compliant, non_compliance_action, completed_at, unit_id, assigned_to,
           assigned_profile:profiles!assigned_to ( id, full_name ),
           checklist_item:checklist_items (
             id, title, description, is_critical, requires_photo, requires_gps, due_time, execution_mode,
+            item_type, unit_of_measurement, min_value, max_value, alert_on_non_compliant,
             checklist:checklists (
               id, name, shift, sector_id,
               sector:sectors ( id, name )
@@ -319,6 +348,9 @@ export function OperatorTasksPage() {
           status: row.status,
           checked: row.checked,
           notes: row.notes,
+          recorded_value: row.recorded_value,
+          is_compliant: row.is_compliant,
+          non_compliance_action: row.non_compliance_action,
           completed_at: row.completed_at,
           assigned_to: row.assigned_to,
           assigned_name: assignedProfile?.full_name || null,
@@ -335,6 +367,11 @@ export function OperatorTasksPage() {
             requires_gps: item?.requires_gps || false,
             execution_mode:
               item?.execution_mode || (item?.requires_photo ? 'photo' : 'check'),
+            item_type: item?.item_type || (item?.execution_mode === 'numeric' ? 'numeric' : 'boolean'),
+            unit_of_measurement: item?.unit_of_measurement || null,
+            min_value: item?.min_value != null ? Number(item.min_value) : null,
+            max_value: item?.max_value != null ? Number(item.max_value) : null,
+            alert_on_non_compliant: item?.alert_on_non_compliant ?? true,
           },
         };
       });
@@ -903,12 +940,30 @@ export function OperatorTasksPage() {
                                     </svg>
                                     Câmera Obrigatória
                                   </span>
+                                ) : (task.checklist_item?.item_type === 'numeric' || task.checklist_item?.execution_mode === 'numeric') ? (
+                                  <span className="op-tag" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#c7d2fe', border: '1px solid rgba(129, 140, 248, 0.25)' }}>
+                                    📏 Medição ({task.checklist_item.min_value ?? ''} a {task.checklist_item.max_value ?? ''} {task.checklist_item.unit_of_measurement || ''})
+                                  </span>
                                 ) : (
                                   <span className="op-tag tag-check">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                       <path d="M20 6 9 17l-5-5" />
                                     </svg>
                                     Checklist
+                                  </span>
+                                )}
+
+                                {isFinished && task.recorded_value != null && (
+                                  <span
+                                    className="op-tag"
+                                    style={{
+                                      background: task.is_compliant === false ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                                      color: task.is_compliant === false ? '#fca5a5' : '#6ee7b7',
+                                      border: task.is_compliant === false ? '1px solid #ef4444' : '1px solid #10b981',
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {task.is_compliant === false ? '⚠️ Não Conforme' : '✓ Conforme'} ({task.recorded_value} {task.checklist_item?.unit_of_measurement || ''})
                                   </span>
                                 )}
 

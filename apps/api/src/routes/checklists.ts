@@ -42,7 +42,7 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     const companyId = req.user?.company_id || '11111111-1111-1111-1111-111111111111';
     const { id, name, description, shift, recurrence, is_active, unit_ids, items, sector_id } = req.body;
 
-    const validModes = ['photo', 'check', 'both'];
+    const validModes = ['photo', 'check', 'both', 'numeric'];
 
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Nome é obrigatório' });
@@ -88,8 +88,22 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     await sb.from('checklist_items').delete().eq('checklist_id', cl.id);
     if (Array.isArray(items) && items.length > 0) {
       const itemRows = items.map((it: any, idx: number) => {
-        const execution_mode = validModes.includes(it.execution_mode) ? it.execution_mode : 'photo';
+        const execution_mode = validModes.includes(it.execution_mode)
+          ? it.execution_mode
+          : it.item_type === 'numeric'
+          ? 'check'
+          : 'photo';
         const requires_photo = execution_mode === 'photo' || execution_mode === 'both';
+        const item_type = it.item_type || (execution_mode === 'numeric' ? 'numeric' : 'boolean');
+        const min_val =
+          it.min_value !== undefined && it.min_value !== null && it.min_value !== ''
+            ? Number(it.min_value)
+            : null;
+        const max_val =
+          it.max_value !== undefined && it.max_value !== null && it.max_value !== ''
+            ? Number(it.max_value)
+            : null;
+
         return {
           checklist_id: cl.id,
           title: it.title,
@@ -101,6 +115,11 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
           sort_order: idx + 1,
           weight: it.weight || 1,
           execution_mode,
+          item_type,
+          unit_of_measurement: it.unit_of_measurement || null,
+          min_value: min_val,
+          max_value: max_val,
+          alert_on_non_compliant: it.alert_on_non_compliant ?? true,
         };
       });
       await sb.from('checklist_items').insert(itemRows);
