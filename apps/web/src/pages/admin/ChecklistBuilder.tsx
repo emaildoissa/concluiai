@@ -838,6 +838,47 @@ export function ChecklistBuilder() {
                         </div>
                       </div>
 
+                      {/* Título da Tarefa */}
+                      <div className="field">
+                        <label style={{ fontWeight: 700 }}>Título da Tarefa</label>
+                        <input
+                          value={it.title}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const lower = val.toLowerCase();
+                            const isThermal =
+                              lower.includes('refrigerador') ||
+                              lower.includes('geladeira') ||
+                              lower.includes('freezer') ||
+                              lower.includes('temperatura');
+                            const isSushi = lower.includes('ph') || lower.includes('arroz') || lower.includes('shari');
+                            const isOil = lower.includes('óleo') || lower.includes('oleo') || lower.includes('fritadeira');
+
+                            const updates: any = { title: val };
+                            if ((it as any).item_type !== 'numeric' && (isThermal || isSushi || isOil)) {
+                              updates.item_type = 'numeric';
+                              updates.execution_mode = 'numeric';
+                              updates.requires_photo = false;
+                              if (isThermal) {
+                                updates.unit_of_measurement = '°C';
+                                updates.min_value = lower.includes('freezer') ? -22 : 1.0;
+                                updates.max_value = lower.includes('freezer') ? -18 : 4.5;
+                              } else if (isSushi) {
+                                updates.unit_of_measurement = 'pH';
+                                updates.min_value = 4.1;
+                                updates.max_value = 4.5;
+                              } else if (isOil) {
+                                updates.unit_of_measurement = '%';
+                                updates.min_value = 0;
+                                updates.max_value = 25;
+                              }
+                            }
+                            updateItem(idx, updates);
+                          }}
+                          placeholder="Ex: Higienização da Panela de Arroz ou Temperatura do Refrigerador"
+                        />
+                      </div>
+
                       {/* Seletor Visual de Tipo de Verificação */}
                       <div>
                         <label style={{ fontWeight: 700, fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: 6 }}>
@@ -931,108 +972,7 @@ export function ChecklistBuilder() {
                         </div>
                       </div>
 
-                      {/* Título da Tarefa */}
-                      <div className="field">
-                        <label style={{ fontWeight: 700 }}>Título da Tarefa</label>
-                        <input
-                          value={it.title}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const lower = val.toLowerCase();
-                            const isThermal =
-                              lower.includes('refrigerador') ||
-                              lower.includes('geladeira') ||
-                              lower.includes('freezer') ||
-                              lower.includes('temperatura');
-                            const isSushi = lower.includes('ph') || lower.includes('arroz') || lower.includes('shari');
-                            const isOil = lower.includes('óleo') || lower.includes('oleo') || lower.includes('fritadeira');
-
-                            const updates: any = { title: val };
-                            if ((it as any).item_type !== 'numeric' && (isThermal || isSushi || isOil)) {
-                              updates.item_type = 'numeric';
-                              updates.execution_mode = 'numeric';
-                              updates.requires_photo = false;
-                              if (isThermal) {
-                                updates.unit_of_measurement = '°C';
-                                updates.min_value = lower.includes('freezer') ? -22 : 1.0;
-                                updates.max_value = lower.includes('freezer') ? -18 : 4.5;
-                              } else if (isSushi) {
-                                updates.unit_of_measurement = 'pH';
-                                updates.min_value = 4.1;
-                                updates.max_value = 4.5;
-                              } else if (isOil) {
-                                updates.unit_of_measurement = '%';
-                                updates.min_value = 0;
-                                updates.max_value = 25;
-                              }
-                            }
-                            updateItem(idx, updates);
-                          }}
-                          placeholder="Ex: Higienização da Panela de Arroz ou Freezer 1"
-                        />
-                      </div>
-
-                      {/* Diretriz Operacional & Critério de Validação da IA */}
-                      <div className="field">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                          <label style={{ fontWeight: 700, margin: 0 }}>
-                            Diretriz Operacional & O Que Fazer
-                          </label>
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-ghost"
-                            style={{
-                              fontSize: '0.75rem',
-                              fontWeight: 700,
-                              padding: '4px 10px',
-                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
-                              border: '1px solid rgba(129, 140, 248, 0.35)',
-                              borderRadius: '8px',
-                              color: '#c7d2fe',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onClick={() => autoEnrichDirective(idx)}
-                          >
-                            ⚡ Gerar Diretriz com IA
-                          </button>
-                        </div>
-                        <textarea
-                          rows={2}
-                          value={it.description || ''}
-                          onChange={(e) => updateItem(idx, { description: e.target.value })}
-                          placeholder="Instruções claras para o funcionário na cozinha e critérios de auditoria para a IA..."
-                          style={{ fontSize: '0.85rem' }}
-                        />
-                      </div>
-
-                      {/* Horário e Peso */}
-                      <div className="field-row">
-                        <div className="field">
-                          <label>Horário Limite (Prazo)</label>
-                          <input
-                            type="time"
-                            value={it.due_time || ''}
-                            onChange={(e) => updateItem(idx, { due_time: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="field">
-                          <label>Peso no Score (1-5)</label>
-                          <input
-                            type="number"
-                            min={0.5}
-                            step={0.5}
-                            value={it.weight}
-                            onChange={(e) => updateItem(idx, { weight: Number(e.target.value) })}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Configuração Específica de Medição Quantitativa */}
+                      {/* Configuração Específica de Medição Quantitativa (Revelação Progressiva) */}
                       {((it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric') && (
                         <div
                           style={{
@@ -1040,7 +980,7 @@ export function ChecklistBuilder() {
                             border: '1px solid rgba(129, 140, 248, 0.25)',
                             borderRadius: 10,
                             padding: '12px 14px',
-                            marginBottom: 12,
+                            marginBottom: 4,
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -1124,6 +1064,66 @@ export function ChecklistBuilder() {
                           </label>
                         </div>
                       )}
+
+                      {/* Diretriz Operacional & Critério de Validação da IA */}
+                      <div className="field">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <label style={{ fontWeight: 700, margin: 0 }}>
+                            Diretriz Operacional & O Que Fazer
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-ghost"
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              padding: '4px 10px',
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
+                              border: '1px solid rgba(129, 140, 248, 0.35)',
+                              borderRadius: '8px',
+                              color: '#c7d2fe',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onClick={() => autoEnrichDirective(idx)}
+                          >
+                            ⚡ Gerar Diretriz com IA
+                          </button>
+                        </div>
+                        <textarea
+                          rows={2}
+                          value={it.description || ''}
+                          onChange={(e) => updateItem(idx, { description: e.target.value })}
+                          placeholder="Instruções claras para o funcionário na cozinha e critérios de auditoria para a IA..."
+                          style={{ fontSize: '0.85rem' }}
+                        />
+                      </div>
+
+                      {/* Horário e Peso */}
+                      <div className="field-row">
+                        <div className="field">
+                          <label>Horário Limite (Prazo)</label>
+                          <input
+                            type="time"
+                            value={it.due_time || ''}
+                            onChange={(e) => updateItem(idx, { due_time: e.target.value })}
+                          />
+                        </div>
+
+                        <div className="field">
+                          <label>Peso no Score (1-5)</label>
+                          <input
+                            type="number"
+                            min={0.5}
+                            step={0.5}
+                            value={it.weight}
+                            onChange={(e) => updateItem(idx, { weight: Number(e.target.value) })}
+                          />
+                        </div>
+                      </div>
 
                       {/* Toggles Crítico / GPS / Excluir */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
