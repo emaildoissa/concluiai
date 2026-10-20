@@ -808,21 +808,126 @@ export function ChecklistBuilder() {
                           </div>
                         </div>
 
-                        <div className="sop-preset-chips">
-                          <span className="muted" style={{ fontSize: '0.72rem', marginRight: 4 }}>
-                            Modelos:
-                          </span>
-                          {PRESET_TEMPLATES.map((tpl) => (
-                            <button
-                              key={tpl.label}
-                              type="button"
-                              className="sop-chip-btn"
-                              onClick={() => applyTemplate(idx, tpl)}
-                              title={tpl.description}
-                            >
-                              {tpl.label}
-                            </button>
-                          ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <select
+                            style={{
+                              fontSize: '0.78rem',
+                              padding: '4px 10px',
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              border: '1px solid rgba(255, 255, 255, 0.14)',
+                              borderRadius: '8px',
+                              color: '#cbd5e1',
+                              cursor: 'pointer',
+                            }}
+                            defaultValue=""
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!val) return;
+                              const tpl = PRESET_TEMPLATES.find((p) => p.label === val);
+                              if (tpl) applyTemplate(idx, tpl);
+                              e.target.value = '';
+                            }}
+                          >
+                            <option value="" disabled>⚡ Carregar Modelo Rápido...</option>
+                            {PRESET_TEMPLATES.map((tpl) => (
+                              <option key={tpl.label} value={tpl.label}>
+                                {tpl.label} ({tpl.category})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Seletor Visual de Tipo de Verificação */}
+                      <div>
+                        <label style={{ fontWeight: 700, fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: 6 }}>
+                          Tipo de Verificação da Tarefa:
+                        </label>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${
+                              (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
+                                ? 'btn-primary'
+                                : 'btn-ghost'
+                            }`}
+                            style={{
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              padding: '8px 12px',
+                              border:
+                                (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
+                                  ? '1px solid #6366f1'
+                                  : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                            onClick={() => {
+                              updateItem(idx, {
+                                execution_mode: 'numeric',
+                                item_type: 'numeric',
+                                requires_photo: false,
+                                unit_of_measurement: (it as any).unit_of_measurement || '°C',
+                              } as any);
+                            }}
+                          >
+                            📏 Medição (Temperatura, pH, etc)
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${
+                              (it as any).execution_mode === 'photo' && (it as any).item_type !== 'numeric'
+                                ? 'btn-primary'
+                                : 'btn-ghost'
+                            }`}
+                            style={{
+                              justifyContent: 'center',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                              padding: '8px 12px',
+                              border:
+                                (it as any).execution_mode === 'photo' && (it as any).item_type !== 'numeric'
+                                  ? '1px solid #6366f1'
+                                  : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                            onClick={() => {
+                              updateItem(idx, {
+                                execution_mode: 'photo',
+                                item_type: 'boolean',
+                                requires_photo: true,
+                              } as any);
+                            }}
+                          >
+                            📸 Foto Obrigatória (IA)
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`btn btn-sm ${
+                              (it as any).execution_mode === 'check' && (it as any).item_type !== 'numeric'
+                                ? 'btn-primary'
+                                : 'btn-ghost'
+                            }`}
+                            style={{
+                              justifyContent: 'center',
+                              fontWeight: 600,
+                              fontSize: '0.82rem',
+                              padding: '8px 12px',
+                              border:
+                                (it as any).execution_mode === 'check' && (it as any).item_type !== 'numeric'
+                                  ? '1px solid #6366f1'
+                                  : '1px solid rgba(255,255,255,0.08)',
+                            }}
+                            onClick={() => {
+                              updateItem(idx, {
+                                execution_mode: 'check',
+                                item_type: 'boolean',
+                                requires_photo: false,
+                              } as any);
+                            }}
+                          >
+                            ✓ Confirmação Simples
+                          </button>
                         </div>
                       </div>
 
@@ -831,7 +936,38 @@ export function ChecklistBuilder() {
                         <label style={{ fontWeight: 700 }}>Título da Tarefa</label>
                         <input
                           value={it.title}
-                          onChange={(e) => updateItem(idx, { title: e.target.value })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const lower = val.toLowerCase();
+                            const isThermal =
+                              lower.includes('refrigerador') ||
+                              lower.includes('geladeira') ||
+                              lower.includes('freezer') ||
+                              lower.includes('temperatura');
+                            const isSushi = lower.includes('ph') || lower.includes('arroz') || lower.includes('shari');
+                            const isOil = lower.includes('óleo') || lower.includes('oleo') || lower.includes('fritadeira');
+
+                            const updates: any = { title: val };
+                            if ((it as any).item_type !== 'numeric' && (isThermal || isSushi || isOil)) {
+                              updates.item_type = 'numeric';
+                              updates.execution_mode = 'numeric';
+                              updates.requires_photo = false;
+                              if (isThermal) {
+                                updates.unit_of_measurement = '°C';
+                                updates.min_value = lower.includes('freezer') ? -22 : 1.0;
+                                updates.max_value = lower.includes('freezer') ? -18 : 4.5;
+                              } else if (isSushi) {
+                                updates.unit_of_measurement = 'pH';
+                                updates.min_value = 4.1;
+                                updates.max_value = 4.5;
+                              } else if (isOil) {
+                                updates.unit_of_measurement = '%';
+                                updates.min_value = 0;
+                                updates.max_value = 25;
+                              }
+                            }
+                            updateItem(idx, updates);
+                          }}
                           placeholder="Ex: Higienização da Panela de Arroz ou Freezer 1"
                         />
                       </div>
@@ -873,7 +1009,7 @@ export function ChecklistBuilder() {
                         />
                       </div>
 
-                      {/* Horário, Peso e Modo */}
+                      {/* Horário e Peso */}
                       <div className="field-row">
                         <div className="field">
                           <label>Horário Limite (Prazo)</label>
@@ -893,32 +1029,6 @@ export function ChecklistBuilder() {
                             value={it.weight}
                             onChange={(e) => updateItem(idx, { weight: Number(e.target.value) })}
                           />
-                        </div>
-
-                        <div className="field">
-                          <label>Tipo de Evidência / Auditoria</label>
-                          <select
-                            value={
-                              (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
-                                ? 'numeric'
-                                : (it as any).execution_mode ?? 'photo'
-                            }
-                            onChange={(e) => {
-                              const mode = e.target.value;
-                              const isNum = mode === 'numeric';
-                              updateItem(idx, {
-                                execution_mode: mode,
-                                item_type: isNum ? 'numeric' : 'boolean',
-                                requires_photo: mode === 'photo' || mode === 'both',
-                                unit_of_measurement: isNum ? (it as any).unit_of_measurement || '°C' : null,
-                              } as any);
-                            }}
-                          >
-                            <option value="photo">Foto Obrigatória (Auditoria IA)</option>
-                            <option value="check">Confirmação Simples (Check)</option>
-                            <option value="both">Check + Foto Opcional</option>
-                            <option value="numeric">📏 Medição Quantitativa (Temperatura, pH, etc)</option>
-                          </select>
                         </div>
                       </div>
 
