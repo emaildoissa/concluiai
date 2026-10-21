@@ -88,7 +88,12 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     await sb.from('checklist_items').delete().eq('checklist_id', cl.id);
     if (Array.isArray(items) && items.length > 0) {
       const itemRows = items.map((it: any, idx: number) => {
-        const isNumeric = it.item_type === 'numeric' || it.execution_mode === 'numeric';
+        const isNumeric =
+          it.item_type === 'numeric' ||
+          it.execution_mode === 'numeric' ||
+          it.unit_of_measurement != null ||
+          it.min_value != null ||
+          it.max_value != null;
         const execution_mode = isNumeric
           ? 'numeric'
           : validModes.includes(it.execution_mode)

@@ -279,7 +279,12 @@ export function ChecklistBuilder() {
       items: editing.items
         .filter((i) => i.title.trim())
         .map((i, idx) => {
-          const isNumeric = (i as any).item_type === 'numeric' || (i as any).execution_mode === 'numeric';
+          const isNumeric =
+            (i as any).item_type === 'numeric' ||
+            (i as any).execution_mode === 'numeric' ||
+            (i as any).unit_of_measurement != null ||
+            (i as any).min_value != null ||
+            (i as any).max_value != null;
           return {
             ...i,
             sort_order: idx + 1,
@@ -826,7 +831,12 @@ export function ChecklistBuilder() {
                   </div>
 
                   {editing.items.map((it, idx) => {
-                    const isNumeric = (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric';
+                    const isNumeric =
+                      (it as any).item_type === 'numeric' ||
+                      (it as any).execution_mode === 'numeric' ||
+                      (it as any).unit_of_measurement != null ||
+                      (it as any).min_value != null ||
+                      (it as any).max_value != null;
                     const isPhoto = !isNumeric && ((it as any).execution_mode === 'photo' || (it as any).execution_mode === 'both' || (it as any).requires_photo === true);
                     const isCheck = !isNumeric && !isPhoto;
 
