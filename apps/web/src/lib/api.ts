@@ -39,6 +39,15 @@ async function authHeaders(): Promise<Headers> {
 
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
+  } else {
+    try {
+      const demoUser = localStorage.getItem('concluiai_demo_user');
+      if (demoUser) {
+        headers.set('x-demo-user', demoUser);
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   return headers;

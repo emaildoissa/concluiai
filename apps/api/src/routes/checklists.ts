@@ -88,13 +88,14 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     await sb.from('checklist_items').delete().eq('checklist_id', cl.id);
     if (Array.isArray(items) && items.length > 0) {
       const itemRows = items.map((it: any, idx: number) => {
-        const execution_mode = validModes.includes(it.execution_mode)
+        const isNumeric = it.item_type === 'numeric' || it.execution_mode === 'numeric';
+        const execution_mode = isNumeric
+          ? 'numeric'
+          : validModes.includes(it.execution_mode)
           ? it.execution_mode
-          : it.item_type === 'numeric'
-          ? 'check'
           : 'photo';
-        const requires_photo = execution_mode === 'photo' || execution_mode === 'both';
-        const item_type = it.item_type || (execution_mode === 'numeric' ? 'numeric' : 'boolean');
+        const requires_photo = isNumeric ? false : (execution_mode === 'photo' || execution_mode === 'both');
+        const item_type = isNumeric ? 'numeric' : (it.item_type || 'boolean');
         const min_val =
           it.min_value !== undefined && it.min_value !== null && it.min_value !== ''
             ? Number(it.min_value)
@@ -110,7 +111,7 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
           description: it.description || null,
           is_critical: Boolean(it.is_critical),
           requires_photo,
-          requires_gps: it.requires_gps ?? true,
+          requires_gps: it.requires_gps ?? false,
           due_time: it.due_time || '23:59:00',
           sort_order: idx + 1,
           weight: it.weight || 1,
@@ -119,10 +120,14 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
           unit_of_measurement: it.unit_of_measurement || null,
           min_value: min_val,
           max_value: max_val,
-          alert_on_non_compliant: it.alert_on_non_compliant ?? true,
+          alert_on_non_compliant: it.alert_on_non_compliant ?? false,
         };
       });
-      await sb.from('checklist_items').insert(itemRows);
+      const { error: insErr } = await sb.from('checklist_items').insert(itemRows);
+      if (insErr) {
+        console.error('[checklists/save] Erro ao inserir itens:', insErr);
+        throw insErr;
+      }
     }
 
     return res.json({ success: true, checklist: cl });

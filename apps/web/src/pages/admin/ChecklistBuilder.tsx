@@ -5,6 +5,7 @@ import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import {
   loadDemoChecklists,
   loadDemoUnits,
+  saveDemoChecklists,
 } from '../../lib/demoData';
 import { useAuth } from '../../lib/auth';
 
@@ -273,12 +274,42 @@ export function ChecklistBuilder() {
   async function save() {
     if (!editing?.name.trim() || saving) return;
     setSaving(true);
-    const normalized = {
+    const normalized: Checklist = {
       ...editing,
       items: editing.items
         .filter((i) => i.title.trim())
-        .map((i, idx) => ({ ...i, sort_order: idx + 1 })),
+        .map((i, idx) => {
+          const isNumeric = (i as any).item_type === 'numeric' || (i as any).execution_mode === 'numeric';
+          return {
+            ...i,
+            sort_order: idx + 1,
+            execution_mode: isNumeric ? 'numeric' : (i.execution_mode || 'photo'),
+            item_type: isNumeric ? 'numeric' : (i.item_type || 'boolean'),
+            requires_photo: isNumeric ? false : Boolean(i.requires_photo),
+            unit_of_measurement: isNumeric ? ((i as any).unit_of_measurement || '°C') : null,
+            min_value: isNumeric && (i as any).min_value !== undefined && (i as any).min_value !== null && (i as any).min_value !== '' ? Number((i as any).min_value) : null,
+            max_value: isNumeric && (i as any).max_value !== undefined && (i as any).max_value !== null && (i as any).max_value !== '' ? Number((i as any).max_value) : null,
+            alert_on_non_compliant: isNumeric ? Boolean((i as any).alert_on_non_compliant) : false,
+          };
+        }),
     };
+
+    if (demoMode) {
+      const current = loadDemoChecklists();
+      const existingIdx = current.findIndex((c) => c.id === normalized.id);
+      let updated: Checklist[];
+      if (existingIdx >= 0) {
+        updated = current.map((c, i) => (i === existingIdx ? normalized : (c as Checklist)));
+      } else {
+        updated = [normalized, ...(current as Checklist[])];
+      }
+      saveDemoChecklists(updated as any);
+      setList(updated);
+      setOpen(false);
+      setEditing(null);
+      setSaving(false);
+      return;
+    }
 
     try {
       await apiPost('/api/checklists', normalized);
@@ -296,6 +327,13 @@ export function ChecklistBuilder() {
 
   async function remove(id: string) {
     if (!confirm('Remover este checklist operacional?')) return;
+    if (demoMode) {
+      const current = loadDemoChecklists();
+      const updated = current.filter((c) => c.id !== id);
+      saveDemoChecklists(updated as any);
+      setList(updated as Checklist[]);
+      return;
+    }
     try {
       await apiDelete(`/api/checklists/${id}`);
       await fetchChecklists();
@@ -787,11 +825,16 @@ export function ChecklistBuilder() {
                     </button>
                   </div>
 
-                  {editing.items.map((it, idx) => (
-                    <div
-                      className={`sop-item-card ${it.is_critical ? 'is-critical-item' : ''}`}
-                      key={it.id || idx}
-                    >
+                  {editing.items.map((it, idx) => {
+                    const isNumeric = (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric';
+                    const isPhoto = !isNumeric && ((it as any).execution_mode === 'photo' || (it as any).execution_mode === 'both' || (it as any).requires_photo === true);
+                    const isCheck = !isNumeric && !isPhoto;
+
+                    return (
+                      <div
+                        className={`sop-item-card ${it.is_critical ? 'is-critical-item' : ''}`}
+                        key={it.id || idx}
+                      >
                       {/* Faixa Superior do Item */}
                       <div className="sop-item-header-strip">
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -897,21 +940,14 @@ export function ChecklistBuilder() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 6 }}>
                           <button
                             type="button"
-                            className={`btn btn-sm ${
-                              (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
-                                ? 'btn-primary'
-                                : 'btn-ghost'
-                            }`}
+                            className={`btn btn-sm ${isNumeric ? 'btn-primary' : 'btn-ghost'}`}
                             style={{
                               justifyContent: 'center',
                               fontWeight: 700,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
                               gap: '6px',
-                              border:
-                                (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
-                                  ? '1px solid #6366f1'
-                                  : '1px solid rgba(255,255,255,0.08)',
+                              border: isNumeric ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                             }}
                             onClick={() => {
                               updateItem(idx, {
@@ -930,21 +966,14 @@ export function ChecklistBuilder() {
 
                           <button
                             type="button"
-                            className={`btn btn-sm ${
-                              (it as any).execution_mode === 'photo' && (it as any).item_type !== 'numeric'
-                                ? 'btn-primary'
-                                : 'btn-ghost'
-                            }`}
+                            className={`btn btn-sm ${isPhoto ? 'btn-primary' : 'btn-ghost'}`}
                             style={{
                               justifyContent: 'center',
                               fontWeight: 600,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
                               gap: '6px',
-                              border:
-                                (it as any).execution_mode === 'photo' && (it as any).item_type !== 'numeric'
-                                  ? '1px solid #6366f1'
-                                  : '1px solid rgba(255,255,255,0.08)',
+                              border: isPhoto ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                             }}
                             onClick={() => {
                               updateItem(idx, {
@@ -963,21 +992,14 @@ export function ChecklistBuilder() {
 
                           <button
                             type="button"
-                            className={`btn btn-sm ${
-                              (it as any).execution_mode === 'check' && (it as any).item_type !== 'numeric'
-                                ? 'btn-primary'
-                                : 'btn-ghost'
-                            }`}
+                            className={`btn btn-sm ${isCheck ? 'btn-primary' : 'btn-ghost'}`}
                             style={{
                               justifyContent: 'center',
                               fontWeight: 600,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
                               gap: '6px',
-                              border:
-                                (it as any).execution_mode === 'check' && (it as any).item_type !== 'numeric'
-                                  ? '1px solid #6366f1'
-                                  : '1px solid rgba(255,255,255,0.08)',
+                              border: isCheck ? '1px solid #6366f1' : '1px solid rgba(255,255,255,0.08)',
                             }}
                             onClick={() => {
                               updateItem(idx, {
@@ -997,7 +1019,7 @@ export function ChecklistBuilder() {
                       </div>
 
                       {/* Configuração Específica de Medição Quantitativa (Revelação Progressiva) */}
-                      {((it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric') && (
+                      {isNumeric && (
                         <div
                           style={{
                             background: 'rgba(99, 102, 241, 0.08)',
@@ -1203,8 +1225,9 @@ export function ChecklistBuilder() {
                           </button>
                         )}
                       </div>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

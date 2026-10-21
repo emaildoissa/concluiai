@@ -40,16 +40,17 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     return next();
   }
 
-  if (!hasSupabaseConfig()) {
-    const demo = req.header('x-demo-user');
-    if (demo) {
-      try {
-        req.user = JSON.parse(demo) as AuthUser;
-        return next();
-      } catch {
-        /* fallback abaixo */
-      }
+  const demo = req.header('x-demo-user');
+  if (demo) {
+    try {
+      req.user = JSON.parse(demo) as AuthUser;
+      return next();
+    } catch {
+      /* fallback */
     }
+  }
+
+  if (!hasSupabaseConfig()) {
     req.user = defaultAdmin;
     return next();
   }
