@@ -18,17 +18,17 @@ const emptyItem = (order = 1): Item => ({
   title: '',
   description: '',
   is_critical: false,
-  requires_photo: true,
-  requires_gps: true,
+  requires_photo: false,
+  requires_gps: false,
   due_time: '09:00',
   sort_order: order,
   weight: 1,
-  execution_mode: 'photo',
+  execution_mode: 'check',
   item_type: 'boolean',
   unit_of_measurement: null,
   min_value: null,
   max_value: null,
-  alert_on_non_compliant: true,
+  alert_on_non_compliant: false,
 });
 
 const PRESET_TEMPLATES = [
@@ -37,7 +37,7 @@ const PRESET_TEMPLATES = [
     label: 'Freezer (-18°C a -22°C)',
     title: 'Controle de Temperatura · Freezer 1',
     description: 'Checar visor digital do freezer de peixes/carnes. Registrar a temperatura observada no termômetro.',
-    is_critical: true,
+    is_critical: false,
     due_time: '09:00',
     mode: 'numeric',
     item_type: 'numeric',
@@ -50,7 +50,7 @@ const PRESET_TEMPLATES = [
     label: 'Geladeira (1°C a 4.5°C)',
     title: 'Controle de Temperatura · Geladeira Principal',
     description: 'Verificar termômetro interno do refrigerador de insumos e laticínios. Registrar valor aferido.',
-    is_critical: true,
+    is_critical: false,
     due_time: '09:00',
     mode: 'numeric',
     item_type: 'numeric',
@@ -63,7 +63,7 @@ const PRESET_TEMPLATES = [
     label: 'pH do Arroz (4.1 a 4.5)',
     title: 'Aferição de pH do Arroz Temperado (Shari)',
     description: 'Inserir medidor de pH calibrado ou fita no centro da bacia de arroz de sushi. Registrar o índice de acidez.',
-    is_critical: true,
+    is_critical: false,
     due_time: '11:00',
     mode: 'numeric',
     item_type: 'numeric',
@@ -76,7 +76,7 @@ const PRESET_TEMPLATES = [
     label: 'Óleo de Fritadeira (0% a 25%)',
     title: 'Saturação de Compostos Polares do Óleo',
     description: 'Medir porcentagem de degradação do óleo com fita ou medidor eletrônico. Se passar de 25%, descartar imediatamente.',
-    is_critical: true,
+    is_critical: false,
     due_time: '16:00',
     mode: 'numeric',
     item_type: 'numeric',
@@ -89,7 +89,7 @@ const PRESET_TEMPLATES = [
     label: 'Buffet Quente (60°C a 90°C)',
     title: 'Temperatura da Pista Quente / Banho-Maria',
     description: 'Aferir temperatura dos alimentos servidos no buffet quente com termômetro espeto limpo.',
-    is_critical: true,
+    is_critical: false,
     due_time: '12:00',
     mode: 'numeric',
     item_type: 'numeric',
@@ -102,7 +102,7 @@ const PRESET_TEMPLATES = [
     label: 'Panela de Arroz / Cuba',
     title: 'Higienização da Panela de Arroz',
     description: 'Remover cuba interna, lavar com esponja não abrasiva e detergente neutro. Secar e limpar a carcaça externa. A foto deve registrar o fundo da cuba limpo, seco e sem crosta.',
-    is_critical: true,
+    is_critical: false,
     due_time: '10:00',
     mode: 'photo',
     item_type: 'boolean',
@@ -128,7 +128,7 @@ const PRESET_TEMPLATES = [
     label: 'Válvula de Gás',
     title: 'Checagem de Válvulas de Gás e Registros',
     description: 'Verificar alinhamento e vedação dos registros de gás da cozinha. Confirmar ausência de vazamento ou odores atípicos.',
-    is_critical: true,
+    is_critical: false,
     due_time: '08:30',
     mode: 'both',
     item_type: 'boolean',
@@ -141,7 +141,7 @@ const PRESET_TEMPLATES = [
     label: 'Ralos e Lixeiras',
     title: 'Fechamento Sanitário de Ralos e Lixeiras',
     description: 'Desinfetar grelhas de ralos com cloro, recolher sacos de lixo e fechar tampas de contenção para evitar pragas.',
-    is_critical: true,
+    is_critical: false,
     due_time: '23:00',
     mode: 'photo',
     item_type: 'boolean',
@@ -334,7 +334,7 @@ export function ChecklistBuilder() {
       unit_of_measurement: (t as any).unit_of_measurement ?? null,
       min_value: (t as any).min_value ?? null,
       max_value: (t as any).max_value ?? null,
-      alert_on_non_compliant: true,
+      alert_on_non_compliant: false,
     } as any);
   }
 
@@ -617,7 +617,11 @@ export function ChecklistBuilder() {
                 className={`sop-modal-tab-btn ${activeTab === 'info' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('info')}
               >
-                <span>⚙️ 1. Parâmetros & Unidades</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>1. Parâmetros & Unidades</span>
                 <span className="sop-tab-badge">{editing.unit_ids.length} un.</span>
               </button>
               <button
@@ -625,7 +629,13 @@ export function ChecklistBuilder() {
                 className={`sop-modal-tab-btn ${activeTab === 'items' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('items')}
               >
-                <span>📝 2. Roteiro & Diretrizes IA</span>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                  <line x1="9" y1="12" x2="15" y2="12"></line>
+                  <line x1="9" y1="16" x2="13" y2="16"></line>
+                </svg>
+                <span>2. Roteiro & Diretrizes IA</span>
                 <span className="sop-tab-badge">{editing.items.length} itens</span>
               </button>
             </div>
@@ -828,7 +838,7 @@ export function ChecklistBuilder() {
                               e.target.value = '';
                             }}
                           >
-                            <option value="" disabled>⚡ Carregar Modelo Rápido...</option>
+                            <option value="" disabled>Carregar Modelo Pré-definido...</option>
                             {PRESET_TEMPLATES.map((tpl) => (
                               <option key={tpl.label} value={tpl.label}>
                                 {tpl.label} ({tpl.category})
@@ -897,6 +907,7 @@ export function ChecklistBuilder() {
                               fontWeight: 700,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
+                              gap: '6px',
                               border:
                                 (it as any).item_type === 'numeric' || (it as any).execution_mode === 'numeric'
                                   ? '1px solid #6366f1'
@@ -911,7 +922,10 @@ export function ChecklistBuilder() {
                               } as any);
                             }}
                           >
-                            📏 Medição (Temperatura, pH, etc)
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                            </svg>
+                            <span>Medição (Temperatura, pH, etc)</span>
                           </button>
 
                           <button
@@ -926,6 +940,7 @@ export function ChecklistBuilder() {
                               fontWeight: 600,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
+                              gap: '6px',
                               border:
                                 (it as any).execution_mode === 'photo' && (it as any).item_type !== 'numeric'
                                   ? '1px solid #6366f1'
@@ -939,7 +954,11 @@ export function ChecklistBuilder() {
                               } as any);
                             }}
                           >
-                            📸 Foto Obrigatória (IA)
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                              <circle cx="12" cy="13" r="4"/>
+                            </svg>
+                            <span>Foto Obrigatória (IA)</span>
                           </button>
 
                           <button
@@ -954,6 +973,7 @@ export function ChecklistBuilder() {
                               fontWeight: 600,
                               fontSize: '0.82rem',
                               padding: '8px 12px',
+                              gap: '6px',
                               border:
                                 (it as any).execution_mode === 'check' && (it as any).item_type !== 'numeric'
                                   ? '1px solid #6366f1'
@@ -967,7 +987,11 @@ export function ChecklistBuilder() {
                               } as any);
                             }}
                           >
-                            ✓ Confirmação Simples
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="9 11 12 14 22 4"/>
+                              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                            </svg>
+                            <span>Confirmação Simples</span>
                           </button>
                         </div>
                       </div>
@@ -1054,13 +1078,17 @@ export function ChecklistBuilder() {
                             </div>
                           </div>
 
-                          <label className="checkbox" style={{ fontSize: '0.8rem', color: '#e2e8f0', margin: 0 }}>
+                          <label className="checkbox" style={{ fontSize: '0.82rem', color: '#e2e8f0', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                             <input
                               type="checkbox"
-                              checked={(it as any).alert_on_non_compliant ?? true}
+                              checked={(it as any).alert_on_non_compliant ?? false}
                               onChange={(e) => updateItem(idx, { alert_on_non_compliant: e.target.checked } as any)}
                             />
-                            🚨 Disparar alerta imediato no WhatsApp dos gerentes se o valor aferido estiver fora da faixa
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                            </svg>
+                            <span>Disparar alerta imediato no WhatsApp dos gerentes se o valor aferido estiver fora da faixa</span>
                           </label>
                         </div>
                       )}
@@ -1084,13 +1112,16 @@ export function ChecklistBuilder() {
                               color: '#c7d2fe',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '6px',
                               cursor: 'pointer',
                               transition: 'all 0.15s ease'
                             }}
                             onClick={() => autoEnrichDirective(idx)}
                           >
-                            ⚡ Gerar Diretriz com IA
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                            </svg>
+                            <span>Gerar Diretriz com IA</span>
                           </button>
                         </div>
                         <textarea
@@ -1127,23 +1158,32 @@ export function ChecklistBuilder() {
 
                       {/* Toggles Crítico / GPS / Excluir */}
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                          <label className="checkbox" style={{ fontWeight: 600 }}>
+                        <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                          <label className="checkbox" style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
                             <input
                               type="checkbox"
-                              checked={it.is_critical}
+                              checked={Boolean(it.is_critical)}
                               onChange={(e) => updateItem(idx, { is_critical: e.target.checked })}
                             />
-                            Tarefa Crítica (Alerta WhatsApp e maior peso)
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                              <line x1="12" y1="9" x2="12" y2="13"/>
+                              <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                            <span>Tarefa Crítica (Alerta WhatsApp e maior peso)</span>
                           </label>
 
-                          <label className="checkbox">
+                          <label className="checkbox" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}>
                             <input
                               type="checkbox"
-                              checked={it.requires_gps}
+                              checked={Boolean(it.requires_gps)}
                               onChange={(e) => updateItem(idx, { requires_gps: e.target.checked })}
                             />
-                            Validação por GPS
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <circle cx="12" cy="12" r="10"/>
+                              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                            </svg>
+                            <span>Validação por GPS</span>
                           </label>
                         </div>
 

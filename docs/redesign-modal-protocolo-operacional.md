@@ -61,9 +61,39 @@ Cada passo do protocolo foi estruturado em **3 zonas visuais distintas**:
 sop-modal-shell (920px max, border-radius 20px, box-shadow elevado)
  ├── sop-modal-header (flex-shrink: 0, título h3 com tracking fechado, subtítulo e fechar)
  ├── sop-modal-nav-tabs (flex-shrink: 0, altura 54px garantida, pills com badges)
- │    ├── [ ⚙️ 1. Parâmetros & Unidades (X un.) ]
- │    └── [ 📝 2. Roteiro & Diretrizes IA (Y itens) ]
+ │    ├── [ SVG 1. Parâmetros & Unidades (X un.) ]
+ │    └── [ SVG 2. Roteiro & Diretrizes IA (Y itens) ]
  ├── sop-modal-body (scroll vertical fluido, gap 1.25rem)
  │    └── sop-item-card (card modular com 3 blocos hierárquicos)
  └── sop-modal-footer (flex-shrink: 0, cancelar à esquerda, salvar destacado à direita)
 ```
+
+---
+
+## 5. Regras de Negócio e Refinamentos Solicitados
+
+### 5.1 Como o sistema sabe que o valor está fora da faixa?
+Ao cadastrar ou carregar uma tarefa do tipo **Medição Numérica**, o gestor define os parâmetros de tolerância:
+- **Limite Mínimo Aceitável (`min_value`)**: Exemplo `80°C` (temperatura de segurança do buffet ou fritadeira).
+- **Limite Máximo Aceitável (`max_value`)**: Exemplo `100°C`.
+
+Durante a execução da rotina pelo operador no aplicativo:
+1. **Validação Matemática Instantânea:**
+   $$\text{Não Conforme} \iff (\text{valor} < \text{min\_value}) \lor (\text{valor} > \text{max\_value})$$
+   - Se o operador aferir `78°C` (menor que o mínimo de 80): **Fora da faixa (Inconforme)**.
+   - Se aferir `105°C` (maior que o máximo de 100): **Fora da faixa (Inconforme)**.
+   - Se aferir `85°C` (entre 80 e 100): **Dentro da faixa (Conforme)**.
+2. **Resposta Visual em Tempo Real:** A interface do operador acende um badge em vermelho pulsante alertando que a temperatura ou pH está fora do padrão exigido pela Vigilância Sanitária e bloqueia o envio sem o preenchimento de um plano de ação corretiva imediato (ex: "Ajustado termostato para nível 4").
+3. **Gatilho de Disparo:** Se e somente se a opção **"Disparar alerta imediato no WhatsApp..."** estiver marcada (ou a tarefa for crítica), a API despacha a mensagem de não-conformidade diretamente para a fila de WhatsApp dos supervisores.
+
+### 5.2 Caixas Desmarcadas por Padrão (Ambiente Seguro de Testes)
+Para evitar envios de notificações falsas ou exigências indesejadas durante a fase de testes e homologação:
+- `alert_on_non_compliant`: **Desmarcado por padrão (`false`)**;
+- `is_critical` (Tarefa Crítica): **Desmarcado por padrão (`false`)**;
+- `requires_gps` (Validação por GPS): **Desmarcado por padrão (`false`)**.
+
+### 5.3 Substituição de Emojis por Ícones SVG Vetoriais
+Removidos todos os emojis informais (🚨, ⚡, 📏, 📸, ✓, ⚙️, 📝) em favor de ícones SVG com design system padronizado (traço fino `strokeWidth: 2`, paleta neutra e semântica com destaque suave):
+- **Abas:** Ícones vetoriais de engrenagem (`settings`) e prancheta (`clipboard`);
+- **Seletores de Tipo:** Termômetro com graduação (`thermometer`), câmera fotográfica (`camera`) e caixa de checagem (`check-square`);
+- **Ações:** Sineta de notificação semântica em amarelo âmbar e triângulo de advertência em rosa/vermelho corporativo.
