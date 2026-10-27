@@ -568,7 +568,11 @@ export function MultistoreDashboard() {
       <div className="ops-telemetry-bar">
         <div className="ops-telemetry-left">
           <div className="ops-telemetry-title-row">
-            <h2 className="ops-main-title">Central de Comando Operacional</h2>
+            <h1 className="ops-main-title">Central de Comando Operacional</h1>
+            <span className="ops-live-pulse-badge">
+              <span className="ops-pulse-dot" />
+              LIVE TELEMETRY
+            </span>
           </div>
           <p className="ops-telemetry-sub">
             <span><strong>{units.length} {units.length === 1 ? 'Unidade' : 'Unidades'}</strong> ativas na rede</span>
@@ -583,23 +587,18 @@ export function MultistoreDashboard() {
         <div className="ops-telemetry-actions ops-actions-desktop">
           <button
             type="button"
-            className="ops-btn-action"
-            style={{
-              borderColor: 'rgba(56, 189, 248, 0.4)',
-              background: 'rgba(56, 189, 248, 0.1)',
-              color: '#38bdf8',
-            }}
+            className="ops-btn-action ops-btn-generate"
             onClick={() => void generateTodayTasks()}
             disabled={busy !== null}
             title="Gerar tarefas operacionais do dia para todas as unidades ativas"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="18" x2="12" y2="12" />
-              <line x1="9" y1="15" x2="15" y2="15" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            {busy === 'generate' ? 'Gerando...' : 'Gerar Rotinas do Dia'}
+            <span>{busy === 'generate' ? 'Gerando...' : 'Gerar Rotinas do Dia'}</span>
           </button>
 
           <button
@@ -609,11 +608,11 @@ export function MultistoreDashboard() {
             disabled={busy !== null}
             title="Recalcular métricas de Pontualidade, Execução e Qualidade"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               <path d="M9 12l2 2 4-4" />
             </svg>
-            {busy === 'score' ? 'Auditando...' : 'Auditar Índices P·E·Q'}
+            <span>{busy === 'score' ? 'Auditando...' : 'Auditar Índices P·E·Q'}</span>
           </button>
 
           <button
@@ -624,19 +623,19 @@ export function MultistoreDashboard() {
             title="Sincronizar e recarregar dados do painel"
           >
             <svg
-              width="14"
-              height="14"
+              width="15"
+              height="15"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
               style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
             >
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
-            Atualizar
+            <span>{loading ? 'Sincronizando...' : 'Atualizar'}</span>
           </button>
         </div>
 
@@ -779,20 +778,30 @@ export function MultistoreDashboard() {
         <div className="ops-kpi-card" style={{ ['--kpi-glow' as string]: '#6366f1' }}>
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Índice Global</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div className="ops-kpi-header-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
+              </div>
+              <h3 className="ops-kpi-title">Índice Global</h3>
+            </div>
             <span className="badge badge-info">Meta 85%</span>
           </div>
           <div className="ops-kpi-body">
             <div className="ops-kpi-value">{avgScore != null ? avgScore : '—'}</div>
             <span
-              className={`ops-kpi-benchmark ${avgScore && avgScore >= 85
+              className={`ops-kpi-benchmark ${
+                avgScore && avgScore >= 85
                   ? 'benchmark-good'
                   : avgScore && avgScore >= 70
-                    ? 'benchmark-warn'
-                    : 'benchmark-danger'
-                }`}
+                  ? 'benchmark-warn'
+                  : 'benchmark-danger'
+              }`}
             >
-              {avgScore && avgScore >= 85 ? 'Conforme' : avgScore && avgScore >= 70 ? 'Regular' : 'Crítico'}
+              {avgScore && avgScore >= 85 ? '✓ Conforme' : avgScore && avgScore >= 70 ? '⚠ Regular' : '✕ Crítico'}
             </span>
           </div>
           <p className="ops-kpi-sub">Pontualidade, Execução e IA</p>
@@ -809,7 +818,23 @@ export function MultistoreDashboard() {
         >
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Lojas em Risco</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                className="ops-kpi-header-icon"
+                style={{
+                  background: unitsInRisk.length > 0 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  color: unitsInRisk.length > 0 ? '#f43f5e' : '#34d399',
+                  borderColor: unitsInRisk.length > 0 ? 'rgba(244, 63, 94, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <h3 className="ops-kpi-title">Lojas em Risco</h3>
+            </div>
             <span className={`badge ${unitsInRisk.length > 0 ? 'badge-critical' : 'badge-completed'}`}>
               {unitsInRisk.length > 0 ? 'Exige Ação' : '100% OK'}
             </span>
@@ -836,7 +861,22 @@ export function MultistoreDashboard() {
         >
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Tarefas em Atraso</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                className="ops-kpi-header-icon"
+                style={{
+                  background: taskCounts.late > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  color: taskCounts.late > 0 ? '#fbbf24' : '#34d399',
+                  borderColor: taskCounts.late > 0 ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <h3 className="ops-kpi-title">Tarefas em Atraso</h3>
+            </div>
             <span className={`badge ${taskCounts.late > 0 ? 'badge-late' : 'badge-completed'}`}>
               {taskCounts.late > 0 ? 'Atrasadas' : 'Em Dia'}
             </span>
@@ -863,7 +903,22 @@ export function MultistoreDashboard() {
         >
           <div className="ops-kpi-glow" />
           <div className="ops-kpi-header">
-            <h3 className="ops-kpi-title">Auditorias Gemini IA</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div
+                className="ops-kpi-header-icon"
+                style={{
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  color: '#38bdf8',
+                  borderColor: 'rgba(56, 189, 248, 0.3)',
+                }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </div>
+              <h3 className="ops-kpi-title">Auditorias Gemini IA</h3>
+            </div>
             <span className={`badge ${taskCounts.rejected > 0 ? 'badge-critical' : 'badge-completed'}`}>
               {taskCounts.rejected > 0 ? `${taskCounts.rejected} Recusada${taskCounts.rejected > 1 ? 's' : ''}` : '100% OK'}
             </span>
@@ -890,35 +945,67 @@ export function MultistoreDashboard() {
               className={`incident-tab-btn ${activeTab === 'tasks' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('tasks')}
             >
-              <span className="tab-label-desktop">Fila de Tarefas & Cobrança ({taskCounts.total})</span>
-              <span className="tab-label-mobile">Tarefas ({taskCounts.total})</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              <span className="tab-label-desktop">Fila de Tarefas & Cobrança</span>
+              <span className="tab-label-mobile">Tarefas</span>
+              <span className="sop-tab-badge">{taskCounts.total}</span>
             </button>
             <button
               type="button"
               className={`incident-tab-btn ${activeTab === 'evidences' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('evidences')}
             >
-              <span className="tab-label-desktop">Auditoria Visual Gemini IA ({evidences.length})</span>
-              <span className="tab-label-mobile">Fotos IA ({evidences.length})</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <span className="tab-label-desktop">Auditoria Visual Gemini IA</span>
+              <span className="tab-label-mobile">Fotos IA</span>
+              <span className="sop-tab-badge">{evidences.length}</span>
             </button>
             <button
               type="button"
               className={`incident-tab-btn ${activeTab === 'units' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('units')}
             >
-              <span className="tab-label-desktop">Desempenho por Loja ({units.length})</span>
-              <span className="tab-label-mobile">Lojas ({units.length})</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+                <path d="M9 22v-4h6v4" />
+                <path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01" />
+              </svg>
+              <span className="tab-label-desktop">Desempenho por Loja</span>
+              <span className="tab-label-mobile">Lojas</span>
+              <span className="sop-tab-badge">{units.length}</span>
             </button>
           </div>
 
           <div className="ops-search-wrap">
+            <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <input
               type="text"
               className="ops-search-input"
               placeholder="Buscar tarefa, operador ou loja..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Buscar tarefa, operador ou loja"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                className="ops-search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
           </div>
         </div>
 

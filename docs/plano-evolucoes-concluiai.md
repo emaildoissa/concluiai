@@ -64,6 +64,12 @@
   - Remoção de emojis infantis e substituição por ícones SVG padronizados em cinza/índigo neutro.
   - Revelação progressiva da caixa de limites seguros (só aparece quando "Medição" está ativo).
   - Checkboxes de risco (`is_critical`, `requires_gps`, `alert_on_non_compliant`) desmarcados por padrão para testes seguros.
+- **[27/10/2026] Redesign da Central de Comando Operacional (`/admin`):**
+  - Aplicação estrita da `skill-usabilidade-e-prototipagem.md`:
+    - **Hierarquia e Semântica:** Adicionado `<h1>` principal ("Central de Comando Operacional") com indicador pulsante de *Live Telemetry*.
+    - **Lei de Fitts:** Botões de ação táticos com altura confortável (40-42px), micro-interações de hover/active e gradientes dedicados.
+    - **Lei de Miller & Chunking:** 4 KPI Cards modernizados com ícones temáticos dedicados (Índice Global, Lojas em Risco, Atrasos e Visão Computacional), com badges de conformidade dentro das diretrizes de contraste WCAG 2.2 AA.
+    - **Navegação do Workspace:** Abas táticas no mesmo padrão visual premium do modal de protocolos, com ícones SVG, badges dinâmicas de contagem e busca integrada com ícone de lupa e botão de limpeza instantânea.
 
 ### Próximos Passos de Design:
 - [ ] Padronização dos modais restantes no mesmo padrão visual do modal de protocolo.
