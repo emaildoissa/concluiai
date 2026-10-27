@@ -1,0 +1,93 @@
+# Plano de Evolução Contínua: ConcluíAI
+
+> **Documento de Referência:** [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md)  
+> **Última Atualização:** 21/10/2026  
+> **Objetivo:** Registro contínuo de diagnósticos, correções e planos organizados nos 3 pilares estratégicos do produto.
+
+---
+
+## 🎯 Os 3 Pilares do Projeto
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      CONCLUÍ AI                             │
+├──────────────────┬──────────────────┬───────────────────────┤
+│   1. BUGS        │   2. DESIGN      │   3. ENXUGAR O APP    │
+│ Correção técnica │ UI/UX moderna,   │ Eliminar código morto,│
+│ e estabilidade   │ acessível, clean │ simplificar fluxos    │
+│ de dados         │ e profissional   │ e ganho de velocidade │
+└──────────────────┴──────────────────┴───────────────────────┘
+```
+
+---
+
+## Pilar 1: Eliminação de Bugs & Estabilidade
+
+### [21/10/2026] ✅ Resolvido: Persistência de Medição Quantitativa (Checklists)
+- **Problema:** Ao selecionar o modo de verificação "Medição" em tarefas operacionais, o sistema não gravava a escolha e sempre revertia para "Foto Obrigatória" ao reabrir.
+- **Causa Raiz:**
+  1. *Backend (`routes/checklists.ts`):* A rota da API possuía lista estrita antiga que não contemplava `numeric`, forçando fallback para `check`/`photo` e reescrevendo `item_type` para `boolean`.
+  2. *Frontend (`ChecklistBuilder.tsx`):* A checagem dos botões visuais no modal não era estritamente mutuamente exclusiva.
+  3. *Infraestrutura (Docker/Portainer):* O container em produção estava executando a imagem em cache anterior sem as novas regras de normalização.
+- **Solução Implementada:**
+  - `apps/api/src/routes/checklists.ts`: Implementada normalização estrita `isNumeric = it.item_type === 'numeric' || it.execution_mode === 'numeric' || it.unit_of_measurement != null || it.min_value != null || it.max_value != null`. Gravação garantida de limites numéricos e unidade.
+  - `apps/web/src/pages/admin/ChecklistBuilder.tsx`: Normalização completa no método `save()` e controle visual mutuamente exclusivo com variáveis `isNumeric`, `isPhoto` e `isCheck`.
+  - Rebuild limpo da imagem (`docker build --no-cache`) e re-pull no Portainer com sucesso.
+
+### [27/10/2026] ✅ Resolvido: Travamento na Seleção de Tipo de Verificação da Tarefa
+- **Problema:** Ao tentar editar uma tarefa existente configurada como "Medição", o usuário não conseguia alternar para "Foto Obrigatória (IA)" ou "Confirmação Simples"; a seleção ficava presa.
+- **Causa Raiz:**
+  1. *Acúmulo de dados na memória do componente:* Quando uma tarefa foi criada com medição, continha `unit_of_measurement: '°C'`, `min_value` e `max_value`. Ao clicar em "Foto" ou "Check", esses campos numéricos residuais permaneciam no objeto.
+  2. *Inferência agressiva (`isNumeric`):* A verificação considerava `it.unit_of_measurement != null` como prova definitiva de medição, ignorando a intenção explícita do clique (`execution_mode`) e forçando `isNumeric = true` a cada render.
+  3. *Adivinhação indesejada no título:* Digitar palavras-chave como "freezer" sobrescrevia automaticamente a escolha do usuário.
+- **Solução Implementada:**
+  - `apps/web/src/pages/admin/ChecklistBuilder.tsx`:
+    - Estabelecida fonte única da verdade para o modo (`numeric | photo | check`) baseada em `execution_mode`.
+    - Ao selecionar Foto ou Check, o estado limpa explicitamente os resquícios numéricos (`unit_of_measurement: null, min_value: null, max_value: null`).
+    - Removida a inferência mágica do campo de título (o usuário tem controle 100% previsível).
+    - Normalização consistente no `save()`.
+  - `apps/api/src/routes/checklists.ts`: Respeito estrito ao `execution_mode` enviado pelo frontend, persistindo nulo nos campos numéricos quando o modo for Foto ou Check.
+  - Builds validados com sucesso no Web e API (`tsc && vite build`).
+
+### Backlog de Bugs Identificados / Próximos
+- [ ] *(Aguardando novos relatos do usuário)*
+
+---
+
+## Pilar 2: Design, UI & Usabilidade
+
+*Baseado nas diretrizes de usabilidade e prototipagem estabelecidas no [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md).*
+
+### ✅ Implementado:
+- **Redesign do Modal de Edição de Protocolo:**
+  - Navegação em abas persistentes (*1. Parâmetros & Unidades* e *2. Roteiro & Diretrizes IA*).
+  - Remoção de emojis infantis e substituição por ícones SVG padronizados em cinza/índigo neutro.
+  - Revelação progressiva da caixa de limites seguros (só aparece quando "Medição" está ativo).
+  - Checkboxes de risco (`is_critical`, `requires_gps`, `alert_on_non_compliant`) desmarcados por padrão para testes seguros.
+
+### Próximos Passos de Design:
+- [ ] Padronização dos modais restantes no mesmo padrão visual do modal de protocolo.
+- [ ] Ajuste do contraste tipográfico e hierarquia visual nas tabelas e cards.
+- [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
+
+---
+
+## Pilar 3: Enxugamento do App & Otimização
+
+### Objetivos deste Pilar:
+1. **Remoção de Código Morto:** Identificar componentes, rotas e scripts legados que não estão mais em uso.
+2. **Desacoplamento e Performance:** Reduzir pacotes pesados desnecessários no bundle do frontend.
+3. **Simplificação de Fluxos:** Reduzir o número de cliques para o operador concluir vistorias e para o gestor cadastrar processos.
+
+### Itens Mapeados para Limpeza:
+- [ ] Limpeza de arquivos de teste e scripts temporários da raiz.
+- [ ] Auditoria de chamadas duplicadas no carregamento de tarefas do dia.
+- [ ] Otimização dos payloads trocados entre Frontend e API para diminuir consumo de dados móveis.
+
+---
+
+## 📋 Como vamos trabalhar
+À medida que você for testando e encontrando pontos a melhorar:
+1. Você me passa o bug, a tela ou a ideia de simplificação.
+2. Eu registro aqui neste documento com diagnóstico técnico e status.
+3. Implementamos a correção de forma cirúrgica e validamos juntos.

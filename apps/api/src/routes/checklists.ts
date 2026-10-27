@@ -88,25 +88,22 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
     await sb.from('checklist_items').delete().eq('checklist_id', cl.id);
     if (Array.isArray(items) && items.length > 0) {
       const itemRows = items.map((it: any, idx: number) => {
-        const isNumeric =
-          it.item_type === 'numeric' ||
-          it.execution_mode === 'numeric' ||
-          it.unit_of_measurement != null ||
-          it.min_value != null ||
-          it.max_value != null;
-        const execution_mode = isNumeric
-          ? 'numeric'
-          : validModes.includes(it.execution_mode)
-          ? it.execution_mode
-          : 'photo';
+        const mode =
+          it.execution_mode === 'numeric' || it.item_type === 'numeric'
+            ? 'numeric'
+            : validModes.includes(it.execution_mode)
+            ? it.execution_mode
+            : it.requires_photo ? 'photo' : 'check';
+        const isNumeric = mode === 'numeric';
+        const execution_mode = mode;
         const requires_photo = isNumeric ? false : (execution_mode === 'photo' || execution_mode === 'both');
-        const item_type = isNumeric ? 'numeric' : (it.item_type || 'boolean');
+        const item_type = isNumeric ? 'numeric' : 'boolean';
         const min_val =
-          it.min_value !== undefined && it.min_value !== null && it.min_value !== ''
+          isNumeric && it.min_value !== undefined && it.min_value !== null && it.min_value !== ''
             ? Number(it.min_value)
             : null;
         const max_val =
-          it.max_value !== undefined && it.max_value !== null && it.max_value !== ''
+          isNumeric && it.max_value !== undefined && it.max_value !== null && it.max_value !== ''
             ? Number(it.max_value)
             : null;
 
@@ -122,10 +119,10 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
           weight: it.weight || 1,
           execution_mode,
           item_type,
-          unit_of_measurement: it.unit_of_measurement || null,
+          unit_of_measurement: isNumeric ? (it.unit_of_measurement || '°C') : null,
           min_value: min_val,
           max_value: max_val,
-          alert_on_non_compliant: it.alert_on_non_compliant ?? false,
+          alert_on_non_compliant: isNumeric ? Boolean(it.alert_on_non_compliant) : false,
         };
       });
       const { error: insErr } = await sb.from('checklist_items').insert(itemRows);

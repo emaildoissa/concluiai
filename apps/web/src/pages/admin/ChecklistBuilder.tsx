@@ -279,18 +279,21 @@ export function ChecklistBuilder() {
       items: editing.items
         .filter((i) => i.title.trim())
         .map((i, idx) => {
-          const isNumeric =
-            (i as any).item_type === 'numeric' ||
-            (i as any).execution_mode === 'numeric' ||
-            (i as any).unit_of_measurement != null ||
-            (i as any).min_value != null ||
-            (i as any).max_value != null;
+          const mode: 'numeric' | 'photo' | 'check' =
+            (i as any).execution_mode === 'numeric' || (i as any).item_type === 'numeric'
+              ? 'numeric'
+              : (i as any).execution_mode === 'photo' || (i as any).requires_photo
+              ? 'photo'
+              : 'check';
+          const isNumeric = mode === 'numeric';
+          const isPhoto = mode === 'photo';
+
           return {
             ...i,
             sort_order: idx + 1,
-            execution_mode: isNumeric ? 'numeric' : (i.execution_mode || 'photo'),
-            item_type: isNumeric ? 'numeric' : (i.item_type || 'boolean'),
-            requires_photo: isNumeric ? false : Boolean(i.requires_photo),
+            execution_mode: mode,
+            item_type: isNumeric ? 'numeric' : 'boolean',
+            requires_photo: isPhoto,
             unit_of_measurement: isNumeric ? ((i as any).unit_of_measurement || '°C') : null,
             min_value: isNumeric && (i as any).min_value !== undefined && (i as any).min_value !== null && (i as any).min_value !== '' ? Number((i as any).min_value) : null,
             max_value: isNumeric && (i as any).max_value !== undefined && (i as any).max_value !== null && (i as any).max_value !== '' ? Number((i as any).max_value) : null,
@@ -831,14 +834,15 @@ export function ChecklistBuilder() {
                   </div>
 
                   {editing.items.map((it, idx) => {
-                    const isNumeric =
-                      (it as any).item_type === 'numeric' ||
-                      (it as any).execution_mode === 'numeric' ||
-                      (it as any).unit_of_measurement != null ||
-                      (it as any).min_value != null ||
-                      (it as any).max_value != null;
-                    const isPhoto = !isNumeric && ((it as any).execution_mode === 'photo' || (it as any).execution_mode === 'both' || (it as any).requires_photo === true);
-                    const isCheck = !isNumeric && !isPhoto;
+                    const currentMode: 'numeric' | 'photo' | 'check' =
+                      (it as any).execution_mode === 'numeric' || (it as any).item_type === 'numeric'
+                        ? 'numeric'
+                        : (it as any).execution_mode === 'photo' || (it as any).requires_photo === true
+                        ? 'photo'
+                        : 'check';
+                    const isNumeric = currentMode === 'numeric';
+                    const isPhoto = currentMode === 'photo';
+                    const isCheck = currentMode === 'check';
 
                     return (
                       <div
@@ -906,38 +910,7 @@ export function ChecklistBuilder() {
                         <label style={{ fontWeight: 700 }}>Título da Tarefa</label>
                         <input
                           value={it.title}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            const lower = val.toLowerCase();
-                            const isThermal =
-                              lower.includes('refrigerador') ||
-                              lower.includes('geladeira') ||
-                              lower.includes('freezer') ||
-                              lower.includes('temperatura');
-                            const isSushi = lower.includes('ph') || lower.includes('arroz') || lower.includes('shari');
-                            const isOil = lower.includes('óleo') || lower.includes('oleo') || lower.includes('fritadeira');
-
-                            const updates: any = { title: val };
-                            if ((it as any).item_type !== 'numeric' && (isThermal || isSushi || isOil)) {
-                              updates.item_type = 'numeric';
-                              updates.execution_mode = 'numeric';
-                              updates.requires_photo = false;
-                              if (isThermal) {
-                                updates.unit_of_measurement = '°C';
-                                updates.min_value = lower.includes('freezer') ? -22 : 1.0;
-                                updates.max_value = lower.includes('freezer') ? -18 : 4.5;
-                              } else if (isSushi) {
-                                updates.unit_of_measurement = 'pH';
-                                updates.min_value = 4.1;
-                                updates.max_value = 4.5;
-                              } else if (isOil) {
-                                updates.unit_of_measurement = '%';
-                                updates.min_value = 0;
-                                updates.max_value = 25;
-                              }
-                            }
-                            updateItem(idx, updates);
-                          }}
+                          onChange={(e) => updateItem(idx, { title: e.target.value })}
                           placeholder="Ex: Higienização da Panela de Arroz ou Temperatura do Refrigerador"
                         />
                       </div>
@@ -990,6 +963,9 @@ export function ChecklistBuilder() {
                                 execution_mode: 'photo',
                                 item_type: 'boolean',
                                 requires_photo: true,
+                                unit_of_measurement: null,
+                                min_value: null,
+                                max_value: null,
                               } as any);
                             }}
                           >
@@ -1016,6 +992,9 @@ export function ChecklistBuilder() {
                                 execution_mode: 'check',
                                 item_type: 'boolean',
                                 requires_photo: false,
+                                unit_of_measurement: null,
+                                min_value: null,
+                                max_value: null,
                               } as any);
                             }}
                           >
