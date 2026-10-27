@@ -71,6 +71,16 @@
     - **Lei de Miller & Chunking:** 4 KPI Cards modernizados com ícones temáticos dedicados (Índice Global, Lojas em Risco, Atrasos e Visão Computacional), com badges de conformidade dentro das diretrizes de contraste WCAG 2.2 AA.
     - **Navegação do Workspace:** Abas táticas no mesmo padrão visual premium do modal de protocolos, com ícones SVG, badges dinâmicas de contagem e busca integrada com ícone de lupa e botão de limpeza instantânea.
 
+- **[27/10/2026] Redesign da Listagem de Protocolos & POPs (`/admin/checklists`):**
+  - **Barra Superior:** `<h1>` padronizado ("Protocolos Operacionais (POPs)") com badge de contagem total e botões de ação ergonômicos (*+ Novo Procedimento* e *Gerar Tarefas do Dia*).
+  - **Filtros por Turno:** Substituição das abas antigas por pills no mesmo padrão da Central de Comando (com ícones SVG para Todos, Manhã, Tarde e Noite).
+  - **Barra de Busca Tática:** Input com lupa SVG integrada e botão de limpeza instantânea (`✕`).
+  - **Cards de Protocolos (`.sop-card`):**
+    - Badges semânticas por turno (*Manhã*: âmbar, *Tarde*: ciano, *Noite*: roxo).
+    - Status ativo/pausado com indicador luminoso (*dot*).
+    - Estatísticas organizadas com ícones de tarefas, críticas, fotos IA e lojas associadas.
+    - Ações do rodapé padronizadas com botões táteis e ícones SVG (*Editar*, *Duplicar*, *Excluir*).
+
 ### Próximos Passos de Design:
 - [ ] Padronização dos modais restantes no mesmo padrão visual do modal de protocolo.
 - [ ] Ajuste do contraste tipográfico e hierarquia visual nas tabelas e cards.
@@ -85,8 +95,10 @@
 2. **Desacoplamento e Performance:** Reduzir pacotes pesados desnecessários no bundle do frontend.
 3. **Simplificação de Fluxos:** Reduzir o número de cliques para o operador concluir vistorias e para o gestor cadastrar processos.
 
+### Itens Concluídos:
+- [x] **[27/10/2026] Organização da Raiz:** Movido documento de escopo/benchmark órfão (`nova implementação.txt`) para a pasta de documentação estruturada ([`docs/visao-modulos-concluiai.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/visao-modulos-concluiai.md)).
+
 ### Itens Mapeados para Limpeza:
-- [ ] Limpeza de arquivos de teste e scripts temporários da raiz.
 - [ ] Auditoria de chamadas duplicadas no carregamento de tarefas do dia.
 - [ ] Otimização dos payloads trocados entre Frontend e API para diminuir consumo de dados móveis.
 

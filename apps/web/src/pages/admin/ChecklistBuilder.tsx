@@ -426,29 +426,43 @@ export function ChecklistBuilder() {
       {/* Barra de Título & Ações Principais */}
       <div className="sop-top-bar">
         <div className="sop-title-block">
-          <h2>Protocolos Operacionais & Checklists (SOP)</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <h1 className="sop-main-title">Protocolos Operacionais (POPs)</h1>
+            <span className="sop-counter-badge">
+              {list.length} {list.length === 1 ? 'Protocolo' : 'Protocolos'}
+            </span>
+          </div>
           <p>Configure rotinas de abertura, produção e fechamento com critérios de validação por IA para a rede.</p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="sop-top-actions">
           <button
             type="button"
-            className="btn btn-secondary"
+            className="ops-btn-action ops-btn-generate"
             onClick={handleGenerateToday}
             disabled={generating}
             title="Gerar as instâncias de tarefas para o dia atual baseado nos checklists ativos"
           >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="18" x2="12" y2="12" />
-              <line x1="9" y1="15" x2="15" y2="15" />
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            {generating ? 'Gerando...' : 'Gerar Tarefas do Dia'}
+            <span>{generating ? 'Gerando...' : 'Gerar Tarefas do Dia'}</span>
           </button>
 
-          <button type="button" className="btn btn-primary" onClick={startNew}>
-            + Novo Procedimento
+          <button
+            type="button"
+            className="ops-btn-action ops-btn-score"
+            onClick={startNew}
+            title="Cadastrar um novo protocolo operacional"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Novo Procedimento</span>
           </button>
         </div>
       </div>
@@ -462,44 +476,82 @@ export function ChecklistBuilder() {
 
       {/* Linha de Filtros por Turno & Busca */}
       <div className="sop-controls-row">
-        <div className="sop-shift-tabs">
+        <div className="incident-tabs">
           <button
             type="button"
-            className={`sop-tab-btn ${shiftFilter === 'all' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${shiftFilter === 'all' ? 'is-active' : ''}`}
             onClick={() => setShiftFilter('all')}
           >
-            Todos ({list.length})
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            </svg>
+            <span>Todos</span>
+            <span className="sop-tab-badge">{list.length}</span>
           </button>
           <button
             type="button"
-            className={`sop-tab-btn ${shiftFilter === 'morning' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${shiftFilter === 'morning' ? 'is-active' : ''}`}
             onClick={() => setShiftFilter('morning')}
           >
-            Abertura / Manhã
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+            </svg>
+            <span>Abertura / Manhã</span>
           </button>
           <button
             type="button"
-            className={`sop-tab-btn ${shiftFilter === 'afternoon' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${shiftFilter === 'afternoon' ? 'is-active' : ''}`}
             onClick={() => setShiftFilter('afternoon')}
           >
-            Turno / Tarde
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <circle cx="12" cy="12" r="4" />
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+            </svg>
+            <span>Turno / Tarde</span>
           </button>
           <button
             type="button"
-            className={`sop-tab-btn ${shiftFilter === 'night' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${shiftFilter === 'night' ? 'is-active' : ''}`}
             onClick={() => setShiftFilter('night')}
           >
-            Fechamento / Noite
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+            <span>Fechamento / Noite</span>
           </button>
         </div>
 
-        <input
-          type="text"
-          className="sop-search-box"
-          placeholder="Buscar protocolo ou tarefa..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        <div className="ops-search-wrap">
+          <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            className="ops-search-input"
+            placeholder="Buscar protocolo ou tarefa..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Buscar protocolo ou tarefa"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="ops-search-clear-btn"
+              onClick={() => setSearchQuery('')}
+              title="Limpar busca"
+              aria-label="Limpar busca"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Grid de Checklists Operacionais */}
@@ -520,7 +572,7 @@ export function ChecklistBuilder() {
                   <div className="sop-card-header">
                     <div className="sop-card-meta-row">
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span className="sop-pill-shift">
+                        <span className={`sop-pill-shift shift-${cl.shift}`}>
                           {SHIFT_LABELS[cl.shift as Shift] || cl.shift}
                         </span>
                         <span className="muted" style={{ fontSize: '0.75rem', fontWeight: 600 }}>
@@ -528,6 +580,7 @@ export function ChecklistBuilder() {
                         </span>
                       </div>
                       <span className={`badge ${cl.is_active ? 'badge-completed' : 'badge-pending'}`}>
+                        <span className={`sop-status-dot ${cl.is_active ? 'is-active' : ''}`} />
                         {cl.is_active ? 'Ativo' : 'Pausado'}
                       </span>
                     </div>
@@ -539,18 +592,22 @@ export function ChecklistBuilder() {
                   {/* Resumo Estatístico do Card */}
                   <div className="sop-card-stats">
                     <span className="sop-stat-badge">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                       <strong>{cl.items.length}</strong> {cl.items.length === 1 ? 'tarefa' : 'tarefas'}
                     </span>
                     <span>·</span>
                     <span className="sop-stat-badge" style={{ color: criticalCount > 0 ? '#f43f5e' : '#94a3b8' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                       <strong>{criticalCount}</strong> críticas
                     </span>
                     <span>·</span>
-                    <span className="sop-stat-badge">
+                    <span className="sop-stat-badge" style={{ color: photoCount > 0 ? '#38bdf8' : '#94a3b8' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                       <strong>{photoCount}</strong> fotos IA
                     </span>
                     <span>·</span>
                     <span className="sop-stat-badge">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/></svg>
                       <strong>{unitCount}</strong> {unitCount === 1 ? 'loja' : 'lojas'}
                     </span>
                   </div>
@@ -588,20 +645,26 @@ export function ChecklistBuilder() {
                     onClick={() => duplicateChecklist(cl)}
                     title="Criar cópia deste protocolo"
                   >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                     Duplicar
                   </button>
                   <button
                     type="button"
-                    className="btn btn-sm btn-ghost"
+                    className="btn btn-sm btn-primary"
+                    style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)', border: '1px solid rgba(129, 140, 248, 0.4)' }}
                     onClick={() => startEdit(cl)}
+                    title="Editar passos, regras de negócio e diretrizes de IA"
                   >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     Editar
                   </button>
                   <button
                     type="button"
                     className="btn btn-sm btn-danger"
                     onClick={() => remove(cl.id)}
+                    title="Remover protocolo operacional permanentemente"
                   >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     Excluir
                   </button>
                 </div>
