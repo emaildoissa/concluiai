@@ -5778,18 +5778,40 @@ table.data tr:hover td {
   border: 1px solid rgba(244, 63, 94, 0.25);
 }
 
+.unit-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.unit-status-dot.open {
+  background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: opsPulse 2s infinite cubic-bezier(0.66, 0, 0, 1);
+}
+
+.unit-status-dot.closed {
+  background: #f59e0b;
+}
+
+.unit-status-dot.inactive {
+  background: #64748b;
+}
+
 .unit-card-actions {
   display: flex;
-  gap: 0.35rem;
+  gap: 0.4rem;
 }
 
 .unit-action-icon-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--text-muted);
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5801,6 +5823,7 @@ table.data tr:hover td {
   background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .unit-action-icon-btn.danger:hover {
@@ -5812,8 +5835,8 @@ table.data tr:hover td {
 .units-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5826,11 +5849,19 @@ table.data tr:hover td {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   width: min(520px, 95vw);
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   padding: 1.5rem;
+}
+
+.units-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 0.85rem;
 }
 
 /* ==========================================================================

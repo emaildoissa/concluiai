@@ -238,17 +238,22 @@ export function UnitsPage() {
       <div className="units-header-bar">
         <div className="units-title-row">
           <div>
-            <h2 className="units-main-title">Gestão Multiloja</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h1 className="units-main-title">Gestão de Unidades & Lojas</h1>
+              <span className="sop-counter-badge">
+                {totalCount} {totalCount === 1 ? 'Loja' : 'Lojas'}
+              </span>
+            </div>
             <p className="units-main-sub">
-              Cadastro, escala de funcionamento semanal e auditoria de unidades da rede.
+              Cadastro, escala de funcionamento semanal e auditoria de conformidade da rede.
             </p>
           </div>
         </div>
 
         <div className="units-kpi-grid">
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#2dd4bf' }}>
             <div className="units-kpi-icon teal">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
                 <path d="M9 22v-4h6v4" />
                 <path d="M8 6h.01" />
@@ -261,26 +266,26 @@ export function UnitsPage() {
             </div>
             <div className="units-kpi-content">
               <span className="units-kpi-val">{totalCount}</span>
-              <span className="units-kpi-label">Unidades na Rede</span>
+              <span className="units-kpi-label">Lojas na Rede</span>
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#38bdf8' }}>
             <div className="units-kpi-icon blue">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
             <div className="units-kpi-content">
               <span className="units-kpi-val">{activeCount}</span>
-              <span className="units-kpi-label">Unidades Ativas</span>
+              <span className="units-kpi-label">Lojas Ativas</span>
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#fbbf24' }}>
             <div className="units-kpi-icon amber">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
@@ -291,15 +296,15 @@ export function UnitsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#4ade80' }}>
             <div className="units-kpi-icon emerald">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             </div>
             <div className="units-kpi-content">
               <span className="units-kpi-val">{avgScore !== null ? `${avgScore}%` : '—'}</span>
-              <span className="units-kpi-label">Média P·E·Q da Rede</span>
+              <span className="units-kpi-label">Média P·E·Q</span>
             </div>
           </div>
         </div>
@@ -430,41 +435,56 @@ export function UnitsPage() {
         {/* Painel Direito: Listagem das Unidades */}
         <div className="units-glass-panel">
           <div className="units-toolbar">
-            <div className="units-search-box">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="ops-search-wrap" style={{ minWidth: 220, flex: 1 }}>
+              <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input
                 type="text"
-                className="units-search-input"
+                className="ops-search-input"
                 placeholder="Buscar por nome ou endereço..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                aria-label="Buscar por nome ou endereço"
               />
+              {search && (
+                <button
+                  type="button"
+                  className="ops-search-clear-btn"
+                  onClick={() => setSearch('')}
+                  title="Limpar busca"
+                  aria-label="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            <div className="units-filter-tabs">
+            <div className="incident-tabs">
               <button
                 type="button"
-                className={`units-filter-btn ${filter === 'all' ? 'active' : ''}`}
+                className={`incident-tab-btn ${filter === 'all' ? 'is-active' : ''}`}
                 onClick={() => setFilter('all')}
               >
-                Todas ({units.length})
+                <span>Todas</span>
+                <span className="sop-tab-badge">{units.length}</span>
               </button>
               <button
                 type="button"
-                className={`units-filter-btn ${filter === 'open_today' ? 'active' : ''}`}
+                className={`incident-tab-btn ${filter === 'open_today' ? 'is-active' : ''}`}
                 onClick={() => setFilter('open_today')}
               >
-                Abertas Hoje ({openTodayCount})
+                <span>Abertas Hoje</span>
+                <span className="sop-tab-badge">{openTodayCount}</span>
               </button>
               <button
                 type="button"
-                className={`units-filter-btn ${filter === 'inactive' ? 'active' : ''}`}
+                className={`incident-tab-btn ${filter === 'inactive' ? 'is-active' : ''}`}
                 onClick={() => setFilter('inactive')}
               >
-                Inativas ({totalCount - activeCount})
+                <span>Inativas</span>
+                <span className="sop-tab-badge">{totalCount - activeCount}</span>
               </button>
             </div>
           </div>
@@ -501,7 +521,7 @@ export function UnitsPage() {
                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                             <circle cx="12" cy="10" r="3" />
                           </svg>
-                          <span>{u.address || 'Sem endereço'}</span>
+                          <span>{u.address || 'Sem endereço cadastrado'}</span>
                         </div>
                       </div>
 
@@ -511,27 +531,21 @@ export function UnitsPage() {
                     </div>
 
                     <div className="unit-schedule-bar">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
                         <span
-                          style={{
-                            width: 7,
-                            height: 7,
-                            borderRadius: '50%',
-                            background: !u.is_active ? '#94a3b8' : closedToday ? '#f59e0b' : '#22c55e',
-                            display: 'inline-block',
-                          }}
+                          className={`unit-status-dot ${!u.is_active ? 'inactive' : closedToday ? 'closed' : 'open'}`}
                         />
-                        <span style={{ color: closedToday ? '#fbbf24' : '#cbd5e1', fontWeight: 600 }}>
-                          {closedToday ? 'Fechada hoje' : 'Aberta hoje'}
+                        <span style={{ color: !u.is_active ? '#94a3b8' : closedToday ? '#fbbf24' : '#34d399', fontWeight: 600, fontSize: '0.78rem' }}>
+                          {!u.is_active ? 'Desativada' : closedToday ? 'Fechada hoje' : 'Aberta hoje'}
                         </span>
                       </div>
 
-                      <div className="unit-days-dots" title="Dias com expediente configurado">
+                      <div className="unit-days-dots" title="Escala de funcionamento semanal">
                         {DAYS.map((d) => (
                           <div
                             key={d.v}
                             className={`unit-day-dot ${activeDays.includes(d.v) ? 'active' : ''}`}
-                            title={`${d.label}: ${activeDays.includes(d.v) ? 'Ativo' : 'Fechado'}`}
+                            title={`${d.label}: ${activeDays.includes(d.v) ? 'Expediente ativo' : 'Fechado'}`}
                           >
                             {d.short}
                           </div>
@@ -551,7 +565,7 @@ export function UnitsPage() {
                             {score}% Score
                           </span>
                         ) : (
-                          <span className="muted" style={{ fontSize: '0.75rem' }}>
+                          <span className="muted" style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
                             Sem histórico
                           </span>
                         )}
@@ -562,11 +576,12 @@ export function UnitsPage() {
                           type="button"
                           className="unit-action-icon-btn"
                           title="Editar dados da unidade"
+                          aria-label={`Editar unidade ${u.name}`}
                           onClick={() => openEdit(u)}
                         >
                           <svg
-                            width="13"
-                            height="13"
+                            width="14"
+                            height="14"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -580,12 +595,13 @@ export function UnitsPage() {
                         <button
                           type="button"
                           className="unit-action-icon-btn"
-                          title={u.is_active ? 'Desativar temporariamente' : 'Ativar unidade'}
+                          title={u.is_active ? 'Pausar/Desativar unidade' : 'Reativar unidade'}
+                          aria-label={u.is_active ? `Desativar unidade ${u.name}` : `Ativar unidade ${u.name}`}
                           onClick={() => void toggle(u)}
                         >
                           <svg
-                            width="13"
-                            height="13"
+                            width="14"
+                            height="14"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -600,12 +616,13 @@ export function UnitsPage() {
                         <button
                           type="button"
                           className="unit-action-icon-btn danger"
-                          title="Remover unidade"
+                          title="Remover unidade da rede"
+                          aria-label={`Remover unidade ${u.name}`}
                           onClick={() => void remove(u.id, u.name)}
                         >
                           <svg
-                            width="13"
-                            height="13"
+                            width="14"
+                            height="14"
                             viewBox="0 0 24 24"
                             fill="none"
                             stroke="currentColor"
@@ -629,27 +646,26 @@ export function UnitsPage() {
       {editing && (
         <div className="units-modal-backdrop" onClick={closeEdit}>
           <div className="units-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                paddingBottom: '0.85rem',
-              }}
-            >
-              <h3 className="units-panel-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                Editar Unidade
-              </h3>
+            <div className="units-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="sop-modal-icon-badge" style={{ background: 'rgba(45, 212, 191, 0.12)', color: '#2dd4bf', border: '1px solid rgba(45, 212, 191, 0.25)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="units-panel-title" style={{ margin: 0 }}>Editar Unidade</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Altere os dados cadastrais e a escala semanal desta loja.
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                className="unit-action-icon-btn"
+                className="sop-modal-close-btn"
                 onClick={closeEdit}
-                aria-label="Fechar"
+                aria-label="Fechar modal de edição"
               >
                 ✕
               </button>

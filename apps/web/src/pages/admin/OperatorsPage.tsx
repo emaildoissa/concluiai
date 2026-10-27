@@ -329,7 +329,12 @@ export function OperatorsPage() {
       <div className="sectors-header-bar">
         <div className="units-title-row">
           <div>
-            <h2 className="units-main-title">Operadores & Gerentes de Unidade</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h1 className="units-main-title">Operadores & Gerentes de Unidade</h1>
+              <span className="sop-counter-badge">
+                {totalCount} {totalCount === 1 ? 'Colaborador' : 'Colaboradores'}
+              </span>
+            </div>
             <p className="units-main-sub">
               Gestão de credenciais, vínculos por filial, roteamento de alertas WhatsApp e permissões operacionais.
             </p>
@@ -337,7 +342,7 @@ export function OperatorsPage() {
         </div>
 
         <div className="units-kpi-grid">
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#2dd4bf' }}>
             <div className="units-kpi-icon teal">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -352,7 +357,7 @@ export function OperatorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#4ade80' }}>
             <div className="units-kpi-icon emerald">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
@@ -365,7 +370,7 @@ export function OperatorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#38bdf8' }}>
             <div className="units-kpi-icon blue">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -377,7 +382,7 @@ export function OperatorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#fbbf24' }}>
             <div className="units-kpi-icon amber">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -523,48 +528,64 @@ export function OperatorsPage() {
         {/* Painel Direito: Roster Tático de Colaboradores */}
         <div className="units-glass-panel">
           <div className="units-toolbar">
-            <div className="units-search-box">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="ops-search-wrap" style={{ minWidth: 240, flex: 1 }}>
+              <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input
                 type="text"
-                className="units-search-input"
+                className="ops-search-input"
                 placeholder="Buscar por nome, e-mail ou WhatsApp..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                aria-label="Buscar colaborador"
               />
+              {search && (
+                <button
+                  type="button"
+                  className="ops-search-clear-btn"
+                  onClick={() => setSearch('')}
+                  title="Limpar busca"
+                  aria-label="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            <div className="units-filter-tabs">
+            <div className="incident-tabs">
               <button
                 type="button"
-                className={`units-filter-btn ${roleFilter === 'all' ? 'active' : ''}`}
+                className={`incident-tab-btn ${roleFilter === 'all' ? 'is-active' : ''}`}
                 onClick={() => setRoleFilter('all')}
               >
-                Todos ({operators.length})
+                <span>Todos</span>
+                <span className="sop-tab-badge">{operators.length}</span>
               </button>
               <button
                 type="button"
-                className={`units-filter-btn ${roleFilter === 'operator' ? 'active' : ''}`}
+                className={`incident-tab-btn ${roleFilter === 'operator' ? 'is-active' : ''}`}
                 onClick={() => setRoleFilter('operator')}
               >
-                Operadores ({operatorsCount})
+                <span>Operadores</span>
+                <span className="sop-tab-badge">{operatorsCount}</span>
               </button>
               <button
                 type="button"
-                className={`units-filter-btn ${roleFilter === 'manager' ? 'active' : ''}`}
+                className={`incident-tab-btn ${roleFilter === 'manager' ? 'is-active' : ''}`}
                 onClick={() => setRoleFilter('manager')}
               >
-                Gerentes ({managersCount})
+                <span>Gerentes</span>
+                <span className="sop-tab-badge">{managersCount}</span>
               </button>
               <button
                 type="button"
-                className={`units-filter-btn ${roleFilter === 'inactive' ? 'active' : ''}`}
+                className={`incident-tab-btn ${roleFilter === 'inactive' ? 'is-active' : ''}`}
                 onClick={() => setRoleFilter('inactive')}
               >
-                Inativos ({totalCount - (operatorsCount + managersCount)})
+                <span>Inativos</span>
+                <span className="sop-tab-badge">{totalCount - (operatorsCount + managersCount)}</span>
               </button>
             </div>
           </div>
@@ -734,27 +755,28 @@ export function OperatorsPage() {
       {editing && (
         <div className="units-modal-backdrop" onClick={closeEdit}>
           <div className="units-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                paddingBottom: '0.85rem',
-              }}
-            >
-              <h3 className="units-panel-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                Editar Colaborador
-              </h3>
+            <div className="units-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="sop-modal-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="8.5" cy="7" r="4" />
+                    <line x1="20" y1="8" x2="20" y2="14" />
+                    <line x1="23" y1="11" x2="17" y2="11" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="units-panel-title" style={{ margin: 0 }}>Editar Colaborador</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Altere os dados de acesso, vínculo de loja e permissões de setor.
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                className="unit-action-icon-btn"
+                className="sop-modal-close-btn"
                 onClick={closeEdit}
-                aria-label="Fechar"
+                aria-label="Fechar modal de edição"
               >
                 ✕
               </button>

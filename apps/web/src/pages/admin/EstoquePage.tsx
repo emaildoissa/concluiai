@@ -333,135 +333,185 @@ export function EstoquePage() {
   return (
     <div className="stock-page-wrap">
       {/* Header da Página */}
-      <div className="page-header">
-        <div>
-          <h2>Gestão de Estoque & Insumos</h2>
-          <p>
-            Monitoramento de saldos por unidade, controle de perdas e extrato de auditoria (Web & WhatsApp).
-          </p>
+      <div className="units-header-bar">
+        <div className="units-title-row">
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h1 className="units-main-title">Gestão de Estoque & Insumos</h1>
+              <span className="sop-counter-badge">{kpis.products} SKUs</span>
+            </div>
+            <p className="units-main-sub">
+              Monitoramento de saldos por unidade, controle de perdas e extrato de auditoria em tempo real.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button
+              type="button"
+              className="ops-btn-generate"
+              onClick={() => {
+                setFormProduct('');
+                setFormQty('');
+                setFormCost('');
+                setFormReason('');
+                setIsModalOpen(true);
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>+ Registrar Movimentação</span>
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            type="button"
-            className="btn btn-primary"
+        {/* Grid de KPIs Interativos */}
+        <div className="stock-kpi-grid">
+          <div
+            className={`stock-kpi-card ${statusFilter === 'all' && activeTab === 'stock' ? 'is-active-filter' : ''}`}
+            style={{ ['--kpi-glow' as string]: '#2dd4bf' }}
             onClick={() => {
-              setFormProduct('');
-              setFormQty('');
-              setFormCost('');
-              setFormReason('');
-              setIsModalOpen(true);
+              setActiveTab('stock');
+              setStatusFilter('all');
             }}
           >
-            + Registrar Movimentação
-          </button>
+            <div className="stock-kpi-header">
+              <span>Total de Itens</span>
+              <span className="badge badge-info">{kpis.products} SKUs</span>
+            </div>
+            <div className="stock-kpi-val">{kpis.totalQty}</div>
+            <div className="stock-kpi-sub">unidades físicas em estoque</div>
+          </div>
+
+          <div
+            className="stock-kpi-card"
+            style={{ ['--kpi-glow' as string]: '#38bdf8' }}
+            onClick={() => setActiveTab('stock')}
+          >
+            <div className="stock-kpi-header">
+              <span>Valor Patrimonial</span>
+              <span className="badge badge-completed">Ativo</span>
+            </div>
+            <div className="stock-kpi-val" style={{ color: '#38bdf8' }}>
+              {brl.format(kpis.totalValue)}
+            </div>
+            <div className="stock-kpi-sub">quantidade × custo médio</div>
+          </div>
+
+          <div
+            className={`stock-kpi-card ${statusFilter === 'low' ? 'is-active-filter' : ''}`}
+            style={{ ['--kpi-glow' as string]: '#fbbf24' }}
+            onClick={() => {
+              setActiveTab('stock');
+              setStatusFilter((prev) => (prev === 'low' ? 'all' : 'low'));
+            }}
+          >
+            <div className="stock-kpi-header">
+              <span>Estoque Baixo</span>
+              <span className="badge badge-pending">Repor</span>
+            </div>
+            <div className="stock-kpi-val" style={{ color: '#fbbf24' }}>
+              {kpis.low}
+            </div>
+            <div className="stock-kpi-sub">itens abaixo do estoque mínimo</div>
+          </div>
+
+          <div
+            className={`stock-kpi-card ${statusFilter === 'zero' ? 'is-active-filter' : ''}`}
+            style={{ ['--kpi-glow' as string]: '#f43f5e' }}
+            onClick={() => {
+              setActiveTab('stock');
+              setStatusFilter((prev) => (prev === 'zero' ? 'all' : 'zero'));
+            }}
+          >
+            <div className="stock-kpi-header">
+              <span>Itens Zerados</span>
+              <span className="badge badge-critical">Crítico</span>
+            </div>
+            <div className="stock-kpi-val" style={{ color: '#f43f5e' }}>
+              {kpis.zero}
+            </div>
+            <div className="stock-kpi-sub">necessitam compra emergencial</div>
+          </div>
         </div>
       </div>
 
       {msg && (
         <div
-          className={`notice ${msg.type === 'err' ? 'warn' : ''}`}
-          style={msg.type === 'ok' ? { color: '#34d399', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)' } : undefined}
+          className="notice"
+          style={{
+            borderColor: msg.type === 'ok' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(244, 63, 94, 0.3)',
+            background: msg.type === 'ok' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+            color: msg.type === 'ok' ? '#86efac' : '#fda4af',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
         >
-          {msg.text}
+          <span>{msg.text}</span>
+          <button
+            type="button"
+            onClick={() => setMsg(null)}
+            style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* Grid de KPIs Interativos */}
-      <div className="stock-kpi-grid">
-        <div
-          className={`stock-kpi-card ${statusFilter === 'all' && activeTab === 'stock' ? 'is-active-filter' : ''}`}
-          onClick={() => {
-            setActiveTab('stock');
-            setStatusFilter('all');
-          }}
-        >
-          <div className="stock-kpi-header">
-            <span>Total de Itens</span>
-            <span className="badge badge-info">{kpis.products} SKUs</span>
-          </div>
-          <div className="stock-kpi-val">{kpis.totalQty}</div>
-          <div className="stock-kpi-sub">unidades físicas em estoque</div>
-        </div>
-
-        <div className="stock-kpi-card" onClick={() => setActiveTab('stock')}>
-          <div className="stock-kpi-header">
-            <span>Valor Patrimonial</span>
-            <span className="badge badge-completed">Ativo</span>
-          </div>
-          <div className="stock-kpi-val" style={{ color: '#38bdf8' }}>
-            {brl.format(kpis.totalValue)}
-          </div>
-          <div className="stock-kpi-sub">quantidade × custo médio</div>
-        </div>
-
-        <div
-          className={`stock-kpi-card ${statusFilter === 'low' ? 'is-active-filter' : ''}`}
-          onClick={() => {
-            setActiveTab('stock');
-            setStatusFilter((prev) => (prev === 'low' ? 'all' : 'low'));
-          }}
-        >
-          <div className="stock-kpi-header">
-            <span>Estoque Baixo</span>
-            <span className="badge badge-pending">Repor</span>
-          </div>
-          <div className="stock-kpi-val" style={{ color: '#fbbf24' }}>
-            {kpis.low}
-          </div>
-          <div className="stock-kpi-sub">itens abaixo do estoque mínimo</div>
-        </div>
-
-        <div
-          className={`stock-kpi-card ${statusFilter === 'zero' ? 'is-active-filter' : ''}`}
-          onClick={() => {
-            setActiveTab('stock');
-            setStatusFilter((prev) => (prev === 'zero' ? 'all' : 'zero'));
-          }}
-        >
-          <div className="stock-kpi-header">
-            <span>Itens Zerados</span>
-            <span className="badge badge-critical">Crítico</span>
-          </div>
-          <div className="stock-kpi-val" style={{ color: '#f43f5e' }}>
-            {kpis.zero}
-          </div>
-          <div className="stock-kpi-sub">necessitam compra emergencial</div>
-        </div>
-      </div>
-
       {/* Barra de Controle de Visualização (Abas + Busca + Unidade) */}
       <div className="stock-view-bar">
-        <div className="stock-tabs-group">
+        <div className="incident-tabs">
           <button
             type="button"
-            className={`stock-tab-btn ${activeTab === 'stock' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${activeTab === 'stock' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('stock')}
           >
-            Posição de Estoque ({filteredStock.length})
+            <span>Posição de Estoque</span>
+            <span className="sop-tab-badge">{filteredStock.length}</span>
           </button>
           <button
             type="button"
-            className={`stock-tab-btn ${activeTab === 'movements' ? 'is-active' : ''}`}
+            className={`incident-tab-btn ${activeTab === 'movements' ? 'is-active' : ''}`}
             onClick={() => setActiveTab('movements')}
           >
-            Extrato de Movimentações ({filteredMovements.length})
+            <span>Extrato de Movimentações</span>
+            <span className="sop-tab-badge">{filteredMovements.length}</span>
           </button>
         </div>
 
         <div className="stock-controls-group">
-          <input
-            type="text"
-            className="stock-search-input"
-            placeholder="Buscar por produto, categoria..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <div className="ops-search-wrap" style={{ minWidth: 240, flex: 1 }}>
+            <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="ops-search-input"
+              placeholder="Buscar por produto, categoria..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Buscar produto ou categoria"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="ops-search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                title="Limpar busca"
+                aria-label="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
           <select
             value={unitFilter}
             onChange={(e) => setUnitFilter(e.target.value)}
-            style={{ fontSize: '0.82rem', padding: '6px 10px', borderRadius: 8 }}
+            style={{ fontSize: '0.82rem', padding: '8px 12px', borderRadius: 8, background: 'rgba(18, 26, 43, 0.8)', border: '1px solid rgba(255, 255, 255, 0.1)', color: '#fff' }}
           >
             <option value="">Todas as Unidades</option>
             {units.map((u) => (
@@ -657,15 +707,27 @@ export function EstoquePage() {
 
       {/* Modal de Movimentação Rápida */}
       {isModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>
-                Registrar Movimentação de Estoque
-              </h3>
+        <div className="units-modal-backdrop" onClick={() => setIsModalOpen(false)}>
+          <div className="units-modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="units-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="sop-modal-icon-badge" style={{ background: 'rgba(45, 212, 191, 0.12)', color: '#2dd4bf', border: '1px solid rgba(45, 212, 191, 0.25)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="units-panel-title" style={{ margin: 0 }}>Registrar Movimentação</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Lançamento de compra, consumo interno ou perda de insumo.
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                className="btn-close-modal"
+                className="sop-modal-close-btn"
                 onClick={() => setIsModalOpen(false)}
                 aria-label="Fechar modal"
               >

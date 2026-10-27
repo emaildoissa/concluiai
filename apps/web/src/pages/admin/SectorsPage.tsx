@@ -317,7 +317,12 @@ export function SectorsPage() {
       <div className="sectors-header-bar">
         <div className="units-title-row">
           <div>
-            <h2 className="units-main-title">Mapeamento de Setores Operacionais</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h1 className="units-main-title">Mapeamento de Setores Operacionais</h1>
+              <span className="sop-counter-badge">
+                {totalSectors} {totalSectors === 1 ? 'Setor' : 'Setores'}
+              </span>
+            </div>
             <p className="units-main-sub">
               Organização estrutural de áreas por unidade para roteamento inteligente de checklists e operadores.
             </p>
@@ -325,7 +330,7 @@ export function SectorsPage() {
         </div>
 
         <div className="units-kpi-grid">
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#2dd4bf' }}>
             <div className="units-kpi-icon teal">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
@@ -339,7 +344,7 @@ export function SectorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#38bdf8' }}>
             <div className="units-kpi-icon blue">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
@@ -356,7 +361,7 @@ export function SectorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#fbbf24' }}>
             <div className="units-kpi-icon amber">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -369,7 +374,7 @@ export function SectorsPage() {
             </div>
           </div>
 
-          <div className="units-kpi-card">
+          <div className="units-kpi-card" style={{ ['--kpi-glow' as string]: '#4ade80' }}>
             <div className="units-kpi-icon emerald">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                 <line x1="18" y1="20" x2="18" y2="10" />
@@ -500,27 +505,40 @@ export function SectorsPage() {
         {/* Painel Direito: Topologia de Setores Agrupada por Loja */}
         <div className="units-glass-panel">
           <div className="units-toolbar">
-            <div className="units-search-box">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="ops-search-wrap" style={{ minWidth: 220, flex: 1 }}>
+              <svg className="ops-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input
                 type="text"
-                className="units-search-input"
+                className="ops-search-input"
                 placeholder="Buscar setor por nome..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                aria-label="Buscar setor por nome"
               />
+              {search && (
+                <button
+                  type="button"
+                  className="ops-search-clear-btn"
+                  onClick={() => setSearch('')}
+                  title="Limpar busca"
+                  aria-label="Limpar busca"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
-            <div className="units-filter-tabs">
+            <div className="incident-tabs">
               <button
                 type="button"
-                className={`units-filter-btn ${selectedUnitFilter === 'all' ? 'active' : ''}`}
+                className={`incident-tab-btn ${selectedUnitFilter === 'all' ? 'is-active' : ''}`}
                 onClick={() => setSelectedUnitFilter('all')}
               >
-                Todas as Lojas
+                <span>Todas as Lojas</span>
+                <span className="sop-tab-badge">{sectors.length}</span>
               </button>
               {units.map((u) => {
                 const count = sectors.filter((s) => s.unit_id === u.id).length;
@@ -528,10 +546,11 @@ export function SectorsPage() {
                   <button
                     key={u.id}
                     type="button"
-                    className={`units-filter-btn ${selectedUnitFilter === u.id ? 'active' : ''}`}
+                    className={`incident-tab-btn ${selectedUnitFilter === u.id ? 'is-active' : ''}`}
                     onClick={() => setSelectedUnitFilter(u.id)}
                   >
-                    {u.name} ({count})
+                    <span>{u.name}</span>
+                    <span className="sop-tab-badge">{count}</span>
                   </button>
                 );
               })}
@@ -624,11 +643,12 @@ export function SectorsPage() {
                                 type="button"
                                 className="unit-action-icon-btn"
                                 title="Editar setor"
+                                aria-label={`Editar setor ${s.name}`}
                                 onClick={() => openEdit(s)}
                               >
                                 <svg
-                                  width="12"
-                                  height="12"
+                                  width="14"
+                                  height="14"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"
@@ -643,11 +663,12 @@ export function SectorsPage() {
                                 type="button"
                                 className="unit-action-icon-btn danger"
                                 title="Remover setor"
+                                aria-label={`Remover setor ${s.name}`}
                                 onClick={() => void remove(s.id, s.name)}
                               >
                                 <svg
-                                  width="12"
-                                  height="12"
+                                  width="14"
+                                  height="14"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"
@@ -674,27 +695,27 @@ export function SectorsPage() {
       {editing && (
         <div className="units-modal-backdrop" onClick={closeEdit}>
           <div className="units-modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                paddingBottom: '0.85rem',
-              }}
-            >
-              <h3 className="units-panel-title">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-                Editar Setor
-              </h3>
+            <div className="units-modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="sop-modal-icon-badge" style={{ background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                    <polyline points="2 17 12 22 22 17" />
+                    <polyline points="2 12 12 17 22 12" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="units-panel-title" style={{ margin: 0 }}>Editar Setor</h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Altere os dados de identificação e a ordem de prioridade deste setor.
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
-                className="unit-action-icon-btn"
+                className="sop-modal-close-btn"
                 onClick={closeEdit}
-                aria-label="Fechar"
+                aria-label="Fechar modal de edição"
               >
                 ✕
               </button>

@@ -81,9 +81,34 @@
     - Estatísticas organizadas com ícones de tarefas, críticas, fotos IA e lojas associadas.
     - Ações do rodapé padronizadas com botões táteis e ícones SVG (*Editar*, *Duplicar*, *Excluir*).
 
+- [x] **[27/10/2026] Redesign de Gestão de Unidades & Lojas (`/admin/units`):**
+  - **Barra Superior & Métricas:** `<h1>` padronizado ("Gestão de Unidades & Lojas") com badge de contagem de lojas e 4 KPI cards modernizados com caixas de ícones coloridas, glow superior e tipografia de alto contraste.
+  - **Toolbar Tática:** Input de busca com lupa SVG e botão de limpeza instantânea (`✕`) integrado a abas de filtro em pills (*Todas*, *Abertas Hoje*, *Inativas*) com badges de contagem dinâmica.
+  - **Cards de Unidades (`.unit-card-item`):** Status dot pulsante em tempo real para lojas com expediente no dia de hoje, visualizador compacto da escala semanal de 7 dias e botões de ação ergonômicos (34px, Lei de Fitts).
+  - **Modal de Edição (`.units-modal-dialog`):** Backdrop com blur cinematográfico (12px), cabeçalho alinhado ao padrão de POPs com ícone em badge e subtítulo explicativo, seletores de escala semanal em presets e chips com feedback tátil.
+
+- [x] **[27/10/2026] Redesign de Setores Operacionais (`/admin/sectors`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Mapeamento de Setores Operacionais") com badge contador e 4 KPI cards com caixas de ícones vetoriais coloridas e glow temático.
+  - **Toolbar Tática:** Input de busca com lupa SVG e botão clear `✕`, associado a abas de filtro por unidade em pills com contadores dinâmicos de setores mapeados.
+  - **Cartões de Setor & Ações:** Botões de ação ergonômicos (34px, Lei de Fitts), ícones temáticos de setor (cozinha, frio, estoque, salão, bar, descarte) e tag de ordem monoespacada.
+  - **Modal de Edição de Setor:** Padrão visual unificado com ícone em badge translúcido, subtítulo explicativo e botão de fechar ergonômico.
+
+- [x] **[27/10/2026] Redesign de Gestão de Estoque & Insumos (`/admin/estoque`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Gestão de Estoque & Insumos") com badge contador de SKUs, botão ergonômico *+ Registrar Movimentação* com ícone vetorial e 4 KPI cards interativos com glow temático (SKUs, valor patrimonial BRL, estoque baixo e zerado).
+  - **Toolbar Tática & Abas:** Abas em pills com badges contadoras dinâmicas (*Posição de Estoque* e *Extrato de Movimentações*), input de busca com lupa SVG e botão de limpeza rápida (`✕`), e seletor de unidades padronizado.
+  - **Modal de Movimentação Rápida:** Backdrop blur cinematográfico (12px), cabeçalho estilizado com ícone em badge translúcido, subtítulo explicativo e botão de fechar ergonômico.
+
+- [x] **[27/10/2026] Redesign de Operadores de Campo (`/admin/operators`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Operadores & Gerentes de Unidade") com badge contador de colaboradores, e 4 KPI cards modernizados com glow temático e métricas de mobile vs gerentes vs WhatsApp.
+  - **Toolbar Tática & Abas:** Abas em pills com contadores dinâmicos (*Todos*, *Operadores*, *Gerentes*, *Inativos*), input de busca com lupa SVG e botão de limpeza instantânea (`✕`).
+  - **Modal de Edição de Colaborador:** Padrão visual unificado com backdrop blur de 12px, ícone em badge azul/ciano translúcido, subtítulo explicativo e botão de fechar ergonômico.
+
 ### Próximos Passos de Design:
-- [ ] Padronização dos modais restantes no mesmo padrão visual do modal de protocolo.
-- [ ] Ajuste do contraste tipográfico e hierarquia visual nas tabelas e cards.
+- [ ] Modernização da tela seguinte na ordem: Rankings Operacionais (`/admin/rankings`).
+- [ ] Evolução Histórica & Tendências (`/admin/evolution`).
+- [ ] Central de WhatsApp (`/admin/whatsapp`).
+- [ ] Central de Treinamento (`/admin/training`).
+- [ ] Tarefas Pendentes (`/admin/pendings`).
 - [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
 
 ---
