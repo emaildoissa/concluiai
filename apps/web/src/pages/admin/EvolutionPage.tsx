@@ -256,9 +256,9 @@ export function EvolutionPage() {
 
           {/* Seletor de Loja */}
           <select
+            className="evolution-unit-select"
             value={unitFilter}
             onChange={(e) => setUnitFilter(e.target.value)}
-            style={{ fontSize: '0.82rem', padding: '5px 10px', borderRadius: 8 }}
           >
             <option value="">Rede Consolidada (Todas)</option>
             {units.map((u) => (

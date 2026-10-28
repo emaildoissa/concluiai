@@ -60,7 +60,13 @@
   - `apps/api/src/routes/tasks.ts`: Corrigido o relacionamento para `checklist:checklists ( id, name, shift )` e flexibilizada a busca de unidades por `company_id`.
   - `apps/api/src/services/tasks.ts`: Flexibilizado o filtro em `generateTasksForDate` para ser tolerante a `company_id` nulo ou padrão.
   - `apps/web/src/pages/admin/MultistoreDashboard.tsx`: Implementada a **geração automática e transparente no `loadData`**: se as tarefas do dia ainda não foram geradas no banco, o sistema as gera instantaneamente em background e as carrega na tela sem exigir nenhum clique do usuário.
-  - Validação completa com builds aprovados em `apps/api` e `apps/web`.
+### [28/10/2026] ✅ Resolvido: Selects nativos (Rede Consolidada / Lojas) com fundo branco e letras claras
+- **Problema:** Na tela de Evolução Histórica (`/admin/evolution`) e formulários correlatos, o seletor dropdown de lojas ("Rede Consolidada (Todas)" / "Oak Sushi") renderizava com fundo branco nativo do Windows e texto claro, tornando o conteúdo quase ilegível.
+- **Causa Raiz:** O elemento `<select>` nativo não possuía definição de `background-color` e `color-scheme: dark` no CSS global. Em navegadores no Windows, o sistema operacional aplicava o fundo branco padrão do SO enquanto o texto herdava a cor clara do tema escuro (`#f8fafc`).
+- **Solução Implementada:**
+  - `apps/web/src/styles/index.css`: Adicionada regra global para `select` e `select option` com `color-scheme: dark`, fundo escuro `#0f172a`, borda sutil e cor de texto branca `#f8fafc` com contraste WCAG 2.2 AAA.
+  - Criada a classe `.evolution-unit-select` com chevron SVG vetorial estilizado, hover/focus states e altura ergonômica mínima de 34px.
+  - `apps/web/src/pages/admin/EvolutionPage.tsx`: Aplicada a nova classe ao seletor de lojas.
 
 ---
 
