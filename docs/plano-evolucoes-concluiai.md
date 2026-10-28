@@ -113,8 +113,13 @@
   - **Toolbar Tática & Abas:** Abas em pills com contadores dinâmicos (*Todos*, *Operadores*, *Gerentes*, *Inativos*), input de busca com lupa SVG e botão de limpeza instantânea (`✕`).
   - **Modal de Edição de Colaborador:** Padrão visual unificado com backdrop blur de 12px, ícone em badge azul/ciano translúcido, subtítulo explicativo e botão de fechar ergonômico.
 
+- [x] **[28/10/2026] Redesign de Rankings Operacionais (`/admin/rankings`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Rankings & Índices Operacionais") com badge contador de unidades/operadores avaliados, botão ergonômico *Atualizar Dados* com animação de spinner, e 4 KPI cards modernizados com glow temático (Líder Atual em ouro, Média da Rede P·E·Q com gauge percentual, Total de Avaliados e Taxa de Alta Conformidade).
+  - **Toolbar Tática & Abas:** Switcher de escopo em pills tátil (*Unidades & Lojas* vs *Equipe & Operadores*), chips de período (*7d, 14d, 30d*) e input de busca integrado (`ops-search-wrap`) com lupa SVG e botão de limpeza instantânea (`✕`).
+  - **Pódio de Destaque Sem Emojis:** Eliminação de emojis infantis (`🥇`, `🥈`, `🥉`) e substituição por insígnias SVG nobres (Troféu para 1º Ouro, Medalha de Honra para 2º Prata, Insígnia Estelar para 3º Bronze).
+  - **Tabela do Leaderboard Geral:** Chips de medalha para posições de topo, barras de conformidade em gradiente com porcentagem explícita e badges de conformidade com contraste WCAG 2.2 AA.
+
 ### Próximos Passos de Design:
-- [ ] Modernização da tela seguinte na ordem: Rankings Operacionais (`/admin/rankings`).
 - [ ] Evolução Histórica & Tendências (`/admin/evolution`).
 - [ ] Central de WhatsApp (`/admin/whatsapp`).
 - [ ] Central de Treinamento (`/admin/training`).
