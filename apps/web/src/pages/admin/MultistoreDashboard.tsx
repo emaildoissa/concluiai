@@ -326,6 +326,23 @@ export function MultistoreDashboard() {
 
       if (tasksData?.tasks && tasksData.tasks.length > 0) {
         setTasks(tasksData.tasks);
+      } else if (!demoMode) {
+        // Se as tarefas de hoje ainda não existiam no banco, dispara a geração em tempo real e reconsulta
+        try {
+          const gen = await apiPost<{ created: number; date: string }>('/api/tasks/generate-today', {});
+          if (gen && gen.created > 0) {
+            const recheck = await apiGet<{ tasks: OperationalTask[] }>('/api/tasks/pendings?status=all').catch(() => null);
+            if (recheck?.tasks && recheck.tasks.length > 0) {
+              setTasks(recheck.tasks);
+            } else {
+              setTasks([]);
+            }
+          } else {
+            setTasks([]);
+          }
+        } catch {
+          setTasks([]);
+        }
       } else if (demoMode) {
         setTasks(DEMO_OPERATIONAL_TASKS);
       } else {

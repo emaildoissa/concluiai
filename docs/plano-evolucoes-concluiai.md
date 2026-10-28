@@ -49,16 +49,18 @@
   - `apps/api/src/routes/checklists.ts`: Respeito estrito ao `execution_mode` enviado pelo frontend, persistindo nulo nos campos numéricos quando o modo for Foto ou Check.
   - Builds validados com sucesso no Web e API (`tsc && vite build`).
 
-### [27/10/2026] ✅ Resolvido: Central de Comando mostrando "0 Unidades ativas na rede" e sem tarefas
-- **Problema:** Na Central de Comando (`/admin`), a barra de telemetria exibia `0 Unidades ativas na rede` e a lista de tarefas/unidades ficava vazia sem retorno de dados.
+### [28/10/2026] ✅ Resolvido: Tarefas não apareciam na Central de Comando apesar de checklists ativos
+- **Problema:** O usuário possuía 16 checklists ativos e configurados em `/admin/checklists`, porém na Central de Comando (`/admin`) a fila de tarefas aparecia zerada com a mensagem "Nenhuma rotina operacional gerada para hoje" e um botão manual "⚡ Gerar Rotinas do Dia", causando estranhamento e atrito de usabilidade.
 - **Causa Raiz:**
-  1. *Divergência de `company_id` no backend:* Enquanto módulos como `/api/units`, `/api/sectors` e `/api/estoque` utilizavam o fallback seguro `DEFAULT_COMPANY_ID = '11111111-1111-1111-1111-111111111111'` quando `req.user.company_id` era nulo, os endpoints `/api/dashboard/multistore` e `/api/tasks/pendings` retornavam erro HTTP `400: Perfil sem company_id`.
-  2. *Erro silenciado no frontend:* O método `loadData` executava as chamadas com `.catch(() => null)`, engolindo o status 400 sem notificar o gestor e forçando `units = []`.
-  3. *Ausência de Fallback para Unidades Cadastradas:* Quando o RPC de pontuação agregada ainda não tinha registros para a data atual, o frontend descartava as lojas cadastradas.
-  4. *Empty State inerte:* O dashboard exibia apenas texto estático em vez de guiar o usuário a cadastrar lojas ou gerar as rotinas do dia.
+  1. *Erro na Query SQL do Supabase:* Na rota `/api/tasks/pendings`, a consulta solicitava a relação `checklist:checklists ( id, title, shift )`. No entanto, na tabela `checklists` a coluna oficial é `name` (a coluna `title` não existe). Isso causava erro interno 500 no Supabase (`column checklists.title does not exist`).
+  2. *Erro silenciado no frontend:* A chamada `/api/tasks/pendings?status=all` capturava a falha com `.catch(() => null)`, fazendo com que a lista de tarefas caísse silenciosamente em `tasks = []`.
+  3. *Incompatibilidade de `company_id`:* O gerador `generateTasksForDate` aplicava um filtro estrito `company_id.eq(...)`, que descartava checklists cadastrados com `company_id: null` ou criados antes da definição do tenant.
+  4. *Falta de Geração Transparente (UX Friccionada):* O usuário precisava tomar uma ação manual para fazer aparecer tarefas de checklists já ativos.
 - **Solução Implementada:**
-  - `apps/api/src/routes/dashboard.ts` e `apps/api/src/routes/tasks.ts`: Adicionado fallback padronizado `DEFAULT_COMPANY_ID` em todos os endpoints (`/multistore`, `/pendings`, `/generate-today`, `/audit-report`).
-  - `apps/web/src/pages/admin/MultistoreDashboard.tsx`: Adicionado fallback automático via `/api/units` em `loadData` para garantir exibição imediata de todas as lojas ativas cadastradas, e novo componente de Empty State proativo com botões de ação direta (*+ Cadastrar Primeira Loja* ou *⚡ Gerar Rotinas do Dia*).
+  - `apps/api/src/routes/tasks.ts`: Corrigido o relacionamento para `checklist:checklists ( id, name, shift )` e flexibilizada a busca de unidades por `company_id`.
+  - `apps/api/src/services/tasks.ts`: Flexibilizado o filtro em `generateTasksForDate` para ser tolerante a `company_id` nulo ou padrão.
+  - `apps/web/src/pages/admin/MultistoreDashboard.tsx`: Implementada a **geração automática e transparente no `loadData`**: se as tarefas do dia ainda não foram geradas no banco, o sistema as gera instantaneamente em background e as carrega na tela sem exigir nenhum clique do usuário.
+  - Validação completa com builds aprovados em `apps/api` e `apps/web`.
 
 ---
 

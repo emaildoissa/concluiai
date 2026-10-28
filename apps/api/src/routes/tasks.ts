@@ -82,13 +82,20 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
       `
         id, status, due_at, scheduled_date, completed_at, notes, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, due_time, checklist_id, checklist:checklists ( id, title, shift ) ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, due_time, checklist_id, checklist:checklists ( id, name, shift ) ),
         operator:profiles ( id, full_name, phone )
       `
     );
 
-    // Restringe às unidades da empresa (via unit_id in units da company)
-    const { data: units } = await sb.from('units').select('id').eq('company_id', companyId);
+    // Restringe às unidades da empresa (tolerante a company_id ou null para single/multi-tenant)
+    const userCompanyId = req.user?.company_id;
+    let unitQuery = sb.from('units').select('id');
+    if (userCompanyId) {
+      unitQuery = unitQuery.eq('company_id', userCompanyId);
+    } else {
+      unitQuery = unitQuery.or(`company_id.eq.${DEFAULT_COMPANY_ID},company_id.is.null`);
+    }
+    const { data: units } = await unitQuery;
     const unitIds = (units || []).map((u) => u.id);
     if (unitIds.length === 0) return res.json({ tasks: [] });
     query = query.in('unit_id', unitIds);
@@ -205,7 +212,10 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
               maxValue: item.max_value,
               dueTime: item.due_time,
               checklistId: item.checklist_id,
-              shift: (Array.isArray(item.checklist) ? item.checklist[0]?.shift : item.checklist?.shift) || null,
+              shift: (() => {
+                const rawCl = (item as unknown as { checklist?: { shift?: string } | { shift?: string }[] })?.checklist;
+                return (Array.isArray(rawCl) ? rawCl[0]?.shift : rawCl?.shift) || null;
+              })(),
             }
           : null,
         operator: operator

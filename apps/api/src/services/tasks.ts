@@ -61,9 +61,11 @@ export async function generateTasksForDate(params?: {
     )
     .eq('is_active', true);
 
-  // Aplica filtro de empresa somente quando o valor existe (multi-tenant)
-  if (companyId) {
+  // Aplica filtro de empresa tolerante para multi-tenant e registros padrão
+  if (companyId && companyId !== '11111111-1111-1111-1111-111111111111') {
     checklistQuery = checklistQuery.eq('company_id', companyId);
+  } else if (companyId) {
+    checklistQuery = checklistQuery.or(`company_id.eq.${companyId},company_id.is.null`);
   }
 
   const { data: checklists, error } = await checklistQuery;
