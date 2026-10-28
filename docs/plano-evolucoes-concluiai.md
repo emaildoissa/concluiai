@@ -49,8 +49,16 @@
   - `apps/api/src/routes/checklists.ts`: Respeito estrito ao `execution_mode` enviado pelo frontend, persistindo nulo nos campos numéricos quando o modo for Foto ou Check.
   - Builds validados com sucesso no Web e API (`tsc && vite build`).
 
-### Backlog de Bugs Identificados / Próximos
-- [ ] *(Aguardando novos relatos do usuário)*
+### [27/10/2026] ✅ Resolvido: Central de Comando mostrando "0 Unidades ativas na rede" e sem tarefas
+- **Problema:** Na Central de Comando (`/admin`), a barra de telemetria exibia `0 Unidades ativas na rede` e a lista de tarefas/unidades ficava vazia sem retorno de dados.
+- **Causa Raiz:**
+  1. *Divergência de `company_id` no backend:* Enquanto módulos como `/api/units`, `/api/sectors` e `/api/estoque` utilizavam o fallback seguro `DEFAULT_COMPANY_ID = '11111111-1111-1111-1111-111111111111'` quando `req.user.company_id` era nulo, os endpoints `/api/dashboard/multistore` e `/api/tasks/pendings` retornavam erro HTTP `400: Perfil sem company_id`.
+  2. *Erro silenciado no frontend:* O método `loadData` executava as chamadas com `.catch(() => null)`, engolindo o status 400 sem notificar o gestor e forçando `units = []`.
+  3. *Ausência de Fallback para Unidades Cadastradas:* Quando o RPC de pontuação agregada ainda não tinha registros para a data atual, o frontend descartava as lojas cadastradas.
+  4. *Empty State inerte:* O dashboard exibia apenas texto estático em vez de guiar o usuário a cadastrar lojas ou gerar as rotinas do dia.
+- **Solução Implementada:**
+  - `apps/api/src/routes/dashboard.ts` e `apps/api/src/routes/tasks.ts`: Adicionado fallback padronizado `DEFAULT_COMPANY_ID` em todos os endpoints (`/multistore`, `/pendings`, `/generate-today`, `/audit-report`).
+  - `apps/web/src/pages/admin/MultistoreDashboard.tsx`: Adicionado fallback automático via `/api/units` em `loadData` para garantir exibição imediata de todas as lojas ativas cadastradas, e novo componente de Empty State proativo com botões de ação direta (*+ Cadastrar Primeira Loja* ou *⚡ Gerar Rotinas do Dia*).
 
 ---
 

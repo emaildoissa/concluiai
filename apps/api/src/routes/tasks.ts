@@ -13,6 +13,8 @@ export const tasksRouter = Router();
  * POST /api/tasks/generate-today
  * Gera instâncias do dia a partir de checklists ativos + checklist_units
  */
+const DEFAULT_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
+
 tasksRouter.post(
   '/generate-today',
   requireAuth,
@@ -20,7 +22,7 @@ tasksRouter.post(
   async (req, res) => {
     try {
       const date = (req.body?.date as string) || getTodayBR();
-      const companyId = req.user?.company_id;
+      const companyId = req.user?.company_id || DEFAULT_COMPANY_ID;
       const { created } = await generateTasksForDate({ date, companyId });
       return res.json({ created, date });
     } catch (err) {
@@ -55,8 +57,7 @@ const NOT_DONE_STATUSES = ['pending', 'in_progress', 'late', 'rejected'];
 tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const sb = getSupabaseAdmin();
-    const companyId = req.user?.company_id;
-    if (!companyId) return res.status(400).json({ error: 'Perfil sem company_id' });
+    const companyId = req.user?.company_id || DEFAULT_COMPANY_ID;
 
     const { unitId, status, critical, date } = req.query as {
       unitId?: string;
@@ -65,11 +66,23 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
       date?: string;
     };
 
+    const today = getTodayBR();
+    const queryDate = date || today;
+
+    // Garante que as rotinas do dia estejam sempre geradas
+    if (queryDate === today) {
+      try {
+        await generateTasksForDate({ date: today, companyId });
+      } catch (e) {
+        console.warn('[tasks/pendings] Auto-geração de rotinas do dia ignorada:', e);
+      }
+    }
+
     let query = sb.from('task_instances').select(
       `
         id, status, due_at, scheduled_date, completed_at, notes, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, due_time, checklist_id, checklist:checklists ( id, title, shift ) ),
         operator:profiles ( id, full_name, phone )
       `
     );
@@ -81,10 +94,9 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
     query = query.in('unit_id', unitIds);
 
     if (unitId) query = query.eq('unit_id', unitId);
-    if (status) query = query.eq('status', status);
-    else query = query.in('status', NOT_DONE_STATUSES);
-    if (date) query = query.eq('scheduled_date', date);
-    else query = query.eq('scheduled_date', getTodayBR());
+    if (status && status !== 'all') query = query.eq('status', status);
+    else if (!status) query = query.in('status', NOT_DONE_STATUSES);
+    query = query.eq('scheduled_date', queryDate);
 
     query = query.order('due_at', { ascending: true });
 
@@ -184,12 +196,16 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
         unit: unit ? { id: unit.id, name: unit.name, address: unit.address } : null,
         item: item
           ? {
+              id: item.id,
               title: item.title,
               isCritical: item.is_critical,
               itemType: item.item_type,
               unitOfMeasurement: item.unit_of_measurement,
               minValue: item.min_value,
               maxValue: item.max_value,
+              dueTime: item.due_time,
+              checklistId: item.checklist_id,
+              shift: (Array.isArray(item.checklist) ? item.checklist[0]?.shift : item.checklist?.shift) || null,
             }
           : null,
         operator: operator
@@ -218,8 +234,7 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
 tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const sb = getSupabaseAdmin();
-    const companyId = req.user?.company_id;
-    if (!companyId) return res.status(400).json({ error: 'Perfil sem company_id' });
+    const companyId = req.user?.company_id || DEFAULT_COMPANY_ID;
 
     const { unitId, startDate, endDate, criticalOnly, status } = req.query as {
       unitId?: string;

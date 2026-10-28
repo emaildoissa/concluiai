@@ -3,18 +3,27 @@ import { getTodayBR } from '@concluiai/shared';
 import { requireAuth } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { isOperationDay } from '../lib/operation-days.js';
+import { generateTasksForDate } from '../services/tasks.js';
 
 export const dashboardRouter = Router();
+
+const DEFAULT_COMPANY_ID = '11111111-1111-1111-1111-111111111111';
 
 /** GET /api/dashboard/multistore — visão consolidada multiloja */
 dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
   try {
     const sb = getSupabaseAdmin();
-    const companyId = req.user?.company_id;
-    if (!companyId) return res.status(400).json({ error: 'Perfil sem company_id' });
+    const companyId = req.user?.company_id || DEFAULT_COMPANY_ID;
 
     const today = getTodayBR();
     const todayDate = today;
+
+    // Garante que as rotinas do dia estejam sempre geradas e disponíveis
+    try {
+      await generateTasksForDate({ date: today, companyId });
+    } catch (e) {
+      console.warn('[dashboard] Auto-geração de rotinas do dia ignorada:', e);
+    }
 
     // Tenta o RPC agregado (1 query). Se ainda não existir no banco, cai no fallback JS.
     try {

@@ -61,7 +61,15 @@ interface OperationalTask {
   scoreE?: number;
   scoreQ?: number;
   unit: { id: string; name: string; address?: string } | null;
-  item: { title: string; isCritical: boolean; description?: string } | null;
+  item: {
+    id?: string;
+    title: string;
+    isCritical: boolean;
+    description?: string;
+    dueTime?: string | null;
+    checklistId?: string | null;
+    shift?: string | null;
+  } | null;
   operator: { id: string; fullName: string; phone?: string } | null;
   alert?: TaskAlert | null;
   evidence?: TaskEvidence | null;
@@ -243,7 +251,7 @@ export function MultistoreDashboard() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'evidences' | 'units'>('tasks');
 
   // Filtros de Tarefas
-  const [taskFilter, setTaskFilter] = useState<'all' | 'critical' | 'late' | 'rejected' | 'completed'>('all');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'critical' | 'late' | 'rejected' | 'completed' | 'upcoming'>('all');
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -266,14 +274,31 @@ export function MultistoreDashboard() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [dashData, evData, tasksData] = await Promise.all([
+      const [dashData, evData, tasksData, unitsFallback] = await Promise.all([
         apiGet<{ units: UnitRow[]; demo?: boolean }>('/api/dashboard/multistore').catch(() => null),
         apiGet<{ evidences: EvidenceRow[] }>('/api/evidences').catch(() => null),
-        apiGet<{ tasks: OperationalTask[] }>('/api/tasks/pendings').catch(() => null),
+        apiGet<{ tasks: OperationalTask[] }>('/api/tasks/pendings?status=all').catch(() => null),
+        apiGet<{ units: Array<{ id: string; name: string; address?: string; is_active?: boolean }> }>('/api/units').catch(() => null),
       ]);
 
       if (dashData?.units && dashData.units.length > 0) {
         setUnits(dashData.units);
+      } else if (unitsFallback?.units && unitsFallback.units.length > 0) {
+        // Fallback: se o RPC agregado ainda não tiver dados calculados, exibe as lojas cadastradas ativas
+        const activeUnits = unitsFallback.units.filter((u) => u.is_active !== false);
+        setUnits(
+          activeUnits.map((u) => ({
+            unit_id: u.id,
+            unit_name: u.name,
+            address: u.address || '—',
+            score_total: null,
+            tasks_pending: 0,
+            tasks_late: 0,
+            tasks_completed: 0,
+            critical_missed: 0,
+            closed_today: false,
+          }))
+        );
       } else if (demoMode) {
         setUnits(
           DEMO_UNITS.map((u) => ({
@@ -362,6 +387,12 @@ export function MultistoreDashboard() {
     (u) => u.critical_missed > 0 || u.tasks_late > 0 || (u.score_total != null && u.score_total < 75)
   );
 
+  // Identifica se a tarefa é futura/agendada (fora do horário de realização atual)
+  const isTaskUpcoming = (t: OperationalTask) => {
+    if (t.status === 'completed' || t.status === 'rejected' || t.isLate || t.status === 'late') return false;
+    return new Date(t.dueDate).getTime() > Date.now();
+  };
+
   // Filtragem de Tarefas
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
@@ -380,6 +411,7 @@ export function MultistoreDashboard() {
       if (taskFilter === 'late') return t.isLate || t.status === 'late';
       if (taskFilter === 'rejected') return t.status === 'rejected';
       if (taskFilter === 'completed') return t.status === 'completed';
+      if (taskFilter === 'upcoming') return isTaskUpcoming(t);
       return true;
     });
   }, [tasks, taskFilter, selectedUnitFilter, searchQuery]);
@@ -390,8 +422,9 @@ export function MultistoreDashboard() {
     const critical = tasks.filter((t) => t.item?.isCritical).length;
     const rejected = tasks.filter((t) => t.status === 'rejected').length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
-    const pending = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
-    return { late, critical, rejected, completed, pending, total: tasks.length };
+    const upcoming = tasks.filter(isTaskUpcoming).length;
+    const pending = tasks.filter((t) => (t.status === 'pending' || t.status === 'in_progress') && !isTaskUpcoming(t)).length;
+    return { late, critical, rejected, completed, pending, upcoming, total: tasks.length };
   }, [tasks]);
 
   // Filtragem de Evidências
@@ -1047,6 +1080,13 @@ export function MultistoreDashboard() {
                 </button>
                 <button
                   type="button"
+                  className={`incident-chip ${taskFilter === 'upcoming' ? 'is-active' : ''}`}
+                  onClick={() => setTaskFilter('upcoming')}
+                >
+                  Fora do Horário ({taskCounts.upcoming})
+                </button>
+                <button
+                  type="button"
                   className={`incident-chip ${taskFilter === 'completed' ? 'is-active' : ''}`}
                   onClick={() => setTaskFilter('completed')}
                 >
@@ -1079,8 +1119,70 @@ export function MultistoreDashboard() {
 
             {/* Lista de Incidentes e Tarefas */}
             {filteredTasks.length === 0 ? (
-              <div className="muted" style={{ padding: '3rem 0', textAlign: 'center' }}>
-                Nenhuma rotina ou tarefa encontrada para os filtros selecionados.
+              <div
+                style={{
+                  padding: '3rem 1.5rem',
+                  textAlign: 'center',
+                  background: 'rgba(11, 18, 32, 0.4)',
+                  borderRadius: '12px',
+                  border: '1px dashed rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.85rem',
+                  margin: '0.5rem 0',
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    color: '#38bdf8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <strong style={{ color: '#ffffff', fontSize: '0.98rem', display: 'block', marginBottom: '0.25rem' }}>
+                    {units.length === 0
+                      ? 'Nenhuma unidade cadastrada na rede'
+                      : 'Nenhuma rotina operacional gerada para hoje'}
+                  </strong>
+                  <span className="muted" style={{ fontSize: '0.82rem', maxWidth: 440, display: 'inline-block' }}>
+                    {units.length === 0
+                      ? 'Cadastre suas lojas em Unidades & Lojas para ativar o monitoramento por telemetria.'
+                      : 'As unidades da rede estão ativas. Gere as tarefas do dia para distribuir os procedimentos aos operadores.'}
+                  </span>
+                </div>
+                {units.length === 0 ? (
+                  <a
+                    href="/admin/units"
+                    className="btn btn-sm btn-primary"
+                    style={{ textDecoration: 'none', marginTop: '0.25rem' }}
+                  >
+                    + Cadastrar Primeira Loja
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    style={{ marginTop: '0.25rem' }}
+                    onClick={() => void generateTodayTasks()}
+                    disabled={busy !== null}
+                  >
+                    {busy === 'generate' ? 'Gerando Rotinas...' : '⚡ Gerar Rotinas do Dia'}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="incident-list">
@@ -1089,6 +1191,7 @@ export function MultistoreDashboard() {
                   const isLateTask = t.isLate || t.status === 'late';
                   const isRejectedTask = t.status === 'rejected';
                   const isCompletedTask = t.status === 'completed';
+                  const isUpcomingTask = isTaskUpcoming(t);
 
                   let cardCls = '';
                   if (isCriticalItem && isLateTask) cardCls = 'is-critical';
@@ -1101,11 +1204,28 @@ export function MultistoreDashboard() {
                       <div className="incident-header-row">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
                           <span
-                            className={`badge ${STATUS_CLASS[t.status] || (t.isLate ? 'badge-late' : 'badge-pending')
-                              }`}
+                            className={`badge ${
+                              isUpcomingTask
+                                ? 'badge-info'
+                                : STATUS_CLASS[t.status] || (t.isLate ? 'badge-late' : 'badge-pending')
+                            }`}
                           >
-                            {STATUS_LABEL[t.status] || t.status}
+                            {isUpcomingTask ? 'Fora do Horário' : STATUS_LABEL[t.status] || t.status}
                           </span>
+
+                          {isUpcomingTask && (
+                            <span
+                              className="badge"
+                              style={{
+                                background: 'rgba(56, 189, 248, 0.12)',
+                                color: '#38bdf8',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                                fontSize: '0.68rem',
+                              }}
+                            >
+                              🕒 {t.item?.shift ? `Turno ${t.item.shift === 'morning' ? 'Manhã' : t.item.shift === 'afternoon' ? 'Tarde' : 'Noite'}` : 'Agendada'}
+                            </span>
+                          )}
 
                           {isCriticalItem && (
                             <span className="badge badge-critical" style={{ fontSize: '0.68rem' }}>
@@ -1120,6 +1240,19 @@ export function MultistoreDashboard() {
 
                         {/* Botões de Ação Imediata */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <a
+                            href="/admin/checklists"
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            title="Editar este procedimento operacional (POP) no Checklist Builder"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            Editar POP
+                          </a>
+
                           {t.evidence && (
                             <button
                               type="button"
