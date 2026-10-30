@@ -141,9 +141,15 @@
   - **Editor de Template & Prévia Estilo WhatsApp:** Chips de tags de variáveis dinâmicas (`{unidade}`, `{tarefa}`, `{prazo}`...), editor de texto com redimensionamento vertical e simulador de tela de chat WhatsApp com balão de fala, avatar corporativo com SVG e duplo check azul.
   - **Cards de Seleção de Provedor & Credenciais:** Cards visuais de seleção de gateway (*Evolution API, Meta Cloud API, Twilio e Mock Simulator*), campos com validação segura de senha/tokens e terminal de console com syntax highlight para testes de envio imediatos.
 
-### Próximos Passos de Design:
-- [ ] Central de Treinamento (`/admin/training`).
-- [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
+### Próximos Passos de Design (Ponto de Retomada - Terça-feira):
+> [!IMPORTANT]
+> **Ponto de Retomada:** 9 das 10 abas do painel administrativo já estão 100% modernizadas, testadas e compiladas. Na terça-feira, recomeçaremos exatamente pela última aba pendente do menu administrativo:
+> 1. 👉 **`/admin/training`** ([`TrainingPage.tsx`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/apps/web/src/pages/admin/TrainingPage.tsx)) — Central de Treinamento, materiais didáticos e manuais POP.
+> 2. Em seguida, partiremos para o refinamento da **visão mobile do operador** (`/tasks`), facilitando a entrada de medições térmicas e fotos sem fricção.
+
+- [ ] **`/admin/training`** — Central de Treinamento & Manuais POP (Redesign completo com header semântico, 4 KPIs, abas de trilhas e player de manuais).
+- [ ] **`/tasks` (Operador Mobile)** — Otimização de fluxo de registro direto de medições e fotos sem cliques redundantes.
+- [ ] **Pilar 3 (Enxugamento)** — Revisão de código legado e otimização de payloads de rede.
 
 ---
 
