@@ -125,11 +125,16 @@
   - **Pódio de Destaque Sem Emojis:** Eliminação de emojis infantis (`🥇`, `🥈`, `🥉`) e substituição por insígnias SVG nobres (Troféu para 1º Ouro, Medalha de Honra para 2º Prata, Insígnia Estelar para 3º Bronze).
   - **Tabela do Leaderboard Geral:** Chips de medalha para posições de topo, barras de conformidade em gradiente com porcentagem explícita e badges de conformidade com contraste WCAG 2.2 AA.
 
+- [x] **[30/10/2026] Redesign de Auditoria de Falhas & Incidentes (`/admin/pendings`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Auditoria de Falhas & Incidentes") com badge de status dinâmico (*X incidentes*), botão de ação emergencial *Cobrar Todas Críticas* com glow carmim quando houver falhas críticas e 4 KPI cards interativos com glow temático (Total Monitorado em ciano, Atrasos Operacionais em âmbar/verde, Críticas em Atraso em carmim e Reprovações Gemini IA).
+  - **Toolbar Tática & Abas:** Abas em pills táteis (*Rotinas de Hoje* com contador de pendências vs *Relatório de Auditoria*), chips rápidos (*Todas, Críticas, Atrasadas, Recusadas IA*), seletores em tema escuro (`evolution-unit-select`) para datas e lojas, e campo de busca integrado com lupa SVG e botão clear (`✕`).
+  - **Cards de Incidentes & Ações Rápidas:** Cards com bordas temáticas de risco, metadados em grid monoespacado, thumbnail de evidência fotográfica com modal lightbox em tela cheia e botão ergonômico de cobrança direta via WhatsApp com feedback de envio.
+  - **Empty State Profissional:** Ilustração vetorial de conformidade plena quando todas as lojas e tarefas estiverem em dia.
+
 ### Próximos Passos de Design:
 - [ ] Evolução Histórica & Tendências (`/admin/evolution`).
 - [ ] Central de WhatsApp (`/admin/whatsapp`).
 - [ ] Central de Treinamento (`/admin/training`).
-- [ ] Tarefas Pendentes (`/admin/pendings`).
 - [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
 
 ---

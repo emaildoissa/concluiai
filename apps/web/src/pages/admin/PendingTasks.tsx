@@ -231,14 +231,29 @@ export function PendingTasks() {
 
   return (
     <div className="incident-wrap">
-      {/* Header Principal */}
-      <div className="page-header">
+      {/* Header Semântico com Contadores e Ações Táticas */}
+      <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
-          <h2>Auditoria de Falhas & Incidentes</h2>
-          <p>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
+            Auditoria de Falhas & Incidentes
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: metrics.criticalLate > 0 ? 'rgba(244, 63, 94, 0.15)' : 'rgba(20, 184, 166, 0.15)',
+                color: metrics.criticalLate > 0 ? '#f43f5e' : '#2dd4bf',
+                border: `1px solid ${metrics.criticalLate > 0 ? 'rgba(244, 63, 94, 0.3)' : 'rgba(20, 184, 166, 0.3)'}`,
+              }}
+            >
+              {filteredTasks.length} {filteredTasks.length === 1 ? 'incidente' : 'incidentes'}
+            </span>
+          </h1>
+          <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
             {activeTab === 'today'
-              ? 'Central de intervenção e cobrança em tempo real das rotinas do turno.'
-              : 'Relatório histórico de não-conformidades, comprovação de falhas e auditoria de disparos.'}
+              ? 'Central de intervenção rápida, telemetria de atrasos e cobrança de operadores em tempo real.'
+              : 'Relatório histórico de não-conformidades, auditoria de disparos e evidências reprovadas por IA.'}
           </p>
         </div>
 
@@ -247,7 +262,7 @@ export function PendingTasks() {
             <button
               type="button"
               className="btn btn-primary"
-              style={{ background: '#f43f5e', borderColor: '#f43f5e' }}
+              style={{ background: '#f43f5e', borderColor: '#f43f5e', minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: '0.45rem', boxShadow: '0 0 15px rgba(244, 63, 94, 0.35)' }}
               onClick={() => void handleBulkAlerts()}
               disabled={bulkAlerting}
             >
@@ -259,8 +274,25 @@ export function PendingTasks() {
             </button>
           )}
 
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => void loadData()} disabled={loading}>
-            Atualizar
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            style={{ minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+            onClick={() => void loadData()}
+            disabled={loading}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            {loading ? 'Atualizando...' : 'Atualizar Dados'}
           </button>
         </div>
       </div>
@@ -274,79 +306,102 @@ export function PendingTasks() {
         </div>
       )}
 
-      {/* Grid de KPIs Táticos */}
+      {/* Grid de 4 KPIs Táticos com Glow e Bordas Coloridas */}
       <div className="evolution-kpi-grid">
-        <div className="evolution-kpi-card" onClick={() => setQuickFilter('all')} style={{ cursor: 'pointer' }}>
+        <div
+          className="evolution-kpi-card"
+          onClick={() => setQuickFilter('all')}
+          style={{ cursor: 'pointer', borderLeft: '3px solid #38bdf8' }}
+        >
           <div className="evolution-kpi-header">
-            <span>Total de Registros</span>
+            <span>Total Monitorado</span>
             <span className="badge badge-info">{metrics.total} Tarefas</span>
           </div>
-          <div className="evolution-kpi-val">{metrics.total}</div>
+          <div className="evolution-kpi-val" style={{ color: '#38bdf8' }}>{metrics.total}</div>
           <div className="muted" style={{ fontSize: '0.75rem' }}>
-            {activeTab === 'today' ? 'programadas para hoje' : 'no período filtrado'}
+            {activeTab === 'today' ? 'rotinas ativas para o dia' : 'registros no período selecionado'}
           </div>
         </div>
 
-        <div className="evolution-kpi-card" onClick={() => setQuickFilter('late')} style={{ cursor: 'pointer' }}>
+        <div
+          className="evolution-kpi-card"
+          onClick={() => setQuickFilter('late')}
+          style={{ cursor: 'pointer', borderLeft: `3px solid ${metrics.late > 0 ? '#fbbf24' : '#10b981'}` }}
+        >
           <div className="evolution-kpi-header">
-            <span>Atrasos Registrados</span>
-            <span className="badge badge-pending">Tempo Limite</span>
+            <span>Atrasos Operacionais</span>
+            <span className={`badge ${metrics.late > 0 ? 'badge-pending' : 'badge-completed'}`}>
+              {metrics.late > 0 ? 'Exige Atenção' : 'No Horário'}
+            </span>
           </div>
           <div className="evolution-kpi-val" style={{ color: metrics.late > 0 ? '#fbbf24' : '#34d399' }}>
             {metrics.late}
           </div>
           <div className="muted" style={{ fontSize: '0.75rem' }}>
-            excederam a janela horária do POP
+            {metrics.late > 0 ? 'excederam a janela horária do POP' : 'todas as tarefas no prazo'}
           </div>
         </div>
 
-        <div className="evolution-kpi-card" onClick={() => setQuickFilter('critical')} style={{ cursor: 'pointer' }}>
+        <div
+          className="evolution-kpi-card"
+          onClick={() => setQuickFilter('critical')}
+          style={{ cursor: 'pointer', borderLeft: `3px solid ${metrics.criticalLate > 0 ? '#f43f5e' : '#10b981'}` }}
+        >
           <div className="evolution-kpi-header">
             <span>Críticas em Atraso</span>
-            <span className="badge badge-critical">Alto Risco</span>
+            <span className={`badge ${metrics.criticalLate > 0 ? 'badge-critical' : 'badge-completed'}`}>
+              {metrics.criticalLate > 0 ? 'Alto Risco' : '100% OK'}
+            </span>
           </div>
           <div className="evolution-kpi-val" style={{ color: metrics.criticalLate > 0 ? '#f43f5e' : '#34d399' }}>
             {metrics.criticalLate}
           </div>
           <div className="muted" style={{ fontSize: '0.75rem' }}>
-            impacto sanitário ou operacional direto
+            {metrics.criticalLate > 0 ? 'impacto sanitário ou operacional direto' : 'nenhum risco crítico em aberto'}
           </div>
         </div>
 
-        <div className="evolution-kpi-card" onClick={() => setQuickFilter('rejected')} style={{ cursor: 'pointer' }}>
+        <div
+          className="evolution-kpi-card"
+          onClick={() => setQuickFilter('rejected')}
+          style={{ cursor: 'pointer', borderLeft: `3px solid ${metrics.rejected > 0 ? '#f43f5e' : '#10b981'}` }}
+        >
           <div className="evolution-kpi-header">
             <span>Reprovações Gemini IA</span>
-            <span className="badge badge-critical">Auditoria</span>
+            <span className={`badge ${metrics.rejected > 0 ? 'badge-critical' : 'badge-completed'}`}>
+              {metrics.rejected > 0 ? 'Auditoria' : 'Auditado'}
+            </span>
           </div>
           <div className="evolution-kpi-val" style={{ color: metrics.rejected > 0 ? '#f43f5e' : '#34d399' }}>
             {metrics.rejected}
           </div>
           <div className="muted" style={{ fontSize: '0.75rem' }}>
-            evidências fora dos padrões técnicos
+            {metrics.rejected > 0 ? 'evidências fora das diretrizes POP' : 'todas as fotos validadas'}
           </div>
         </div>
       </div>
 
-      {/* Toolbar Tática (Abas + Filtros + Busca) */}
+      {/* Toolbar Tática (Abas + Filtros em Pills + Busca Ergonômica) */}
       <div className="incident-toolbar">
-        <div className="incident-tabs">
-          <button
-            type="button"
-            className={`incident-tab-btn ${activeTab === 'today' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('today')}
-          >
-            Rotinas de Hoje ({metrics.pending} pendentes)
-          </button>
-          <button
-            type="button"
-            className={`incident-tab-btn ${activeTab === 'audit' ? 'is-active' : ''}`}
-            onClick={() => setActiveTab('audit')}
-          >
-            Relatório de Auditoria
-          </button>
-        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          {/* Abas de Modo (Hoje vs Auditoria Histórica) */}
+          <div className="incident-tabs">
+            <button
+              type="button"
+              className={`incident-tab-btn ${activeTab === 'today' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('today')}
+            >
+              Rotinas de Hoje ({metrics.pending})
+            </button>
+            <button
+              type="button"
+              className={`incident-tab-btn ${activeTab === 'audit' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('audit')}
+            >
+              Relatório de Auditoria
+            </button>
+          </div>
 
-        <div className="incident-filters">
           {/* Chips Rápidos de Status */}
           <div className="incident-chips">
             <button
@@ -378,34 +433,25 @@ export function PendingTasks() {
               Recusadas IA ({metrics.rejected})
             </button>
           </div>
+        </div>
 
+        <div className="incident-filters" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
           {activeTab === 'audit' && (
             <input
               type="date"
+              className="evolution-unit-select"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: '0.35rem 0.6rem',
-                fontSize: '0.82rem',
-                color: '#fff',
-              }}
+              style={{ minHeight: 36, padding: '0.35rem 0.75rem' }}
             />
           )}
 
           {unitsList.length > 1 && (
             <select
+              className="evolution-unit-select"
               value={selectedUnit}
               onChange={(e) => setSelectedUnit(e.target.value)}
-              style={{
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border)',
-                borderRadius: 8,
-                padding: '0.35rem 0.6rem',
-                fontSize: '0.82rem',
-              }}
+              style={{ minHeight: 36 }}
             >
               <option value="">Todas as unidades</option>
               {unitsList.map((u) => (
@@ -416,36 +462,65 @@ export function PendingTasks() {
             </select>
           )}
 
-          <input
-            type="text"
-            placeholder="Buscar tarefa, loja ou operador..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '0.35rem 0.75rem',
-              fontSize: '0.82rem',
-              color: '#fff',
-              width: 220,
-            }}
-          />
+          {/* Busca com Clear Button */}
+          <div className="ops-search-wrap" style={{ minWidth: 220, flex: '1 1 220px', maxWidth: 320 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="ops-search-icon">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              className="ops-search-input"
+              placeholder="Buscar tarefa, loja ou operador..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="ops-search-clear"
+                onClick={() => setSearchQuery('')}
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Lista de Incidentes e Tarefas */}
       {loading ? (
-        <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
-          Carregando dados de incidentes e auditoria...
+        <div className="card" style={{ padding: '3.5rem', textAlign: 'center', color: '#94a3b8' }}>
+          <div style={{ display: 'inline-block', width: 24, height: 24, border: '2px solid rgba(255,255,255,0.2)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: '0.65rem' }} />
+          <div>Carregando incidentes e dados de auditoria...</div>
         </div>
       ) : filteredTasks.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#34d399', marginBottom: '0.5rem' }}>
+        <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: '50%',
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#34d399',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '0.85rem',
+            }}
+          >
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ffffff', marginBottom: '0.35rem' }}>
             Conformidade Operacional Plena
           </div>
-          <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-            Nenhum incidente, atraso ou não-conformidade pendente para os filtros selecionados.
+          <p className="muted" style={{ margin: 0, fontSize: '0.85rem', maxWidth: 440, display: 'inline-block' }}>
+            {searchQuery
+              ? `Nenhum incidente encontrado para "${searchQuery}". Tente outro termo.`
+              : 'Nenhum incidente, atraso ou não-conformidade pendente para os filtros selecionados.'}
           </p>
         </div>
       ) : (
