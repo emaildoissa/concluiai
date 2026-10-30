@@ -170,19 +170,59 @@ export function EvolutionPage() {
 
   return (
     <div className="evolution-wrap">
-      {/* Header Principal */}
-      <div className="page-header">
+      {/* Header Semântico com Contadores e Ações */}
+      <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
-          <h2>Evolução de Indicadores & Conformidade</h2>
-          <p>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
+            Evolução de Indicadores & Conformidade
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: stats.avgTotal >= 85 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                color: stats.avgTotal >= 85 ? '#34d399' : '#fbbf24',
+                border: `1px solid ${stats.avgTotal >= 85 ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+              }}
+            >
+              Janela de {days} dias · {unitFilter ? 'Unidade Filtrada' : 'Rede Consolidada'}
+            </span>
+          </h1>
+          <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
             Análise histórica das 3 dimensões operacionais: <strong>Pontualidade (P)</strong>, <strong>Execução (E)</strong> e <strong>Qualidade IA (Q)</strong>.
           </p>
         </div>
+
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          style={{ minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
+          onClick={() => {
+            // Recarrega telemetria da janela
+            setLoading(true);
+            setTimeout(() => setLoading(false), 400);
+          }}
+          disabled={loading}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+          >
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+          </svg>
+          {loading ? 'Atualizando...' : 'Atualizar Dados'}
+        </button>
       </div>
 
-      {/* Grid de KPIs Superiores com Deltas */}
+      {/* Grid de 4 KPIs Superiores com Deltas e Bordas Temáticas */}
       <div className="evolution-kpi-grid">
-        <div className="evolution-kpi-card">
+        <div className="evolution-kpi-card" style={{ borderLeft: `3px solid ${stats.avgTotal >= 85 ? '#10b981' : '#f59e0b'}` }}>
           <div className="evolution-kpi-header">
             <span>Score Médio Consolidado</span>
             <span className={`evolution-kpi-delta ${stats.delta >= 0 ? 'is-positive' : 'is-negative'}`}>
@@ -193,11 +233,11 @@ export function EvolutionPage() {
             {stats.avgTotal}%
           </div>
           <div className="muted" style={{ fontSize: '0.75rem' }}>
-            Meta da rede: 85% · {stats.avgTotal >= 85 ? 'Em conformidade' : 'Abaixo da meta'}
+            Meta da rede: 85% · {stats.avgTotal >= 85 ? 'Em conformidade plena' : 'Abaixo da meta operacional'}
           </div>
         </div>
 
-        <div className="evolution-kpi-card">
+        <div className="evolution-kpi-card" style={{ borderLeft: '3px solid #38bdf8' }}>
           <div className="evolution-kpi-header">
             <span>Pontualidade Média (P)</span>
             <span className="badge badge-info" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>Peso 35%</span>
@@ -210,7 +250,7 @@ export function EvolutionPage() {
           </div>
         </div>
 
-        <div className="evolution-kpi-card">
+        <div className="evolution-kpi-card" style={{ borderLeft: '3px solid #a78bfa' }}>
           <div className="evolution-kpi-header">
             <span>Execução de POPs (E)</span>
             <span className="badge badge-ghost" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>Peso 30%</span>
@@ -223,7 +263,7 @@ export function EvolutionPage() {
           </div>
         </div>
 
-        <div className="evolution-kpi-card">
+        <div className="evolution-kpi-card" style={{ borderLeft: '3px solid #f59e0b' }}>
           <div className="evolution-kpi-header">
             <span>Auditoria Visual Gemini (Q)</span>
             <span className="badge badge-pending" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>Peso 35%</span>

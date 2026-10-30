@@ -131,8 +131,12 @@
   - **Cards de Incidentes & Ações Rápidas:** Cards com bordas temáticas de risco, metadados em grid monoespacado, thumbnail de evidência fotográfica com modal lightbox em tela cheia e botão ergonômico de cobrança direta via WhatsApp com feedback de envio.
   - **Empty State Profissional:** Ilustração vetorial de conformidade plena quando todas as lojas e tarefas estiverem em dia.
 
+- [x] **[30/10/2026] Redesign de Evolução Histórica & Tendências (`/admin/evolution`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Evolução de Indicadores & Conformidade") com badge contador dinâmico de período e escopo de loja, botão ergonômico *Atualizar Dados* com animação de spinner, e 4 KPI cards modernizados com glow temático e deltas percentuais comparativos (Score Médio Consolidado em esmeralda/âmbar, Pontualidade P em ciano, Execução E em lilás e Qualidade IA Q em âmbar).
+  - **Toolbar Tática & Seletor Escuro:** Botões de janela temporal em pills táteis (*7D, 14D, 30D, 90D*), dropdown de lojas com estilização escura (`evolution-unit-select`) corrigindo contraste com o Windows, e chips interativos de toggle de séries do gráfico Recharts.
+  - **Gráfico de Séries Temporais & Diagnósticos:** Linha de meta de conformidade (85%) da rede, tooltips translúcidas com backdrop blur e cartões de diagnósticos de correlação operacional (decaimento linear, confiança Gemini Vision e peso de tarefas críticas).
+
 ### Próximos Passos de Design:
-- [ ] Evolução Histórica & Tendências (`/admin/evolution`).
 - [ ] Central de WhatsApp (`/admin/whatsapp`).
 - [ ] Central de Treinamento (`/admin/training`).
 - [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
