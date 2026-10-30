@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiGet, apiPost, apiPut } from '../../lib/api';
 
 interface WhatsAppConfig {
@@ -194,25 +194,75 @@ export function WhatsAppPage() {
     }
   }
 
+  // KPIs de Telemetria do Gateway
+  const kpiData = useMemo(() => {
+    const isMock = status?.provider === 'mock' || provider === 'mock';
+    const isConnected = !!status?.connected;
+    return {
+      statusLabel: isMock ? 'Simulação' : isConnected ? 'Online' : 'Desconectado',
+      statusColor: isMock ? '#38bdf8' : isConnected ? '#34d399' : '#f43f5e',
+      alertsState: alertsEnabled ? 'Ativados' : 'Desativados',
+      alertsColor: alertsEnabled ? '#2dd4bf' : '#94a3b8',
+      providerName: PROVIDERS.find((p) => p.id === provider)?.name || provider,
+      hasToken: cfg?.hasToken || !!token,
+    };
+  }, [status, provider, alertsEnabled, cfg, token]);
+
   return (
     <div className="wa-settings-wrap">
-      {/* Header da Página */}
-      <div className="page-header">
+      {/* Header Semântico com Contadores e Ações */}
+      <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
-          <h2>Gateway & Notificações WhatsApp</h2>
-          <p>Configuração de instâncias de disparo e canais de alerta operacional para gerentes e operadores.</p>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', margin: 0, fontSize: '1.45rem', fontWeight: 800 }}>
+            Gateway & Notificações WhatsApp
+            <span
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 999,
+                background: status?.connected
+                  ? 'rgba(16, 185, 129, 0.15)'
+                  : status?.provider === 'mock'
+                    ? 'rgba(56, 189, 248, 0.15)'
+                    : 'rgba(244, 63, 94, 0.15)',
+                color: kpiData.statusColor,
+                border: `1px solid ${
+                  status?.connected
+                    ? 'rgba(16, 185, 129, 0.3)'
+                    : status?.provider === 'mock'
+                      ? 'rgba(56, 189, 248, 0.3)'
+                      : 'rgba(244, 63, 94, 0.3)'
+                }`,
+              }}
+            >
+              {kpiData.statusLabel.toUpperCase()}
+            </span>
+          </h1>
+          <p style={{ margin: '0.35rem 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+            Configuração de instâncias de disparo, modelos de alerta operacional e canais de cobrança em tempo real.
+          </p>
         </div>
 
         <button
           type="button"
           className="btn btn-ghost btn-sm"
+          style={{ minHeight: 36, display: 'inline-flex', alignItems: 'center', gap: '0.45rem' }}
           onClick={() => void loadData()}
           disabled={loading}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }}
+          >
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
           </svg>
-          Verificar Status
+          {loading ? 'Verificando...' : 'Verificar Status'}
         </button>
       </div>
 
@@ -233,48 +283,76 @@ export function WhatsAppPage() {
         </div>
       )}
 
-      {/* Banner de Telemetria de Conexão */}
-      <div className="wa-status-banner">
-        <div className="wa-status-live">
-          <div
-            className={`wa-pulse-indicator ${
-              status?.provider === 'mock'
-                ? 'mock'
-                : status?.connected
-                  ? 'online'
-                  : 'offline'
-            }`}
-          />
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#ffffff' }}>
-              {status?.provider === 'mock'
-                ? 'Modo Simulação Ativo (Mock)'
-                : status?.connected
-                  ? 'Instância Conectada & Operante'
-                  : 'Instância Desconectada ou Não Configurada'}
-            </div>
-            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Provedor Atual:{' '}
-              <strong style={{ color: '#ffffff', textTransform: 'uppercase' }}>
-                {status?.provider || provider}
-              </strong>{' '}
-              {status?.state && `· Estado: ${status.state}`}
-            </div>
+      {/* Grid de 4 KPIs Táticos de Conexão WhatsApp */}
+      <div className="evolution-kpi-grid">
+        <div className="evolution-kpi-card" style={{ borderLeft: `3px solid ${kpiData.statusColor}` }}>
+          <div className="evolution-kpi-header">
+            <span>Status da Instância</span>
+            <span
+              className={`badge ${
+                status?.provider === 'mock'
+                  ? 'badge-info'
+                  : status?.connected
+                    ? 'badge-completed'
+                    : 'badge-critical'
+              }`}
+            >
+              {kpiData.statusLabel}
+            </span>
+          </div>
+          <div className="evolution-kpi-val" style={{ color: kpiData.statusColor, fontSize: '1.45rem' }}>
+            {status?.provider === 'mock'
+              ? 'Simulação Mock'
+              : status?.connected
+                ? 'Conectada'
+                : 'Offline'}
+          </div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>
+            {status?.state ? `Estado do socket: ${status.state}` : 'Pronto para transmissão de mensagens'}
           </div>
         </div>
 
-        <div>
-          <span
-            className={`badge ${
-              status?.provider === 'mock'
-                ? 'badge-info'
-                : status?.connected
-                  ? 'badge-completed'
-                  : 'badge-critical'
-            }`}
-          >
-            {status?.provider === 'mock' ? 'SIMULAÇÃO' : status?.connected ? 'ONLINE' : 'OFFLINE'}
-          </span>
+        <div className="evolution-kpi-card" style={{ borderLeft: '3px solid #38bdf8' }}>
+          <div className="evolution-kpi-header">
+            <span>Provedor Ativo</span>
+            <span className="badge badge-info" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>Gateway</span>
+          </div>
+          <div className="evolution-kpi-val" style={{ color: '#38bdf8', fontSize: '1.35rem' }}>
+            {kpiData.providerName}
+          </div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>
+            {instance ? `Instância: ${instance}` : 'Servidor de mensageria selecionado'}
+          </div>
+        </div>
+
+        <div className="evolution-kpi-card" style={{ borderLeft: `3px solid ${alertsEnabled ? '#10b981' : '#64748b'}` }}>
+          <div className="evolution-kpi-header">
+            <span>Disparos de Atraso</span>
+            <span className={`badge ${alertsEnabled ? 'badge-completed' : 'badge-ghost'}`}>
+              {kpiData.alertsState}
+            </span>
+          </div>
+          <div className="evolution-kpi-val" style={{ color: kpiData.alertsColor, fontSize: '1.45rem' }}>
+            {alertsEnabled ? 'Robô Ativo' : 'Pausado'}
+          </div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>
+            {alertsEnabled ? 'Cobranças automáticas habilitadas' : 'Modo silencioso / apenas painel'}
+          </div>
+        </div>
+
+        <div className="evolution-kpi-card" style={{ borderLeft: `3px solid ${kpiData.hasToken ? '#a855f7' : '#f59e0b'}` }}>
+          <div className="evolution-kpi-header">
+            <span>Autenticação API</span>
+            <span className={`badge ${kpiData.hasToken ? 'badge-completed' : 'badge-pending'}`}>
+              {kpiData.hasToken ? 'Segura' : 'Pendente'}
+            </span>
+          </div>
+          <div className="evolution-kpi-val" style={{ color: kpiData.hasToken ? '#c084fc' : '#fbbf24', fontSize: '1.45rem' }}>
+            {kpiData.hasToken ? 'Token Ativo' : 'Sem Token'}
+          </div>
+          <div className="muted" style={{ fontSize: '0.75rem' }}>
+            {instanceNumber ? `Robô: ${instanceNumber}` : 'Credenciais de autenticação da instância'}
+          </div>
         </div>
       </div>
 
@@ -436,10 +514,25 @@ export function WhatsAppPage() {
 
             <div className="wa-preview-screen">
               <div className="wa-preview-header">
-                <div className="wa-preview-avatar">🤖</div>
+                <div
+                  className="wa-preview-avatar"
+                  style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #0d9488 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '50%',
+                    width: 32,
+                    height: 32,
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#ffffff' }}>ConcluíAI Alertas</div>
-                  <div style={{ fontSize: '0.7rem', color: '#34d399' }}>online</div>
+                  <div style={{ fontSize: '0.7rem', color: '#34d399', fontWeight: 600 }}>● online</div>
                 </div>
               </div>
 

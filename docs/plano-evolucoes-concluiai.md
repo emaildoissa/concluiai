@@ -136,8 +136,12 @@
   - **Toolbar Tática & Seletor Escuro:** Botões de janela temporal em pills táteis (*7D, 14D, 30D, 90D*), dropdown de lojas com estilização escura (`evolution-unit-select`) corrigindo contraste com o Windows, e chips interativos de toggle de séries do gráfico Recharts.
   - **Gráfico de Séries Temporais & Diagnósticos:** Linha de meta de conformidade (85%) da rede, tooltips translúcidas com backdrop blur e cartões de diagnósticos de correlação operacional (decaimento linear, confiança Gemini Vision e peso de tarefas críticas).
 
+- [x] **[30/10/2026] Redesign de WhatsApp Gateway & Notificações (`/admin/whatsapp`):**
+  - **Barra Superior & KPIs:** `<h1>` padronizado ("Gateway & Notificações WhatsApp") com badge contador dinâmico de status (*ONLINE / MOCK / OFFLINE*), botão ergonômico *Verificar Status* com animação de spinner, e 4 KPI cards modernizados com glow temático (Status da Instância, Provedor Ativo, Disparos de Atraso e Autenticação API).
+  - **Editor de Template & Prévia Estilo WhatsApp:** Chips de tags de variáveis dinâmicas (`{unidade}`, `{tarefa}`, `{prazo}`...), editor de texto com redimensionamento vertical e simulador de tela de chat WhatsApp com balão de fala, avatar corporativo com SVG e duplo check azul.
+  - **Cards de Seleção de Provedor & Credenciais:** Cards visuais de seleção de gateway (*Evolution API, Meta Cloud API, Twilio e Mock Simulator*), campos com validação segura de senha/tokens e terminal de console com syntax highlight para testes de envio imediatos.
+
 ### Próximos Passos de Design:
-- [ ] Central de WhatsApp (`/admin/whatsapp`).
 - [ ] Central de Treinamento (`/admin/training`).
 - [ ] Melhorias na tela do operador para registro direto das medições sem fricção.
 
