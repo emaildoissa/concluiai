@@ -1,7 +1,7 @@
 # Plano de Evolução Contínua: ConcluíAI
 
 > **Documento de Referência:** [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md)  
-> **Última Atualização:** 21/10/2026  
+> **Última Atualização:** 19/11/2026  
 > **Objetivo:** Registro contínuo de diagnósticos, correções e planos organizados nos 3 pilares estratégicos do produto.
 
 ---
@@ -67,6 +67,34 @@
   - `apps/web/src/styles/index.css`: Adicionada regra global para `select` e `select option` com `color-scheme: dark`, fundo escuro `#0f172a`, borda sutil e cor de texto branca `#f8fafc` com contraste WCAG 2.2 AAA.
   - Criada a classe `.evolution-unit-select` com chevron SVG vetorial estilizado, hover/focus states e altura ergonômica mínima de 34px.
   - `apps/web/src/pages/admin/EvolutionPage.tsx`: Aplicada a nova classe ao seletor de lojas.
+
+### [19/11/2026] 🗓️ Planejado para Segunda-feira: Tarefas por Setor (Sem Operador Fixo Pré-Atribuído)
+- **Demanda da Cliente (vídeo + áudio):** Ao montar um POP, ela define o **setor responsável** (ex.: `Salão`, `Cozinha`) e vincula os funcionários aos seus setores. Porém, o sistema pré-atribui cada tarefa a uma pessoa específica (exibindo `Operador Responsável: <Nome>` no painel e mostrando nomes de colegas/divisão parcial na tela da Bruna). Como a escala muda todo dia, **todas as pessoas daquele setor devem ter acesso às tarefas do setor** sem pessoa fixa — quem estiver no turno executa (ou o gerente designa no dia).
+- **Causa Raiz Mapeada:**
+  1. *Geração em rodízio (`apps/api/src/services/tasks.ts`):* `generateTasksForDate()` faz round-robin e grava um único `assigned_to` em cada `task_instance`.
+  2. *API e Painel Admin sem setor (`apps/api/src/routes/tasks.ts`, `MultistoreDashboard.tsx`, `PendingTasks.tsx`):* `/api/tasks/pendings` e `/api/tasks/audit-report` não retornam `sector` do checklist; os cards exibem `Operador Responsável` em vez de `Setor Responsável`.
+  3. *Tela do Operador (`apps/web/src/pages/operator/OperatorTasksPage.tsx`):* Abre por padrão na aba `my_tasks` (filtrada por `assigned_to === user.id`), exibe tag de colega atribuído nos cards e possui bug de dependência no `useMemo` de `groups` (usa `tasks` em vez de `scopedTasks` na linha 534).
+  4. *Registro incompleto do executor real:* Só `/api/tasks/:id/complete` (medição numérica) grava `assigned_to = req.user.id`. Conclusões por check simples (`TaskExecutionModal.tsx`), foto/IA (`apps/api/src/routes/evidence.ts`) e App Mobile (`apps/mobile/app/task/[id].tsx`, `camera/[id].tsx`) não registram quem realmente executou a tarefa.
+- **Plano Técnico para Executar na Segunda:**
+  - **Backend (`apps/api`):**
+    - `services/tasks.ts`: Remover round-robin em `generateTasksForDate()` e criar instâncias com `assigned_to: null` (coluna já é nullable e RLS já libera por `unit_id`).
+    - `routes/tasks.ts`: Retornar `sector: { id, name }` em `/pendings` e `/audit-report`; sempre registrar `assigned_to: req.user.id` em `POST /:id/complete`; adaptar `POST /:id/notify` conforme decisão de cobrança.
+    - `routes/evidence.ts`: Gravar `assigned_to: evidence.operator_id` ao aprovar evidência na análise IA (para auditoria e ranking pontuarem o executor real).
+    - `routes/evidences.ts`: Em `request-adjustment`, notificar `evidence.operator_id` e limpar `assigned_to: null` ao reabrir a tarefa para o pool do setor.
+  - **Painel Admin (`apps/web/src/pages/admin`):**
+    - `MultistoreDashboard.tsx` e `PendingTasks.tsx`: Trocar `Operador Responsável` por `Setor Responsável` (`t.sector?.name || 'Geral da Loja'`) e mostrar `Executado por: <Nome>` apenas quando houver executor; incluir setor na busca; adaptar botão `Cobrar WhatsApp`.
+    - `ChecklistBuilder.tsx`: Ajustar rótulo vazio de setor de `"— Rotativo Geral da Loja —"` para `"— Geral da Loja (Todos os Setores) —"`.
+  - **Visão do Operador (`apps/web/src/pages/operator` e `components/operator`):**
+    - `OperatorTasksPage.tsx`: Definir aba padrão como `my_sector` (incluindo tarefas dos setores do usuário + tarefas gerais sem setor), corrigir dependência `scopedTasks` no `useMemo` e só mostrar nome de pessoa em tarefas já executadas (`✓ Feita por ...`).
+    - `TaskExecutionModal.tsx`: Gravar `assigned_to: user.id` ao concluir check simples e ao enviar foto.
+  - **App Mobile (`apps/mobile`) *(opcional no pacote)*:**
+    - Filtrar `TodayScreen` por `profiles_sectors` e gravar `assigned_to: profile.id` nas conclusões (`task/[id].tsx`, `camera/[id].tsx`).
+  - **Banco de Dados *(opcional)*:**
+    - Migration/SQL para limpar `assigned_to = NULL` em tarefas `pending`/`late` já geradas no dia (`scheduled_date >= CURRENT_DATE`).
+- **3 Decisões para Alinhar Antes de Codar na Segunda:**
+  1. **Botão "Cobrar WhatsApp" sem operador fixo:** *(a)* Seletor rápido no clique para escolher quem cobrar (gerente ou operador do setor na escala do dia — recomendado); *(b)* Cobrar automaticamente o(s) gerente(s) da unidade; ou *(c)* Disparar para todos os operadores ativos do setor.
+  2. **Abas da tela do operador (`/tasks`):** *(a)* `"Meu Setor"` (padrão) + `"Toda a Loja"` (removendo `"Minhas Tarefas"` — recomendado); ou *(b)* `"Meu Setor"` + `"Feitas por Mim"` + `"Toda a Loja"`.
+  3. **Escopo extra:** Confirmar inclusão do **App Mobile (`apps/mobile`)** e do **SQL de limpeza** das tarefas pendentes já geradas no dia.
 
 ---
 
@@ -141,11 +169,14 @@
   - **Editor de Template & Prévia Estilo WhatsApp:** Chips de tags de variáveis dinâmicas (`{unidade}`, `{tarefa}`, `{prazo}`...), editor de texto com redimensionamento vertical e simulador de tela de chat WhatsApp com balão de fala, avatar corporativo com SVG e duplo check azul.
   - **Cards de Seleção de Provedor & Credenciais:** Cards visuais de seleção de gateway (*Evolution API, Meta Cloud API, Twilio e Mock Simulator*), campos com validação segura de senha/tokens e terminal de console com syntax highlight para testes de envio imediatos.
 
-### Próximos Passos de Design (Ponto de Retomada - Terça-feira):
+### Próximos Passos (Retomada na Segunda-feira):
 > [!IMPORTANT]
-> **Ponto de Retomada:** 9 das 10 abas do painel administrativo já estão 100% modernizadas, testadas e compiladas. Na terça-feira, recomeçaremos exatamente pela última aba pendente do menu administrativo:
-> 1. 👉 **`/admin/training`** ([`TrainingPage.tsx`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/apps/web/src/pages/admin/TrainingPage.tsx)) — Central de Treinamento, materiais didáticos e manuais POP.
-> 2. Em seguida, partiremos para o refinamento da **visão mobile do operador** (`/tasks`), facilitando a entrada de medições térmicas e fotos sem fricção.
+> **Prioridade da Segunda-feira:**
+> 1. 👉 **Tarefas por Setor (Sem Operador Fixo)** — Executar o plano mapeado no Pilar 1 acima após definir as 3 escolhas rápidas (Cobrar WhatsApp, abas de `/tasks` e escopo Mobile/SQL).
+> 2. **`/admin/training`** ([`TrainingPage.tsx`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/apps/web/src/pages/admin/TrainingPage.tsx)) — Central de Treinamento, materiais didáticos e manuais POP (última das 10 abas do painel admin).
+> 3. Em seguida, refinamento da **visão mobile do operador** (`/tasks`), facilitando a entrada de medições térmicas e fotos sem fricção.
+
+- [ ] **Tarefas por Setor (Pool Compartilhado)** — Remover pré-atribuição round-robin, exibir `Setor Responsável`, registrar executor real na conclusão e ajustar tela do operador.
 
 - [ ] **`/admin/training`** — Central de Treinamento & Manuais POP (Redesign completo com header semântico, 4 KPIs, abas de trilhas e player de manuais).
 - [ ] **`/tasks` (Operador Mobile)** — Otimização de fluxo de registro direto de medições e fotos sem cliques redundantes.
