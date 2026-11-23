@@ -102,7 +102,7 @@ function getDeadlineInfo(dueAtIso: string, status: string): {
   }
 }
 
-type TaskScopeTab = 'my_tasks' | 'my_sector' | 'all_unit';
+type TaskScopeTab = 'my_sector' | 'all_unit';
 
 export function OperatorTasksPage() {
   const { user, logout, demoMode, isAdmin, isManager } = useAuth();
@@ -111,7 +111,7 @@ export function OperatorTasksPage() {
   const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   const [tasks, setTasks] = useState<TaskItemData[]>([]);
   const [userSectorIds, setUserSectorIds] = useState<string[]>([]);
-  const [scopeTab, setScopeTab] = useState<TaskScopeTab>('my_tasks');
+  const [scopeTab, setScopeTab] = useState<TaskScopeTab>('my_sector');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -198,8 +198,6 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
-          assigned_to: user?.id,
-          assigned_name: user?.full_name || 'Você',
           sector_name: 'Cozinha',
           checklist_item: {
             id: 'item-1',
@@ -218,8 +216,6 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
-          assigned_to: user?.id,
-          assigned_name: user?.full_name || 'Você',
           sector_name: 'Cozinha',
           checklist_item: {
             id: 'item-2',
@@ -278,8 +274,6 @@ export function OperatorTasksPage() {
           status: 'pending',
           checklist_name: 'Abertura de Cozinha & Preparo',
           checklist_shift: 'Manhã',
-          assigned_to: user?.id,
-          assigned_name: user?.full_name || 'Você',
           sector_name: 'Sushi Bar',
           checklist_item: {
             id: 'item-5',
@@ -392,45 +386,28 @@ export function OperatorTasksPage() {
     }
   }, [selectedUnitId, loadTasks, demoMode]);
 
-  // Tarefas filtradas pelo Escopo Operacional (Minhas / Meu Setor / Toda a Loja)
+  // Tarefas pertencentes aos setores do operador (ou tarefas gerais da loja sem setor exclusivo)
+  const isInMySector = useCallback(
+    (t: TaskItemData) => {
+      if (userSectorIds.length === 0) return true;
+      if (!t.sector_id) return true;
+      return userSectorIds.includes(t.sector_id);
+    },
+    [userSectorIds]
+  );
+
+  // Tarefas filtradas pelo Escopo Operacional (Meu Setor / Toda a Loja)
   const scopedTasks = useMemo(() => {
     if (scopeTab === 'all_unit') return tasks;
-
-    if (scopeTab === 'my_tasks') {
-      return tasks.filter((t) => {
-        if (t.assigned_to === user?.id) return true;
-        // Se a tarefa não possui atribuição nominal e o usuário não tem setor exclusivo
-        if (!t.assigned_to && userSectorIds.length === 0) return true;
-        return false;
-      });
-    }
-
-    if (scopeTab === 'my_sector') {
-      return tasks.filter((t) => {
-        if (t.assigned_to === user?.id) return true;
-        if (t.sector_id && userSectorIds.includes(t.sector_id)) return true;
-        if (userSectorIds.length === 0) return true;
-        return false;
-      });
-    }
-
-    return tasks;
-  }, [tasks, scopeTab, user?.id, userSectorIds]);
+    return tasks.filter(isInMySector);
+  }, [tasks, scopeTab, isInMySector]);
 
   // Contagem para badges em cada aba de escopo
   const scopeCounts = useMemo(() => {
-    const myTasksCount = tasks.filter(
-      (t) => t.assigned_to === user?.id || (!t.assigned_to && userSectorIds.length === 0)
-    ).length;
-    const mySectorCount = tasks.filter(
-      (t) =>
-        t.assigned_to === user?.id ||
-        (t.sector_id && userSectorIds.includes(t.sector_id)) ||
-        userSectorIds.length === 0
-    ).length;
+    const mySectorCount = tasks.filter(isInMySector).length;
     const allUnitCount = tasks.length;
-    return { myTasks: myTasksCount, mySector: mySectorCount, allUnit: allUnitCount };
-  }, [tasks, user?.id, userSectorIds]);
+    return { mySector: mySectorCount, allUnit: allUnitCount };
+  }, [tasks, isInMySector]);
 
   // Cálculos de métricas e status derivados dentro do escopo ativo
   const stats = useMemo(() => {
@@ -531,7 +508,7 @@ export function OperatorTasksPage() {
         progressPercent: g.total > 0 ? Math.round((g.completed / g.total) * 100) : 0,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [tasks, activeFilter, searchQuery]);
+  }, [scopedTasks, activeFilter, searchQuery]);
 
   // Abre os grupos automaticamente na primeira carga
   useEffect(() => {
@@ -634,23 +611,14 @@ export function OperatorTasksPage() {
         </div>
       </div>
 
-      {/* Seletor de Escopo Operacional (Opção 3: Híbrido) */}
+      {/* Seletor de Escopo Operacional (Pool por Setor / Toda a Loja) */}
       <nav className="op-scope-strip" aria-label="Escopo das tarefas">
-        <button
-          type="button"
-          className={`op-scope-btn ${scopeTab === 'my_tasks' ? 'is-active' : ''}`}
-          onClick={() => setScopeTab('my_tasks')}
-        >
-          <span>🎯 Minhas Tarefas</span>
-          <span className="op-scope-count">{scopeCounts.myTasks}</span>
-        </button>
-
         <button
           type="button"
           className={`op-scope-btn ${scopeTab === 'my_sector' ? 'is-active' : ''}`}
           onClick={() => setScopeTab('my_sector')}
         >
-          <span>🍳 Meu Setor</span>
+          <span>📍 Meu Setor</span>
           <span className="op-scope-count">{scopeCounts.mySector}</span>
         </button>
 
@@ -907,19 +875,21 @@ export function OperatorTasksPage() {
                             {/* Tags & Prazos */}
                             <div className="op-task-footer">
                               <div className="op-tags-wrap">
-                                {task.sector_name && (
-                                  <span className="op-tag tag-sector">
-                                    📍 {task.sector_name}
-                                  </span>
-                                )}
+                                <span className="op-tag tag-sector">
+                                  📍 {task.sector_name || 'Geral da Loja'}
+                                </span>
 
-                                {task.assigned_to === user?.id ? (
+                                {isFinished && task.assigned_to === user?.id ? (
                                   <span className="op-tag tag-assigned-self">
-                                    👤 Sua tarefa
+                                    ✓ Feita por você
                                   </span>
-                                ) : task.assigned_name ? (
+                                ) : isFinished && task.assigned_name ? (
                                   <span className="op-tag tag-assigned-other">
-                                    👤 {task.assigned_name}
+                                    ✓ Feita por {task.assigned_name}
+                                  </span>
+                                ) : task.status === 'in_progress' && task.assigned_name ? (
+                                  <span className="op-tag tag-assigned-other">
+                                    Em execução · {task.assigned_name}
                                   </span>
                                 ) : null}
 

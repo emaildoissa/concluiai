@@ -17,6 +17,7 @@ export function normalizePhone(rawPhone?: string): string {
 
 export function buildWhatsAppReminderMessage(params: {
   unitName?: string;
+  sectorName?: string;
   taskTitle?: string;
   dueAt?: string;
   operatorName?: string;
@@ -25,13 +26,15 @@ export function buildWhatsAppReminderMessage(params: {
   const dueFormatted = params.dueAt
     ? new Date(params.dueAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     : 'no horário previsto';
+  const sectorLine = params.sectorName ? `*Setor:* ${params.sectorName}\n` : '';
 
   return (
     `${opGreeting}*ConcluíAI — Lembrete de Tarefa*\n\n` +
     `*Unidade:* ${params.unitName || 'Loja'}\n` +
+    sectorLine +
     `*Tarefa:* ${params.taskTitle || 'Tarefa Operacional'}\n` +
-    `*Horário Limite:* ${dueFormatted} (Em atraso)\n\n` +
-    `*Por favor, realize a tarefa e envie a foto no app ConcluíAI assim que possível!*`
+    `*Horário Limite:* ${dueFormatted}\n\n` +
+    `*Por favor, realize a tarefa e registre a comprovação no app ConcluíAI assim que possível!*`
   );
 }
 

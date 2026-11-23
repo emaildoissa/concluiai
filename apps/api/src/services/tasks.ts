@@ -10,11 +10,6 @@ interface ChecklistRow {
   units: { unit_id: string }[];
 }
 
-interface OperatorRow {
-  id: string;
-  unit_id: string | null;
-}
-
 /**
  * Gera as instâncias do dia a partir de chekclists ativos + unidades.
  * Otimizado: 1 query de busca de existentes + 1 insert em lote,
@@ -126,41 +121,6 @@ export async function generateTasksForDate(params?: {
     for (const e of expected) itemIds.add(e.checklistItemId);
   }
 
-  // Operadores ativos por unidade (round-robin de atribuição) — 1 query.
-  const activeOperatorsByUnit = new Map<string, string[]>();
-  // Operadores ativos por setor (para checklists com sector_id) — setor -> operador.
-  const activeOperatorsBySector = new Map<string, string[]>();
-  if (unitIds.size > 0) {
-    const { data: operators, error: opErr } = await sb
-      .from('profiles')
-      .select('id, unit_id')
-      .in('unit_id', [...unitIds])
-      .eq('role', 'operator')
-      .eq('is_active', true);
-    if (opErr) throw opErr;
-    for (const op of (operators || []) as OperatorRow[]) {
-      if (!op.unit_id) continue;
-      const list = activeOperatorsByUnit.get(op.unit_id) || [];
-      list.push(op.id);
-      activeOperatorsByUnit.set(op.unit_id, list);
-    }
-
-    // Vínculos de setor para esses operadores — 1 query.
-    const operatorIds = [...activeOperatorsByUnit.values()].flat();
-    if (operatorIds.length > 0) {
-      const { data: links, error: linkErr } = await sb
-        .from('profiles_sectors')
-        .select('profile_id, sector_id')
-        .in('profile_id', operatorIds);
-      if (linkErr) throw linkErr;
-      for (const l of (links || []) as { profile_id: string; sector_id: string }[]) {
-        const list = activeOperatorsBySector.get(l.sector_id) || [];
-        list.push(l.profile_id);
-        activeOperatorsBySector.set(l.sector_id, list);
-      }
-    }
-  }
-
   // Busca em 1 query todas as instâncias do dia que já existem.
   const existingKeys = new Set<string>();
   if (expectedSet.size > 0) {
@@ -185,8 +145,8 @@ export async function generateTasksForDate(params?: {
     }
   }
 
-  // Monta as linhas a inserir em memória (round-robin por unidade).
-  const rrCounter = new Map<string, number>();
+  // Monta as linhas a inserir em memória — tarefas nascem vinculadas ao setor do checklist,
+  // sem operador fixo pré-atribuído (assigned_to = null até alguém executar).
   const rowsToInsert: Record<string, unknown>[] = [];
   let created = 0;
 
@@ -198,26 +158,10 @@ export async function generateTasksForDate(params?: {
         const key = `${item.id}|${link.unit_id}`;
         if (existingKeys.has(key)) continue;
 
-        // Prefere operadores do setor do checklist (dentro da mesma unidade);
-        // cai no round-robin da unidade quando não há operador do setor.
-        const unitOperators = activeOperatorsByUnit.get(link.unit_id) || [];
-        const sectorOperators = cl.sector_id
-          ? (activeOperatorsBySector.get(cl.sector_id) || []).filter((id) => unitOperators.includes(id))
-          : [];
-        const operators = sectorOperators.length > 0 ? sectorOperators : unitOperators;
-        const rrKey = sectorOperators.length > 0 ? `${link.unit_id}|${cl.sector_id}` : link.unit_id;
-
-        let assignedTo: string | null = null;
-        if (operators.length > 0) {
-          const i = rrCounter.get(rrKey) || 0;
-          assignedTo = operators[i % operators.length];
-          rrCounter.set(rrKey, i + 1);
-        }
-
         rowsToInsert.push({
           checklist_item_id: item.id,
           unit_id: link.unit_id,
-          assigned_to: assignedTo,
+          assigned_to: null,
           scheduled_date: date,
           due_at: dueAtIso,
           status: 'pending',

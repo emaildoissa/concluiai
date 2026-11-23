@@ -182,11 +182,12 @@ evidencesRouter.post(
         : task?.checklist_item;
       const taskTitle = item?.title || 'tarefa';
 
-      // Reabre a task para pending e zera pontuações de conclusão
+      // Reabre a task para pending, limpa executor para o pool do setor e zera pontuações
       await sb
         .from('task_instances')
         .update({
           status: 'pending',
+          assigned_to: null,
           completed_at: null,
           score_p: null,
           score_e: null,
@@ -202,9 +203,9 @@ evidencesRouter.post(
           .eq('id', id);
       }
 
-      // Notifica o operador responsável
+      // Notifica quem enviou a foto reprovada (fallback para assigned_to se legado)
       let notified: string | null = null;
-      const recipientId = task?.assigned_to || evidence.operator_id;
+      const recipientId = evidence.operator_id || task?.assigned_to;
       if (recipientId) {
         const { data: op } = await sb
           .from('profiles')

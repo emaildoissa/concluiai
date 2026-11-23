@@ -45,6 +45,8 @@ export interface TodayTask {
   group: TodayGroup;
   checklist_name: string;
   checklist_shift: string | null;
+  sector_id?: string | null;
+  sector_name?: string | null;
 }
 
 export interface AnalyzeResult {

@@ -141,6 +141,7 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
           notes: notes.trim() || null,
           status: 'completed',
           completed_at: new Date().toISOString(),
+          assigned_to: user.id,
         })
         .eq('id', task.id);
 
@@ -266,8 +267,11 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
 
       if (insertErr || !evRecord) throw insertErr || new Error('Falha ao registrar evidência');
 
-      // Marca task como em progresso
-      await sb.from('task_instances').update({ status: 'in_progress' }).eq('id', task.id);
+      // Marca task como em progresso e registra quem iniciou a evidência
+      await sb
+        .from('task_instances')
+        .update({ status: 'in_progress', assigned_to: user?.id ?? null })
+        .eq('id', task.id);
 
       setPhase('analyzing');
 

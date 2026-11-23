@@ -39,7 +39,7 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
 
   const { data: evidence, error: evidenceError } = await supabase
     .from('evidences')
-    .select('id, photo_url, task_instance_id, review_status')
+    .select('id, photo_url, task_instance_id, operator_id, review_status')
     .eq('id', id)
     .single();
 
@@ -136,9 +136,14 @@ evidenceRouter.post('/:id/analyze', async (req: Request, res: Response) => {
 
   // O servidor é dono do status: só conclui com veredito aprovado ou contingência,
   // e recusa (com completed_at nulo) quando a foto não passa.
-  const statusPatch = verdict.approved
+  // Também grava o executor real (evidence.operator_id) em assigned_to para auditoria e ranking.
+  const statusPatch: Record<string, unknown> = verdict.approved
     ? { status: 'completed', completed_at: completedAt }
     : { status: 'rejected', completed_at: null };
+
+  if (evidence.operator_id) {
+    statusPatch.assigned_to = evidence.operator_id;
+  }
 
   await supabase
     .from('task_instances')

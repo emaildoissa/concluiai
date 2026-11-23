@@ -50,6 +50,35 @@ tasksRouter.post(
 
 const NOT_DONE_STATUSES = ['pending', 'in_progress', 'late', 'rejected'];
 
+function extractChecklistMeta(item: unknown): {
+  shift: string | null;
+  sector: { id: string; name: string } | null;
+} {
+  const rawCl = (
+    item as {
+      checklist?:
+        | {
+            shift?: string | null;
+            sector_id?: string | null;
+            sector?: { id: string; name: string } | { id: string; name: string }[] | null;
+          }
+        | {
+            shift?: string | null;
+            sector_id?: string | null;
+            sector?: { id: string; name: string } | { id: string; name: string }[] | null;
+          }[]
+        | null;
+    } | null
+  )?.checklist;
+  const cl = Array.isArray(rawCl) ? rawCl[0] : rawCl;
+  const rawSector = cl?.sector;
+  const sector = Array.isArray(rawSector) ? rawSector[0] : rawSector;
+  return {
+    shift: cl?.shift || null,
+    sector: sector?.id ? { id: sector.id, name: sector.name } : null,
+  };
+}
+
 /**
  * GET /api/tasks/pendings?unitId=&status=&critical=&date=
  * Lista tarefas não concluídas ou em atraso com dados de auditoria (alerta ao gerente, tempo decorrido, etc).
@@ -82,7 +111,7 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
       `
         id, status, due_at, scheduled_date, completed_at, notes, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, due_time, checklist_id, checklist:checklists ( id, name, shift ) ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, due_time, checklist_id, checklist:checklists ( id, name, shift, sector_id, sector:sectors ( id, name ) ) ),
         operator:profiles ( id, full_name, phone )
       `
     );
@@ -188,6 +217,8 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
         isLate = true;
       }
 
+      const checklistMeta = extractChecklistMeta(item);
+
       return {
         id: t.id,
         status: t.status,
@@ -201,6 +232,7 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
         isLate,
         delayMinutes,
         unit: unit ? { id: unit.id, name: unit.name, address: unit.address } : null,
+        sector: checklistMeta.sector,
         item: item
           ? {
               id: item.id,
@@ -212,10 +244,7 @@ tasksRouter.get('/pendings', requireAuth, requireRole('admin', 'manager'), async
               maxValue: item.max_value,
               dueTime: item.due_time,
               checklistId: item.checklist_id,
-              shift: (() => {
-                const rawCl = (item as unknown as { checklist?: { shift?: string } | { shift?: string }[] })?.checklist;
-                return (Array.isArray(rawCl) ? rawCl[0]?.shift : rawCl?.shift) || null;
-              })(),
+              shift: checklistMeta.shift,
             }
           : null,
         operator: operator
@@ -267,7 +296,7 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
         `
         id, status, due_at, scheduled_date, completed_at, notes, score_p, score_e, score_q, recorded_value, is_compliant, non_compliance_action,
         unit:units ( id, name, address ),
-        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value ),
+        checklist_item:checklist_items ( id, title, is_critical, item_type, unit_of_measurement, min_value, max_value, checklist:checklists ( id, name, shift, sector_id, sector:sectors ( id, name ) ) ),
         operator:profiles ( id, full_name, phone )
       `
       )
@@ -359,6 +388,8 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
         isLate = true;
       }
 
+      const checklistMeta = extractChecklistMeta(item);
+
       return {
         id: t.id,
         status: t.status,
@@ -375,6 +406,7 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
         scoreE: t.score_e,
         scoreQ: t.score_q,
         unit: unit ? { id: unit.id, name: unit.name, address: unit.address } : null,
+        sector: checklistMeta.sector,
         item: item
           ? {
               title: item.title,
@@ -422,13 +454,122 @@ tasksRouter.get('/audit-report', requireAuth, requireRole('admin', 'manager'), a
 });
 
 /**
+ * GET /api/tasks/:id/notify-recipients
+ * Lista destinatários elegíveis para cobrança rápida via WhatsApp (gerentes da unidade + operadores do setor).
+ */
+tasksRouter.get(
+  '/:id/notify-recipients',
+  requireAuth,
+  requireRole('admin', 'manager'),
+  async (req, res) => {
+    try {
+      const sb = getSupabaseAdmin();
+      const { id } = req.params as { id: string };
+
+      const { data: task, error } = await sb
+        .from('task_instances')
+        .select(
+          `
+          id, unit_id, assigned_to,
+          unit:units ( id, name, company_id ),
+          checklist_item:checklist_items (
+            id, title,
+            checklist:checklists ( id, name, sector_id, sector:sectors ( id, name ) )
+          )
+        `
+        )
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!task) return res.status(404).json({ error: 'Tarefa não encontrada' });
+
+      const item = Array.isArray(task.checklist_item) ? task.checklist_item[0] : task.checklist_item;
+      const unit = Array.isArray(task.unit) ? task.unit[0] : task.unit;
+      const { sector } = extractChecklistMeta(item);
+
+      const { data: profiles, error: profErr } = await sb
+        .from('profiles')
+        .select('id, full_name, phone, role, unit_id, is_active')
+        .eq('is_active', true)
+        .eq('unit_id', task.unit_id)
+        .in('role', ['manager', 'operator'])
+        .order('full_name', { ascending: true });
+
+      if (profErr) throw profErr;
+
+      const list = (profiles || []) as {
+        id: string;
+        full_name: string | null;
+        phone: string | null;
+        role: string;
+        unit_id: string | null;
+      }[];
+
+      const profileIds = list.map((p) => p.id);
+      const sectorMap = new Map<string, string[]>();
+      if (profileIds.length > 0) {
+        const { data: links, error: linkErr } = await sb
+          .from('profiles_sectors')
+          .select('profile_id, sector_id')
+          .in('profile_id', profileIds);
+        if (linkErr) throw linkErr;
+        for (const l of (links || []) as { profile_id: string; sector_id: string }[]) {
+          const arr = sectorMap.get(l.profile_id) || [];
+          arr.push(l.sector_id);
+          sectorMap.set(l.profile_id, arr);
+        }
+      }
+
+      const mapRecipient = (p: (typeof list)[number]) => {
+        const pSectors = sectorMap.get(p.id) || [];
+        return {
+          id: p.id,
+          fullName: p.full_name || 'Colaborador',
+          phone: p.phone || null,
+          role: p.role,
+          inSector: sector ? pSectors.includes(sector.id) : true,
+        };
+      };
+
+      const managers = list.filter((p) => p.role === 'manager').map(mapRecipient);
+      const operators = list.filter((p) => p.role === 'operator').map(mapRecipient);
+
+      const sectorOperators = sector
+        ? operators.filter((op) => op.inSector)
+        : operators;
+      const otherOperators = sector
+        ? operators.filter((op) => !op.inSector)
+        : [];
+
+      return res.json({
+        taskId: id,
+        unit: unit ? { id: unit.id, name: unit.name } : null,
+        sector,
+        managers,
+        sectorOperators,
+        otherOperators,
+      });
+    } catch (err) {
+      console.error('[tasks/notify-recipients]', err);
+      return res.status(500).json({ error: 'Falha ao buscar destinatários da tarefa' });
+    }
+  }
+);
+
+/**
  * POST /api/tasks/:id/notify
- * Envia lembrete WhatsApp ao operador responsável por uma tarefa não concluída.
+ * Envia lembrete WhatsApp para um colaborador escolhido, para todos os operadores do setor,
+ * para o executor atribuído ou, como fallback, para os gerentes da unidade.
  */
 tasksRouter.post('/:id/notify', requireAuth, requireRole('admin', 'manager'), async (req, res) => {
   try {
     const sb = getSupabaseAdmin();
     const { id } = req.params as { id: string };
+    const { recipientProfileId, notifyAllSector } = (req.body || {}) as {
+      recipientProfileId?: string;
+      notifyAllSector?: boolean;
+    };
 
     const { data: tasks, error } = await sb
       .from('task_instances')
@@ -436,7 +577,10 @@ tasksRouter.post('/:id/notify', requireAuth, requireRole('admin', 'manager'), as
         `
         id, due_at, status, unit_id, assigned_to,
         unit:units ( id, name ),
-        checklist_item:checklist_items ( id, title )
+        checklist_item:checklist_items (
+          id, title,
+          checklist:checklists ( id, name, sector_id, sector:sectors ( id, name ) )
+        )
       `
       )
       .eq('id', id)
@@ -448,43 +592,120 @@ tasksRouter.post('/:id/notify', requireAuth, requireRole('admin', 'manager'), as
 
     const item = Array.isArray(task.checklist_item) ? task.checklist_item[0] : task.checklist_item;
     const unit = Array.isArray(task.unit) ? task.unit[0] : task.unit;
-    const operatorId = task.assigned_to;
+    const { sector } = extractChecklistMeta(item);
 
-    let notified = null;
-    if (operatorId) {
+    type TargetRecipient = { id: string; full_name: string | null; phone: string | null };
+    let targets: TargetRecipient[] = [];
+
+    if (recipientProfileId) {
+      const { data: chosen } = await sb
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('id', recipientProfileId)
+        .maybeSingle();
+      if (!chosen) return res.status(404).json({ error: 'Destinatário não encontrado' });
+      if (!chosen.phone) {
+        return res.status(400).json({ error: `${chosen.full_name || 'Colaborador'} não possui telefone cadastrado` });
+      }
+      targets = [chosen];
+    } else if (notifyAllSector) {
+      const { data: unitOps } = await sb
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('unit_id', task.unit_id)
+        .eq('role', 'operator')
+        .eq('is_active', true);
+
+      let candidates = (unitOps || []) as TargetRecipient[];
+      if (sector && candidates.length > 0) {
+        const { data: links } = await sb
+          .from('profiles_sectors')
+          .select('profile_id')
+          .eq('sector_id', sector.id)
+          .in('profile_id', candidates.map((c) => c.id));
+        const allowed = new Set((links || []).map((l: { profile_id: string }) => l.profile_id));
+        candidates = candidates.filter((c) => allowed.has(c.id));
+      }
+
+      targets = candidates.filter((c) => Boolean(c.phone));
+      if (targets.length === 0) {
+        return res.status(400).json({
+          error: sector
+            ? `Nenhum operador ativo do setor ${sector.name} possui telefone cadastrado`
+            : 'Nenhum operador ativo da unidade possui telefone cadastrado',
+        });
+      }
+    } else if (task.assigned_to) {
       const { data: op } = await sb
         .from('profiles')
         .select('id, full_name, phone')
-        .eq('id', operatorId)
+        .eq('id', task.assigned_to)
         .maybeSingle();
-
-      if (op?.phone) {
-        const message =
-          `⏰ ConcluíAI — Lembrete de pendência\n` +
-          `Unidade: ${unit?.name || '—'}\n` +
-          `Tarefa: ${item?.title || 'Tarefa'}\n` +
-          `Prazo: ${new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n` +
-          `Por favor, execute o quanto antes.`;
-
-        const result = await sendWhatsAppMessage({
-          toPhone: op.phone,
-          message,
-          taskInstanceId: id,
-          unitId: task.unit_id || null,
-          recipientProfileId: op.id,
-        });
-        notified = result.status;
-        if (result.status === 'blocked' || result.status === 'failed') {
-          return res.status(400).json({ error: result.error || 'Falha ao notificar operador' });
-        }
-      } else {
-        return res.status(400).json({ error: 'Operador responsável sem telefone cadastrado' });
+      if (!op?.phone) {
+        return res.status(400).json({ error: 'Colaborador sem telefone cadastrado' });
       }
+      targets = [op];
     } else {
-      return res.status(400).json({ error: 'Tarefa sem operador responsável' });
+      // Fallback: gerentes ativos da unidade
+      const { data: managers } = await sb
+        .from('profiles')
+        .select('id, full_name, phone')
+        .eq('unit_id', task.unit_id)
+        .eq('role', 'manager')
+        .eq('is_active', true);
+      targets = ((managers || []) as TargetRecipient[]).filter((m) => Boolean(m.phone));
+      if (targets.length === 0) {
+        return res.status(400).json({ error: 'Selecione um destinatário ou cadastre o WhatsApp do gerente da unidade' });
+      }
     }
 
-    return res.json({ ok: true, taskId: id, notified });
+    const sectorLine = sector ? `Setor: ${sector.name}\n` : '';
+    const message =
+      `⏰ ConcluíAI — Lembrete de pendência\n` +
+      `Unidade: ${unit?.name || '—'}\n` +
+      sectorLine +
+      `Tarefa: ${item?.title || 'Tarefa'}\n` +
+      `Prazo: ${new Date(task.due_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}\n` +
+      `Por favor, execute o quanto antes.`;
+
+    let sentCount = 0;
+    let mockCount = 0;
+    let lastStatus: string | null = null;
+    const sentNames: string[] = [];
+
+    for (const recipient of targets) {
+      if (!recipient.phone) continue;
+      const result = await sendWhatsAppMessage({
+        toPhone: recipient.phone,
+        message,
+        taskInstanceId: id,
+        unitId: task.unit_id || null,
+        recipientProfileId: recipient.id,
+      });
+      lastStatus = result.status;
+      if (result.status === 'sent') {
+        sentCount += 1;
+        sentNames.push(recipient.full_name || recipient.phone);
+      } else if (result.status === 'mock') {
+        mockCount += 1;
+        sentNames.push(recipient.full_name || recipient.phone);
+      } else if (targets.length === 1 && (result.status === 'blocked' || result.status === 'failed')) {
+        return res.status(400).json({ error: result.error || 'Falha ao notificar colaborador' });
+      }
+    }
+
+    if (sentCount === 0 && mockCount === 0) {
+      return res.status(400).json({ error: 'Nenhum lembrete pôde ser disparado pelo gateway WhatsApp' });
+    }
+
+    return res.json({
+      ok: true,
+      taskId: id,
+      notified: sentCount > 0 ? 'sent' : lastStatus,
+      sentCount,
+      mockCount,
+      recipients: sentNames,
+    });
   } catch (err) {
     console.error('[tasks/notify]', err);
     return res.status(500).json({ error: 'Falha ao enviar lembrete' });
@@ -550,7 +771,7 @@ tasksRouter.post('/:id/complete', requireAuth, async (req, res) => {
       non_compliance_action: non_compliance_action?.trim() || null,
     };
 
-    if (!task.assigned_to && req.user?.id) {
+    if (req.user?.id) {
       updatePayload.assigned_to = req.user.id;
     }
 

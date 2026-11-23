@@ -122,7 +122,7 @@ export default function CameraScreen() {
 
       await supabase
         .from('task_instances')
-        .update({ status: 'in_progress' })
+        .update({ status: 'in_progress', assigned_to: profile.id })
         .eq('id', id);
 
       setPhase('analyzing');

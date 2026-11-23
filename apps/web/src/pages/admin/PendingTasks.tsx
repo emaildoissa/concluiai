@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { getTodayBR } from '@concluiai/shared';
 import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
-import { buildWhatsAppReminderMessage, openDirectWhatsApp } from '../../lib/whatsapp';
+import { useAuth } from '../../lib/auth';
+import { NotifyRecipientModal } from '../../components/admin/NotifyRecipientModal';
 
 interface TaskAlert {
   alertedAt: string;
@@ -30,6 +31,7 @@ interface AuditTask {
   scoreE?: number;
   scoreQ?: number;
   unit: { id: string; name: string; address?: string } | null;
+  sector?: { id: string; name: string } | null;
   item: { title: string; isCritical: boolean; description?: string } | null;
   operator: { id: string; fullName: string; phone?: string } | null;
   alert?: TaskAlert | null;
@@ -63,11 +65,12 @@ function formatDelay(minutes?: number) {
 }
 
 export function PendingTasks() {
+  const { demoMode } = useAuth();
   const [activeTab, setActiveTab] = useState<'today' | 'audit'>('today');
   const [tasks, setTasks] = useState<AuditTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-  const [notifyingId, setNotifyingId] = useState<string | null>(null);
+  const [notifyTargetTask, setNotifyTargetTask] = useState<AuditTask | null>(null);
   const [notifiedFeedback, setNotifiedFeedback] = useState<Record<string, 'sent' | 'opened'>>({});
   const [bulkAlerting, setBulkAlerting] = useState(false);
 
@@ -133,6 +136,7 @@ export function PendingTasks() {
       const matchSearch =
         (t.item?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.unit?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.sector?.name || 'geral da loja').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       if (!matchSearch) return false;
@@ -156,56 +160,10 @@ export function PendingTasks() {
     return { total, late, criticalLate, alerted, pending, rejected };
   }, [tasks]);
 
-  // Cobrança individual inteligente
-  async function notifyOperator(task: AuditTask) {
-    const phone = task.operator?.phone;
-    if (!phone) {
-      setMsg({
-        type: 'err',
-        text: `O operador ${task.operator?.fullName || ''} não possui telefone cadastrado.`,
-      });
-      return;
-    }
-
-    setNotifyingId(task.id);
+  // Abre seletor rápido de cobrança via WhatsApp
+  function openNotifyPicker(task: AuditTask) {
     setMsg(null);
-
-    const reminderMsg = buildWhatsAppReminderMessage({
-      unitName: task.unit?.name,
-      taskTitle: task.item?.title,
-      dueAt: task.dueDate,
-      operatorName: task.operator?.fullName,
-    });
-
-    try {
-      const res = await apiPost<{ ok: boolean; notified?: string }>(`/api/tasks/${task.id}/notify`, {});
-      if (res.ok && res.notified === 'sent') {
-        setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'sent' }));
-        setMsg({
-          type: 'ok',
-          text: `Lembrete disparado via robô para ${task.operator?.fullName || 'o operador'}.`,
-        });
-        await loadData();
-        return;
-      }
-      // Se não for disparo real do robô (mock, offline ou sem gateway), abre o WhatsApp Web diretamente
-      openDirectWhatsApp(phone, reminderMsg);
-      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
-      setMsg({
-        type: 'ok',
-        text: `WhatsApp aberto diretamente para cobrar ${task.operator?.fullName || 'o operador'}.`,
-      });
-    } catch {
-      // Se a chamada de API falhar (ex: Evolution desligada/sem QR Code), abre WhatsApp direto
-      openDirectWhatsApp(phone, reminderMsg);
-      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
-      setMsg({
-        type: 'ok',
-        text: `WhatsApp aberto com cobrança pré-formatada para ${task.operator?.fullName || 'o operador'}.`,
-      });
-    } finally {
-      setNotifyingId(null);
-    }
+    setNotifyTargetTask(task);
   }
 
   // Disparo em lote para todas as tarefas críticas atrasadas
@@ -471,7 +429,7 @@ export function PendingTasks() {
             <input
               type="text"
               className="ops-search-input"
-              placeholder="Buscar tarefa, loja ou operador..."
+              placeholder="Buscar tarefa, setor, loja ou executor..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -585,24 +543,17 @@ export function PendingTasks() {
                           color: '#ffffff',
                           transition: 'all 0.2s ease',
                         }}
-                        onClick={() => void notifyOperator(t)}
-                        disabled={notifyingId === t.id || !t.operator?.phone}
-                        title={
-                          t.operator?.phone
-                            ? 'Enviar cobrança no WhatsApp do operador'
-                            : 'Operador sem telefone cadastrado'
-                        }
+                        onClick={() => openNotifyPicker(t)}
+                        title="Escolher colaborador do setor ou gerente para cobrar via WhatsApp"
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                         </svg>
-                        {notifyingId === t.id
-                          ? 'Processando...'
-                          : notifiedFeedback[t.id] === 'sent'
+                        {notifiedFeedback[t.id] === 'sent'
                           ? '✓ Enviado!'
                           : notifiedFeedback[t.id] === 'opened'
                           ? '✓ WhatsApp Aberto'
-                          : 'Cobrar Operador'}
+                          : 'Cobrar WhatsApp'}
                       </button>
                     )}
                   </div>
@@ -632,11 +583,22 @@ export function PendingTasks() {
                   </div>
 
                   <div className="incident-meta-item">
-                    <span className="incident-meta-label">Operador Responsável</span>
-                    <span className="incident-meta-val">
-                      {t.operator?.fullName || 'Não atribuído'} {t.operator?.phone ? `(${t.operator.phone})` : ''}
+                    <span className="incident-meta-label">Setor Responsável</span>
+                    <span className="incident-meta-val" style={{ color: '#38bdf8', fontWeight: 700 }}>
+                      {t.sector?.name || 'Geral da Loja'}
                     </span>
                   </div>
+
+                  {t.operator && (
+                    <div className="incident-meta-item">
+                      <span className="incident-meta-label">
+                        {t.status === 'completed' ? 'Executado por' : 'Último Executor'}
+                      </span>
+                      <span className="incident-meta-val">
+                        {t.operator.fullName} {t.operator.phone ? `(${t.operator.phone})` : ''}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="incident-meta-item">
                     <span className="incident-meta-label">Telemetria de Alerta</span>
@@ -726,6 +688,20 @@ export function PendingTasks() {
             </div>
           </div>
         </div>
+      )}
+      {notifyTargetTask && (
+        <NotifyRecipientModal
+          task={notifyTargetTask}
+          demoMode={demoMode}
+          onClose={() => setNotifyTargetTask(null)}
+          onNotified={({ taskId, mode, message }) => {
+            setNotifiedFeedback((prev) => ({ ...prev, [taskId]: mode }));
+            setMsg({ type: 'ok', text: message });
+            if (mode === 'sent') {
+              void loadData();
+            }
+          }}
+        />
       )}
     </div>
   );

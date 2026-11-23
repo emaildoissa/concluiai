@@ -815,7 +815,7 @@ export function ChecklistBuilder() {
                         setEditing({ ...editing, sector_id: e.target.value || null })
                       }
                     >
-                      <option value="">— Rotativo Geral da Loja —</option>
+                      <option value="">— Geral da Loja (Todos os Setores) —</option>
                       {sectors.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name}

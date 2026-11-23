@@ -119,7 +119,11 @@ export default function TaskDetailScreen() {
 
       const { error: updateError } = await supabase
         .from('task_instances')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          assigned_to: profile.id,
+        })
         .eq('id', id);
       if (updateError) throw updateError;
       router.back();
@@ -143,6 +147,7 @@ export default function TaskDetailScreen() {
           notes: notes.trim() || null,
           status: 'completed',
           completed_at: new Date().toISOString(),
+          ...(profile?.id ? { assigned_to: profile.id } : {}),
         })
         .eq('id', id);
       if (updateError) throw updateError;

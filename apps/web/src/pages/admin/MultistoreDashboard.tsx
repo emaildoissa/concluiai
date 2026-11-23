@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { apiGet, apiPost, resolvePhotoUrl } from '../../lib/api';
 import { DEMO_UNITS } from '../../lib/demoData';
 import { useAuth } from '../../lib/auth';
-import { buildWhatsAppReminderMessage, openDirectWhatsApp } from '../../lib/whatsapp';
+import { NotifyRecipientModal } from '../../components/admin/NotifyRecipientModal';
 
 interface UnitRow {
   unit_id: string;
@@ -61,6 +61,7 @@ interface OperationalTask {
   scoreE?: number;
   scoreQ?: number;
   unit: { id: string; name: string; address?: string } | null;
+  sector?: { id: string; name: string } | null;
   item: {
     id?: string;
     title: string;
@@ -138,12 +139,13 @@ const DEMO_OPERATIONAL_TASKS: OperationalTask[] = [
     isLate: true,
     delayMinutes: 45,
     unit: { id: '22222222-2222-2222-2222-222222222221', name: 'Unidade Centro', address: 'Rua Principal, 100' },
+    sector: { id: 'sec-cozinha', name: 'Cozinha' },
     item: {
       title: 'Controle de Temperatura · Freezer 1',
       isCritical: true,
       description: 'Verificar display digital do freezer de peixes/insumos (-18°C a -22°C).',
     },
-    operator: { id: 'op-1', fullName: 'João Silva (Líder Manhã)', phone: '5551999998888' },
+    operator: null,
     alert: { alertedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(), status: 'sent', recipientPhone: '5551999998888' },
   },
   {
@@ -153,6 +155,7 @@ const DEMO_OPERATIONAL_TASKS: OperationalTask[] = [
     scheduledDate: new Date().toISOString().slice(0, 10),
     isLate: false,
     unit: { id: '22222222-2222-2222-2222-222222222222', name: 'Unidade Shopping', address: 'Av. Mall, 500' },
+    sector: { id: 'sec-cozinha', name: 'Cozinha' },
     item: {
       title: 'Limpeza Pesada de Coifa e Fogão',
       isCritical: true,
@@ -178,6 +181,7 @@ const DEMO_OPERATIONAL_TASKS: OperationalTask[] = [
     scoreE: 100,
     scoreQ: 98,
     unit: { id: '22222222-2222-2222-2222-222222222221', name: 'Unidade Centro', address: 'Rua Principal, 100' },
+    sector: { id: 'sec-cozinha', name: 'Cozinha' },
     item: {
       title: 'Panela de Arroz · Higienização da Cuba',
       isCritical: true,
@@ -199,12 +203,13 @@ const DEMO_OPERATIONAL_TASKS: OperationalTask[] = [
     scheduledDate: new Date().toISOString().slice(0, 10),
     isLate: false,
     unit: { id: 'u3', name: 'Unidade Aeroporto', address: 'Terminal 2' },
+    sector: { id: 'sec-salao', name: 'Salão' },
     item: {
       title: 'Conferência de Válvulas de Gás e Ralos',
       isCritical: true,
       description: 'Checar registros de gás e fechamento de ralos sifonados.',
     },
-    operator: { id: 'op-3', fullName: 'Mariana Lima', phone: '5551977776666' },
+    operator: null,
   },
 ];
 
@@ -242,7 +247,7 @@ export function MultistoreDashboard() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ text: string; type: 'info' | 'success' | 'warn' } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [notifyingTaskId, setNotifyingTaskId] = useState<string | null>(null);
+  const [notifyTargetTask, setNotifyTargetTask] = useState<OperationalTask | null>(null);
   const [notifiedFeedback, setNotifiedFeedback] = useState<Record<string, 'sent' | 'opened'>>({});
   const [lastSync, setLastSync] = useState<Date>(new Date());
   const [actionsMenuOpen, setActionsMenuOpen] = useState(false);
@@ -420,6 +425,7 @@ export function MultistoreDashboard() {
       const matchSearch =
         (t.item?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.unit?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.sector?.name || 'geral da loja').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       if (!matchSearch) return false;
@@ -514,55 +520,9 @@ export function MultistoreDashboard() {
     }
   }
 
-  async function handleNotifyOperator(task: OperationalTask) {
-    const phone = task.operator?.phone;
-    if (!phone) {
-      setMsg({
-        type: 'warn',
-        text: `O operador ${task.operator?.fullName || ''} não possui telefone cadastrado para cobrança.`,
-      });
-      return;
-    }
-
-    setNotifyingTaskId(task.id);
+  function handleNotifyTask(task: OperationalTask) {
     setMsg(null);
-
-    const reminderMsg = buildWhatsAppReminderMessage({
-      unitName: task.unit?.name,
-      taskTitle: task.item?.title,
-      dueAt: task.dueDate,
-      operatorName: task.operator?.fullName,
-    });
-
-    try {
-      const r = await apiPost<{ ok: boolean; notified?: string }>(`/api/tasks/${task.id}/notify`, {});
-      if (r.ok && r.notified === 'sent') {
-        setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'sent' }));
-        setMsg({
-          type: 'success',
-          text: `Lembrete disparado via robô para ${task.operator?.fullName || 'operador'}.`,
-        });
-        await loadData();
-        return;
-      }
-      // Se não for disparo real do robô (mock, offline ou sem gateway), abre o WhatsApp Web diretamente
-      openDirectWhatsApp(phone, reminderMsg);
-      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
-      setMsg({
-        type: 'info',
-        text: `WhatsApp aberto diretamente para cobrar ${task.operator?.fullName || 'o operador'}.`,
-      });
-    } catch {
-      // Se a chamada de API falhar (ex: Evolution desligada/sem QR Code), abre WhatsApp direto
-      openDirectWhatsApp(phone, reminderMsg);
-      setNotifiedFeedback((prev) => ({ ...prev, [task.id]: 'opened' }));
-      setMsg({
-        type: 'info',
-        text: `WhatsApp aberto com cobrança pré-formatada para ${task.operator?.fullName || 'o operador'}.`,
-      });
-    } finally {
-      setNotifyingTaskId(null);
-    }
+    setNotifyTargetTask(task);
   }
 
   async function requestAdjustment(ev: EvidenceRow, unitName: string, taskTitle: string) {
@@ -1040,10 +1000,10 @@ export function MultistoreDashboard() {
             <input
               type="text"
               className="ops-search-input"
-              placeholder="Buscar tarefa, operador ou loja..."
+              placeholder="Buscar tarefa, setor, executor ou loja..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Buscar tarefa, operador ou loja"
+              aria-label="Buscar tarefa, setor, executor ou loja"
             />
             {searchQuery && (
               <button
@@ -1310,24 +1270,17 @@ export function MultistoreDashboard() {
                                 color: notifiedFeedback[t.id] ? '#34d399' : '#4ade80',
                                 transition: 'all 0.2s ease',
                               }}
-                              onClick={() => void handleNotifyOperator(t)}
-                              disabled={notifyingTaskId === t.id}
-                              title={
-                                t.operator?.phone
-                                  ? `Cobrar ${t.operator.fullName} no WhatsApp`
-                                  : 'Operador sem telefone cadastrado'
-                              }
+                              onClick={() => handleNotifyTask(t)}
+                              title="Escolher colaborador do setor ou gerente para cobrar via WhatsApp"
                             >
                               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
                               </svg>
-                              {notifyingTaskId === t.id
-                                ? 'Processando...'
-                                : notifiedFeedback[t.id] === 'sent'
-                                  ? '✓ Enviado!'
-                                  : notifiedFeedback[t.id] === 'opened'
-                                    ? '✓ WhatsApp Aberto'
-                                    : 'Cobrar WhatsApp'}
+                              {notifiedFeedback[t.id] === 'sent'
+                                ? '✓ Enviado!'
+                                : notifiedFeedback[t.id] === 'opened'
+                                  ? '✓ WhatsApp Aberto'
+                                  : 'Cobrar WhatsApp'}
                             </button>
                           )}
                         </div>
@@ -1341,16 +1294,27 @@ export function MultistoreDashboard() {
                         </div>
 
                         <div className="incident-meta-item">
-                          <span className="incident-meta-label">Operador Responsável</span>
-                          <span className="incident-meta-val">
-                            {t.operator?.fullName || 'Não atribuído'}
-                            {t.operator?.phone && (
-                              <span style={{ fontSize: '0.74rem', color: '#4ade80', marginLeft: '6px' }}>
-                                ({t.operator.phone})
-                              </span>
-                            )}
+                          <span className="incident-meta-label">Setor Responsável</span>
+                          <span className="incident-meta-val" style={{ color: '#38bdf8', fontWeight: 700 }}>
+                            {t.sector?.name || 'Geral da Loja'}
                           </span>
                         </div>
+
+                        {t.operator && (
+                          <div className="incident-meta-item">
+                            <span className="incident-meta-label">
+                              {isCompletedTask ? 'Executado por' : 'Último Executor'}
+                            </span>
+                            <span className="incident-meta-val">
+                              {t.operator.fullName}
+                              {t.operator.phone && (
+                                <span style={{ fontSize: '0.74rem', color: '#4ade80', marginLeft: '6px' }}>
+                                  ({t.operator.phone})
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )}
 
                         <div className="incident-meta-item">
                           <span className="incident-meta-label">Horário Limite</span>
@@ -1787,6 +1751,20 @@ export function MultistoreDashboard() {
             </div>
           </div>
         </div>
+      )}
+      {notifyTargetTask && (
+        <NotifyRecipientModal
+          task={notifyTargetTask}
+          demoMode={demoMode}
+          onClose={() => setNotifyTargetTask(null)}
+          onNotified={({ taskId, mode, message }) => {
+            setNotifiedFeedback((prev) => ({ ...prev, [taskId]: mode }));
+            setMsg({ type: mode === 'sent' ? 'success' : 'info', text: message });
+            if (mode === 'sent') {
+              void loadData();
+            }
+          }}
+        />
       )}
     </div>
   );

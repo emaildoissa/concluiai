@@ -29,6 +29,7 @@ function formatTime(iso: string): string {
 interface ChecklistGroup {
   name: string;
   shift: string | null;
+  sectorName: string | null;
   tasks: TodayTask[];
   late: number;
   pending: number;
@@ -54,14 +55,20 @@ export default function TodayScreen() {
     }
     const today = new Date().toISOString().slice(0, 10);
 
-    const { data, error: queryError } = await supabase
-      .from('task_instances')
-      .select(
-        'id, scheduled_date, due_at, status, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time, checklist:checklists(name, shift))',
-      )
-      .eq('unit_id', profile.unit_id)
-      .eq('scheduled_date', today)
-      .order('due_at', { ascending: true });
+    const [{ data, error: queryError }, { data: sectorLinks }] = await Promise.all([
+      supabase
+        .from('task_instances')
+        .select(
+          'id, scheduled_date, due_at, status, checklist_items(id, title, description, is_critical, requires_photo, requires_gps, due_time, checklist:checklists(name, shift, sector_id, sector:sectors(id, name)))',
+        )
+        .eq('unit_id', profile.unit_id)
+        .eq('scheduled_date', today)
+        .order('due_at', { ascending: true }),
+      supabase
+        .from('profiles_sectors')
+        .select('sector_id')
+        .eq('profile_id', profile.id),
+    ]);
 
     if (queryError) {
       console.error(queryError);
@@ -71,41 +78,65 @@ export default function TodayScreen() {
       return;
     }
 
-    const mapped: TodayTask[] = (data ?? []).map((row: any) => {
-      const status = row.status as TodayTask['status'];
-      let group: TodayGroup;
-      if (status === 'completed') group = 'completed';
-      else if (status === 'rejected') group = 'pending';
-      else {
-        const due = new Date(row.due_at);
-        const dueWall = due.getUTCHours() * 60 + due.getUTCMinutes();
-        const localNow = new Date();
-        const nowWall = localNow.getHours() * 60 + localNow.getMinutes();
-        group = nowWall > dueWall ? 'late' : 'pending';
-      }
+    const userSectorIds = new Set(
+      ((sectorLinks ?? []) as { sector_id: string }[]).map((row) => row.sector_id),
+    );
+    const restrictBySector = profile.role === 'operator' && userSectorIds.size > 0;
 
-      const checklist = Array.isArray(row.checklist_items?.checklist)
-        ? row.checklist_items.checklist[0]
-        : row.checklist_items?.checklist;
+    const mapped: TodayTask[] = (data ?? [])
+      .map((row: any) => {
+        const status = row.status as TodayTask['status'];
+        let group: TodayGroup;
+        if (status === 'completed') group = 'completed';
+        else if (status === 'rejected') group = 'pending';
+        else {
+          const due = new Date(row.due_at);
+          const dueWall = due.getUTCHours() * 60 + due.getUTCMinutes();
+          const localNow = new Date();
+          const nowWall = localNow.getHours() * 60 + localNow.getMinutes();
+          group = nowWall > dueWall ? 'late' : 'pending';
+        }
 
-      return {
-        instance_id: row.id,
-        title: row.checklist_items?.title ?? 'Tarefa',
-        description: row.checklist_items?.description ?? null,
-        is_critical: row.checklist_items?.is_critical ?? false,
-        due_at: row.due_at,
-        status,
-        group,
-        checklist_name: checklist?.name ?? 'Checklist',
-        checklist_shift: checklist?.shift ?? null,
-      };
-    });
+        const checklist = Array.isArray(row.checklist_items?.checklist)
+          ? row.checklist_items.checklist[0]
+          : row.checklist_items?.checklist;
+        const sector = Array.isArray(checklist?.sector)
+          ? checklist.sector[0]
+          : checklist?.sector;
+
+        return {
+          instance_id: row.id,
+          title: row.checklist_items?.title ?? 'Tarefa',
+          description: row.checklist_items?.description ?? null,
+          is_critical: row.checklist_items?.is_critical ?? false,
+          due_at: row.due_at,
+          status,
+          group,
+          checklist_name: checklist?.name ?? 'Checklist',
+          checklist_shift: checklist?.shift ?? null,
+          sector_id: checklist?.sector_id ?? sector?.id ?? null,
+          sector_name: sector?.name ?? null,
+        };
+      })
+      .filter((t) => {
+        if (!restrictBySector) return true;
+        if (!t.sector_id) return true;
+        return userSectorIds.has(t.sector_id);
+      });
 
     const map = new Map<string, ChecklistGroup>();
     for (const t of mapped) {
       let g = map.get(t.checklist_name);
       if (!g) {
-        g = { name: t.checklist_name, shift: t.checklist_shift, tasks: [], late: 0, pending: 0, completed: 0 };
+        g = {
+          name: t.checklist_name,
+          shift: t.checklist_shift,
+          sectorName: t.sector_name ?? null,
+          tasks: [],
+          late: 0,
+          pending: 0,
+          completed: 0,
+        };
         map.set(t.checklist_name, g);
       }
       g.tasks.push(t);
@@ -122,7 +153,7 @@ export default function TodayScreen() {
     setError(null);
     setLoading(false);
     setRefreshing(false);
-  }, [profile?.unit_id]);
+  }, [profile?.id, profile?.role, profile?.unit_id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -186,6 +217,7 @@ export default function TodayScreen() {
                 <View style={styles.cardTitleWrap}>
                   <Text style={styles.cardTitle}>{group.name}</Text>
                   <Text style={styles.cardSubtitle}>
+                    {group.sectorName ? `${group.sectorName} · ` : ''}
                     {group.shift ? `${SHIFT_LABEL[group.shift] ?? group.shift} · ` : ''}
                     {group.tasks.length} {group.tasks.length === 1 ? 'item' : 'itens'}
                   </Text>
