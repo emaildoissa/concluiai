@@ -86,15 +86,43 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
     task.non_compliance_action || ''
   );
 
+  // Sanitiza entrada decimal com suporte a sinal negativo e vírgula brasileira (ex: -18,5)
+  const handleNumericInputChange = (raw: string) => {
+    const cleaned = raw
+      .replace(/[^\d,.-]/g, '')
+      .replace(/(?!^)-/g, '');
+    // Permite apenas um separador decimal (. ou ,)
+    const parts = cleaned.split(/[.,]/);
+    if (parts.length > 2) {
+      setRecordedValue(`${parts[0]}.${parts.slice(1).join('')}`);
+    } else {
+      setRecordedValue(cleaned);
+    }
+  };
+
+  const handleToggleSign = () => {
+    setRecordedValue((prev) => {
+      const trimmed = prev.trim();
+      if (!trimmed) return '-';
+      if (trimmed.startsWith('-')) return trimmed.slice(1);
+      return `-${trimmed}`;
+    });
+  };
+
   // Validação dinâmica em tempo real
   const parsedNum = (() => {
-    if (!recordedValue.trim()) return null;
-    const n = Number(recordedValue.replace(',', '.'));
+    const trimmed = recordedValue.trim();
+    if (!trimmed || trimmed === '-' || trimmed === '.' || trimmed === ',' || trimmed === '-.' || trimmed === '-,') {
+      return null;
+    }
+    const n = Number(trimmed.replace(',', '.'));
     return isNaN(n) ? null : n;
   })();
 
-  const minVal = item?.min_value != null ? Number(item.min_value) : null;
-  const maxVal = item?.max_value != null ? Number(item.max_value) : null;
+  const rawMin = item?.min_value != null ? Number(item.min_value) : null;
+  const rawMax = item?.max_value != null ? Number(item.max_value) : null;
+  const minVal = rawMin != null && rawMax != null ? Math.min(rawMin, rawMax) : rawMin;
+  const maxVal = rawMin != null && rawMax != null ? Math.max(rawMin, rawMax) : rawMax;
 
   const liveCompliance = (() => {
     if (parsedNum === null) return null;
@@ -459,12 +487,42 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
                   </p>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={handleToggleSign}
+                      disabled={isFinished || busy}
+                      title="Alternar sinal negativo / positivo (− / +)"
+                      aria-label="Alternar sinal negativo ou positivo"
+                      style={{
+                        fontSize: '1.25rem',
+                        fontWeight: 800,
+                        minWidth: 48,
+                        height: 52,
+                        borderRadius: 10,
+                        cursor: isFinished || busy ? 'not-allowed' : 'pointer',
+                        border: recordedValue.trim().startsWith('-')
+                          ? '2px solid #38bdf8'
+                          : '1px solid rgba(255,255,255,0.2)',
+                        background: recordedValue.trim().startsWith('-')
+                          ? 'rgba(56, 189, 248, 0.2)'
+                          : 'rgba(255,255,255,0.08)',
+                        color: recordedValue.trim().startsWith('-') ? '#38bdf8' : '#e2e8f0',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {recordedValue.trim().startsWith('-') ? '−' : '±'}
+                    </button>
                     <input
-                      type="number"
-                      step="any"
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
                       value={recordedValue}
-                      onChange={(e) => setRecordedValue(e.target.value)}
-                      placeholder={`ex: ${minVal ?? '0'}`}
+                      onChange={(e) => handleNumericInputChange(e.target.value)}
+                      placeholder={`ex: ${minVal ?? '-18'}`}
                       disabled={isFinished || busy}
                       style={{
                         fontSize: '1.4rem',
@@ -486,6 +544,7 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
                             : 'rgba(0,0,0,0.25)',
                         color: '#fff',
                         flex: 1,
+                        minWidth: 0,
                         transition: 'all 0.2s ease',
                       }}
                     />
@@ -499,11 +558,15 @@ export function TaskExecutionModal({ task, onClose, onSuccess }: TaskExecutionMo
                           borderRadius: 10,
                           color: '#e2e8f0',
                           border: '1px solid rgba(255,255,255,0.1)',
+                          flexShrink: 0,
                         }}
                       >
                         {item.unit_of_measurement}
                       </span>
                     )}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: '#94a3b8', marginTop: 6 }}>
+                    Dica: toque em <strong>±</strong> para temperaturas abaixo de zero (ex: -18,5).
                   </div>
 
                   {/* Feedback Visual Imediato em Tempo Real */}

@@ -98,14 +98,15 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
         const execution_mode = mode;
         const requires_photo = isNumeric ? false : (execution_mode === 'photo' || execution_mode === 'both');
         const item_type = isNumeric ? 'numeric' : 'boolean';
-        const min_val =
-          isNumeric && it.min_value !== undefined && it.min_value !== null && it.min_value !== ''
-            ? Number(it.min_value)
-            : null;
-        const max_val =
-          isNumeric && it.max_value !== undefined && it.max_value !== null && it.max_value !== ''
-            ? Number(it.max_value)
-            : null;
+        const parseOptNum = (v: unknown): number | null => {
+          if (v === undefined || v === null || v === '') return null;
+          const n = Number(String(v).trim().replace(',', '.'));
+          return isNaN(n) ? null : n;
+        };
+        const rawMin = isNumeric ? parseOptNum(it.min_value) : null;
+        const rawMax = isNumeric ? parseOptNum(it.max_value) : null;
+        const min_val = rawMin != null && rawMax != null ? Math.min(rawMin, rawMax) : rawMin;
+        const max_val = rawMin != null && rawMax != null ? Math.max(rawMin, rawMax) : rawMax;
 
         return {
           checklist_id: cl.id,

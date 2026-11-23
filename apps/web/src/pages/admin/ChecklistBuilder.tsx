@@ -271,6 +271,22 @@ export function ChecklistBuilder() {
     setOpen(true);
   }
 
+  function sanitizeSignedDecimal(raw: string): string {
+    const cleaned = raw.replace(/[^\d,.-]/g, '').replace(/(?!^)-/g, '');
+    const parts = cleaned.split(/[.,]/);
+    return parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
+  }
+
+  function parseSignedNumber(val: unknown): number | null {
+    if (val === undefined || val === null) return null;
+    const str = String(val).trim();
+    if (!str || str === '-' || str === '.' || str === ',' || str === '-.' || str === '-,') {
+      return null;
+    }
+    const n = Number(str.replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+
   async function save() {
     if (!editing?.name.trim() || saving) return;
     setSaving(true);
@@ -287,6 +303,10 @@ export function ChecklistBuilder() {
               : 'check';
           const isNumeric = mode === 'numeric';
           const isPhoto = mode === 'photo';
+          const rawMin = isNumeric ? parseSignedNumber((i as any).min_value) : null;
+          const rawMax = isNumeric ? parseSignedNumber((i as any).max_value) : null;
+          const orderedMin = rawMin != null && rawMax != null ? Math.min(rawMin, rawMax) : rawMin;
+          const orderedMax = rawMin != null && rawMax != null ? Math.max(rawMin, rawMax) : rawMax;
 
           return {
             ...i,
@@ -295,8 +315,8 @@ export function ChecklistBuilder() {
             item_type: isNumeric ? 'numeric' : 'boolean',
             requires_photo: isPhoto,
             unit_of_measurement: isNumeric ? ((i as any).unit_of_measurement || '°C') : null,
-            min_value: isNumeric && (i as any).min_value !== undefined && (i as any).min_value !== null && (i as any).min_value !== '' ? Number((i as any).min_value) : null,
-            max_value: isNumeric && (i as any).max_value !== undefined && (i as any).max_value !== null && (i as any).max_value !== '' ? Number((i as any).max_value) : null,
+            min_value: orderedMin,
+            max_value: orderedMax,
             alert_on_non_compliant: isNumeric ? Boolean((i as any).alert_on_non_compliant) : false,
           };
         }),
@@ -1122,33 +1142,65 @@ export function ChecklistBuilder() {
                             </div>
                             <div className="field">
                               <label style={{ fontSize: '0.78rem' }}>Limite Mínimo Aceitável</label>
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="ex: 1.0 (ou vazio)"
-                                value={(it as any).min_value ?? ''}
-                                onChange={(e) =>
-                                  updateItem(idx, {
-                                    min_value: e.target.value === '' ? null : Number(e.target.value),
-                                  } as any)
-                                }
-                                style={{ fontSize: '0.82rem' }}
-                              />
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-ghost"
+                                  title="Alternar sinal negativo / positivo"
+                                  style={{ padding: '0 8px', minWidth: 32, fontWeight: 700 }}
+                                  onClick={() => {
+                                    const cur = String((it as any).min_value ?? '').trim();
+                                    const next = !cur ? '-' : cur.startsWith('-') ? cur.slice(1) : `-${cur}`;
+                                    updateItem(idx, { min_value: next || null } as any);
+                                  }}
+                                >
+                                  ±
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="ex: -22 ou 1.0"
+                                  value={(it as any).min_value ?? ''}
+                                  onChange={(e) => {
+                                    const cleaned = sanitizeSignedDecimal(e.target.value);
+                                    updateItem(idx, {
+                                      min_value: cleaned === '' ? null : cleaned,
+                                    } as any);
+                                  }}
+                                  style={{ fontSize: '0.82rem', flex: 1, minWidth: 0 }}
+                                />
+                              </div>
                             </div>
                             <div className="field">
                               <label style={{ fontSize: '0.78rem' }}>Limite Máximo Aceitável</label>
-                              <input
-                                type="number"
-                                step="any"
-                                placeholder="ex: 4.5 (ou vazio)"
-                                value={(it as any).max_value ?? ''}
-                                onChange={(e) =>
-                                  updateItem(idx, {
-                                    max_value: e.target.value === '' ? null : Number(e.target.value),
-                                  } as any)
-                                }
-                                style={{ fontSize: '0.82rem' }}
-                              />
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-ghost"
+                                  title="Alternar sinal negativo / positivo"
+                                  style={{ padding: '0 8px', minWidth: 32, fontWeight: 700 }}
+                                  onClick={() => {
+                                    const cur = String((it as any).max_value ?? '').trim();
+                                    const next = !cur ? '-' : cur.startsWith('-') ? cur.slice(1) : `-${cur}`;
+                                    updateItem(idx, { max_value: next || null } as any);
+                                  }}
+                                >
+                                  ±
+                                </button>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="ex: -18 ou 4.5"
+                                  value={(it as any).max_value ?? ''}
+                                  onChange={(e) => {
+                                    const cleaned = sanitizeSignedDecimal(e.target.value);
+                                    updateItem(idx, {
+                                      max_value: cleaned === '' ? null : cleaned,
+                                    } as any);
+                                  }}
+                                  style={{ fontSize: '0.82rem', flex: 1, minWidth: 0 }}
+                                />
+                              </div>
                             </div>
                           </div>
 

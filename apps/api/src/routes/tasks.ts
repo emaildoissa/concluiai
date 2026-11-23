@@ -750,8 +750,10 @@ tasksRouter.post('/:id/complete', requireAuth, async (req, res) => {
     if (recorded_value !== undefined && recorded_value !== null && recorded_value !== '') {
       numVal = typeof recorded_value === 'number' ? recorded_value : Number(String(recorded_value).replace(',', '.'));
       if (!isNaN(numVal)) {
-        const minVal = item?.min_value != null ? Number(item.min_value) : null;
-        const maxVal = item?.max_value != null ? Number(item.max_value) : null;
+        const rawMin = item?.min_value != null ? Number(item.min_value) : null;
+        const rawMax = item?.max_value != null ? Number(item.max_value) : null;
+        const minVal = rawMin != null && rawMax != null ? Math.min(rawMin, rawMax) : rawMin;
+        const maxVal = rawMin != null && rawMax != null ? Math.max(rawMin, rawMax) : rawMax;
 
         const meetsMin = minVal == null || numVal >= minVal;
         const meetsMax = maxVal == null || numVal <= maxVal;
