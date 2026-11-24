@@ -96,7 +96,17 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
               p = new Date(t.completed_at) <= new Date(t.due_at) ? 1 : 0.5;
             }
             let e = t.status === 'completed' ? 1 : 0;
-            let q = typeof t.score_q === 'number' ? (t.score_q > 1 ? t.score_q / 100 : t.score_q) : 0.7;
+            let q = 0;
+            if (t.status === 'completed') {
+              q =
+                typeof t.score_q === 'number'
+                  ? t.score_q > 1
+                    ? t.score_q / 100
+                    : t.score_q
+                  : item?.requires_photo === false
+                    ? 1
+                    : 0.7;
+            }
             const w = (item?.weight ?? 1) * (item?.is_critical ? 1.5 : 1);
             return { p, e, q, weight: w };
           });

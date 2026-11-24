@@ -48,15 +48,15 @@ export function computeComponentScores(task: {
   else e = 0;
 
   // Qualidade
-  let q = 1;
-  if (task.requires_photo !== false) {
-    if (typeof task.score_q === 'number') {
-      q = Math.min(1, Math.max(0, task.score_q > 1 ? task.score_q / 100 : task.score_q));
-    } else if (task.status === 'completed') {
-      q = 0.7; // sem score_q explícito
-    } else {
-      q = 0;
-    }
+  let q = 0;
+  if (task.requires_photo === false) {
+    q = task.status === 'completed' ? 1 : 0;
+  } else if (typeof task.score_q === 'number') {
+    q = Math.min(1, Math.max(0, task.score_q > 1 ? task.score_q / 100 : task.score_q));
+  } else if (task.status === 'completed') {
+    q = 0.7; // sem score_q explícito
+  } else {
+    q = 0;
   }
 
   return { p, e, q, weight };

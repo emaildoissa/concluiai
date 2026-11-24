@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTodayBR, getDaysAgoBR } from '@concluiai/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { sendWhatsAppMessage } from '../services/whatsapp.js';
@@ -6,30 +7,55 @@ import { getSignedEvidenceUrl, STORAGE_BUCKET } from '../services/evidences.js';
 
 export const evidencesRouter = Router();
 
-function startOfTodaySaoPaulo(): string {
-  const now = new Date();
-  const sp = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-  sp.setHours(0, 0, 0, 0);
-  return sp.toISOString();
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function startOfBrazilDayIso(dateStr: string): string {
+  return new Date(`${dateStr}T00:00:00-03:00`).toISOString();
+}
+
+function endOfBrazilDayIso(dateStr: string): string {
+  return new Date(`${dateStr}T23:59:59.999-03:00`).toISOString();
 }
 
 /**
- * GET /api/evidences
+ * GET /api/evidences?days=&from=&to=&unitId=&limit=
  *
- * Lista as 30 evidências mais recentes, remove duplicidades mantendo
- * apenas a mais recente por tarefa e devolve URL assinada para exibição.
+ * Lista evidências recentes (padrão: hoje em America/Sao_Paulo),
+ * remove duplicidades mantendo apenas a mais recente por tarefa
+ * e devolve URL assinada para exibição.
  */
-evidencesRouter.get('/', requireAuth, async (_req, res) => {
+evidencesRouter.get('/', requireAuth, async (req, res) => {
   try {
     const sb = getSupabaseAdmin();
+    const { days, from, to, unitId, limit } = req.query as {
+      days?: string;
+      from?: string;
+      to?: string;
+      unitId?: string;
+      limit?: string;
+    };
 
-    const { data, error } = await sb
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(String(limit || '30'), 10) || 30));
+
+    let fromDate = getTodayBR();
+    if (from && DATE_RE.test(from)) {
+      fromDate = from;
+    } else if (days) {
+      const n = Math.min(90, Math.max(1, parseInt(String(days), 10) || 1));
+      fromDate = n <= 1 ? getTodayBR() : getDaysAgoBR(n - 1);
+    }
+
+    const fromIso = startOfBrazilDayIso(fromDate);
+    const toIso = to && DATE_RE.test(to) ? endOfBrazilDayIso(to) : null;
+
+    let query = sb
       .from('evidences')
       .select(
         `
           *,
           task_instance:task_instances (
             id,
+            unit_id,
             scheduled_date,
             due_at,
             status,
@@ -37,6 +63,7 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
             score_e,
             score_q,
             unit:units (
+              id,
               name
             ),
             checklist_item:checklist_items (
@@ -47,8 +74,15 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
         `,
       )
       .order('captured_at', { ascending: false })
-      .gte('captured_at', startOfTodaySaoPaulo())
-      .limit(30);
+      .gte('captured_at', fromIso);
+
+    if (toIso) {
+      query = query.lte('captured_at', toIso);
+    }
+
+    // Se filtrar por unidade, busca mais registros antes de filtrar pelo join
+    const fetchLimit = unitId ? Math.min(300, parsedLimit * 4) : parsedLimit;
+    const { data, error } = await query.limit(fetchLimit);
 
     if (error) {
       throw error;
@@ -56,18 +90,24 @@ evidencesRouter.get('/', requireAuth, async (_req, res) => {
 
     const seenTaskIds = new Set<string>();
 
-    const latestEvidences = (data || []).filter((evidence) => {
-      if (!evidence.task_instance_id) {
+    const latestEvidences = (data || [])
+      .filter((evidence) => {
+        if (unitId) {
+          const ti = Array.isArray(evidence.task_instance)
+            ? evidence.task_instance[0]
+            : evidence.task_instance;
+          if (ti?.unit_id !== unitId) return false;
+        }
+        if (!evidence.task_instance_id) {
+          return true;
+        }
+        if (seenTaskIds.has(evidence.task_instance_id)) {
+          return false;
+        }
+        seenTaskIds.add(evidence.task_instance_id);
         return true;
-      }
-
-      if (seenTaskIds.has(evidence.task_instance_id)) {
-        return false;
-      }
-
-      seenTaskIds.add(evidence.task_instance_id);
-      return true;
-    });
+      })
+      .slice(0, parsedLimit);
 
     // Assina a URL de cada foto (photo_url é o path no Storage)
     const withSignedUrls = await Promise.all(

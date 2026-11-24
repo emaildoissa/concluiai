@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     labels:
       - traefik.enable=true
-      - traefik.http.routers.concluiai-backend.rule=Host(`concluiai-api.automacao.free.nf`)
+      - traefik.http.routers.concluiai-backend.rule=Host(`concluiai.api.automacao.free.nf`)
       - traefik.http.routers.concluiai-backend.entrypoints=websecure
       - traefik.http.routers.concluiai-backend.tls=true
       - traefik.http.routers.concluiai-backend.tls.certresolver=letsencryptresolver
