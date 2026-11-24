@@ -1,7 +1,7 @@
 # Plano de Evolução Contínua: ConcluíAI
 
 > **Documento de Referência:** [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md)  
-> **Última Atualização:** 23/11/2026  
+> **Última Atualização:** 24/11/2026  
 > **Objetivo:** Registro contínuo de diagnósticos, correções e planos organizados nos 3 pilares estratégicos do produto.
 
 ---
@@ -90,6 +90,28 @@
     - `apps/mobile`: Filtro por `profiles_sectors` no `TodayScreen` (com exibição do setor) e gravação de `assigned_to: profile.id` nas telas `task/[id].tsx` e `camera/[id].tsx`.
   - **Banco de Dados:** Criada migration `supabase/migrations/010_unassign_pending_tasks.sql` para limpar `assigned_to` em tarefas `pending`/`late` já geradas hoje.
 
+### [23/11/2026] ✅ Resolvido: Suporte a Temperaturas e Medições Negativas
+- **Demanda da Cliente:** Possibilidade de cadastrar limites e registrar medições com sinal negativo (ex.: freezers de `-22°C` a `-18°C`).
+- **Causa Raiz:**
+  1. *Teclado Mobile (`TaskExecutionModal.tsx`):* `<input type="number">` oculta o sinal `-` no teclado numérico do iOS e em vários Androids, além de conflitar com vírgula decimal (`-18,5`).
+  2. *Conversão imediata no Builder (`ChecklistBuilder.tsx`):* Converter `Number(e.target.value)` no `onChange` apagava o sinal `-` assim que era digitado.
+  3. *Faixa invertida:* Ao digitar `-18` como mínimo e `-22` como máximo, a validação marcava toda leitura como não conforme.
+- **Solução Implementada:**
+  - `apps/web/src/components/operator/TaskExecutionModal.tsx`: Adicionado botão tátil **`±` / `−`** ao lado do campo numérico + `type="text" inputMode="decimal"` com sanitização de sinal negativo e vírgula brasileira + normalização automática `Math.min`/`Math.max`.
+  - `apps/web/src/pages/admin/ChecklistBuilder.tsx`: Campos de limite mínimo/máximo com botão `±`, digitação livre de `-` e vírgula, e ordenação automática no `save()`.
+  - `apps/api/src/routes/checklists.ts` e `apps/api/src/routes/tasks.ts`: Parsing tolerante a vírgula/negativo e ordenação automática `min_value <= max_value` no salvamento e na validação de conformidade.
+
+### [24/11/2026] ✅ Resolvido: Correção do Score Q, Filtros/Fuso em `/api/evidences` e Domínio de Produção
+- **Diagnóstico (via Agente Sentinela ao vivo):**
+  1. *Score Q inflado (`apps/api/src/services/score.ts` e `routes/dashboard.ts`):* Tarefas sem foto obrigatória (`requires_photo === false`, como check simples ou medição) iniciavam com `q = 1` (100%) mesmo quando pendentes/atrasadas e não concluídas.
+  2. *`/api/evidences` sem filtros e fuso deslocado (`apps/api/src/routes/evidences.ts`):* Ignorava query params (retornava apenas fotos de hoje) e `startOfTodaySaoPaulo()` usando `setHours(0,0,0,0)` dentro do Docker (UTC) deslocava a janela em 3h.
+  3. *Divergência de host nos manifests do Portainer (`deploy/portainer-stack*.yml`):* Estava com hífen (`concluiai-api.automacao.free.nf`) enquanto o host ativo de produção é com ponto (`concluiai.api.automacao.free.nf`).
+- **Solução Implementada:**
+  - `apps/api/src/services/score.ts` e `apps/api/src/routes/dashboard.ts`: `Q = 1` apenas quando `status === 'completed'` em tarefas sem foto (`Q = 0` enquanto não concluídas).
+  - `apps/api/src/routes/evidences.ts`: Fuso fixado explicitamente em `-03:00` e adicionados parâmetros opcionais `?days=`, `?from=YYYY-MM-DD`, `?to=YYYY-MM-DD`, `?unitId=` e `?limit=`.
+  - `deploy/portainer-stack.prod.yml` e `deploy/portainer-stack.yml`: Host corrigido para `concluiai.api.automacao.free.nf`.
+  - **Validado em produção pelo Sentinela:** `Hoje: 0 concluídas, 0 fotos — Q 0.0 | P 0 | E 0`.
+
 ---
 
 ## Pilar 2: Design, UI & Usabilidade
@@ -165,14 +187,21 @@
 
 ### Próximos Passos:
 > [!IMPORTANT]
-> **Ponto de Retomada:** Tarefas por Setor + Seletor Rápido de Cobrança WhatsApp concluídos e validados! Próximos itens:
-> 1. 👉 **`/admin/training`** ([`TrainingPage.tsx`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/apps/web/src/pages/admin/TrainingPage.tsx)) — Central de Treinamento, materiais didáticos e manuais POP (última das 10 abas do painel admin).
-> 2. Em seguida, refinamento da **visão mobile do operador** (`/tasks`), facilitando a entrada de medições térmicas e fotos sem fricção.
+> **Ponto de Retomada (24/11/2026):** Tarefas por Setor, Seletor Rápido WhatsApp, Temperaturas Negativas, Correção do Score Q, Filtros em `/api/evidences` e **Agente Sentinela ao vivo** estão concluídos e rodando em produção!
+> **Pendências imediatas & próximos passos:**
+> 1. 🔌 **WhatsApp (Evolution API):** Reconectar QR Code da instância `celularteste` em `/admin/whatsapp` quando ativar os disparos reais (único alerta ativo hoje no Sentinela).
+> 2. 👉 **`/admin/training`** ([`TrainingPage.tsx`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/apps/web/src/pages/admin/TrainingPage.tsx)) — Central de Treinamento, materiais didáticos e manuais POP (última das 10 abas do painel admin).
+> 3. **Visão Mobile do Operador (`/tasks`):** Refinamento do fluxo de registro direto de medições e fotos sem cliques redundantes.
+> 4. 🌟 **Fase 2 — Agente Supervisor Operacional Virtual (WhatsApp para Clientes):** Evoluir a inteligência do Sentinela para o dono/gerente da loja (briefings por turno, consultas em linguagem natural no WhatsApp, detecção de padrões recorrentes de atraso/temperatura e cobrança assistida).
 
 - [x] **[23/11/2026] Tarefas por Setor (Pool Compartilhado)** — Removida pré-atribuição round-robin, exibido `Setor Responsável`, seletor rápido de cobrança WhatsApp, registro de executor real na conclusão e ajuste na tela do operador (Web + Mobile).
+- [x] **[23/11/2026] Temperaturas e Medições Negativas** — Botão `± / −` no modal do operador e Builder, vírgula decimal e normalização automática de faixa mínima/máxima.
+- [x] **[24/11/2026] Score Q + `/api/evidences` + Agente Sentinela (Modo Leitura)** — Bug do Score Q corrigido, filtros/fuso adicionados em `/api/evidences`, host Portainer corrigido e Sentinela rodando a cada 30 min contra `https://concluiai.api.automacao.free.nf` (resumo diário às 8h).
 
+- [ ] **Reconectar WhatsApp (`celularteste`)** — Ler QR Code na Evolution API para ativar alertas/cobranças automáticas.
 - [ ] **`/admin/training`** — Central de Treinamento & Manuais POP (Redesign completo com header semântico, 4 KPIs, abas de trilhas e player de manuais).
 - [ ] **`/tasks` (Operador Mobile)** — Otimização de fluxo de registro direto de medições e fotos sem cliques redundantes.
+- [ ] **Supervisor Operacional Virtual (Fase 2)** — Copiloto no WhatsApp para donos/gerentes de unidades (briefings, consultas por texto/áudio e detecção preditiva de falhas).
 - [ ] **Pilar 3 (Enxugamento)** — Revisão de código legado e otimização de payloads de rede.
 
 ---
