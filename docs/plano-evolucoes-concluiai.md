@@ -1,7 +1,7 @@
 # Plano de Evolução Contínua: ConcluíAI
 
 > **Documento de Referência:** [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md)  
-> **Última Atualização:** 24/11/2026  
+> **Última Atualização:** 25/11/2026  
 > **Objetivo:** Registro contínuo de diagnósticos, correções e planos organizados nos 3 pilares estratégicos do produto.
 
 ---
@@ -111,6 +111,20 @@
   - `apps/api/src/routes/evidences.ts`: Fuso fixado explicitamente em `-03:00` e adicionados parâmetros opcionais `?days=`, `?from=YYYY-MM-DD`, `?to=YYYY-MM-DD`, `?unitId=` e `?limit=`.
   - `deploy/portainer-stack.prod.yml` e `deploy/portainer-stack.yml`: Host corrigido para `concluiai.api.automacao.free.nf`.
   - **Validado em produção pelo Sentinela:** `Hoje: 0 concluídas, 0 fotos — Q 0.0 | P 0 | E 0`.
+
+### [25/11/2026] ✅ Resolvido: `critical_missed` contabilizando tarefas futuras ainda no prazo
+- **Diagnóstico (via resumo diário do Sentinela às 8h):** Logo cedo, com `0` tarefas atrasadas, `daily_scores.critical_missed` já registrava `69` críticas perdidas, marcando a loja em risco antes mesmo do prazo das rotinas da tarde/noite.
+- **Causa Raiz:** Em `apps/api/src/services/score.ts`, `criticalMissed` contava qualquer item crítico com `status !== 'completed'` (incluindo tarefas `pending` cujo `due_at` ainda estava no futuro).
+- **Solução Implementada:**
+  - `apps/api/src/services/score.ts` e `apps/api/src/routes/dashboard.ts`: `critical_missed` e `tasks_late` agora consideram apenas tarefas não concluídas **efetivamente vencidas** (`status === 'late'` ou `due_at < now`).
+
+### [25/11/2026] ✅ Resolvido: Exibição de Medições, Observações e Filtros Concluídas / Não Conformes no Painel Admin
+- **Demanda da Cliente:** Ao consultar tarefas finalizadas para ver *"o que que deu"*, o painel exibia fotos e parecer da IA, mas não mostrava o valor de medições numéricas (ex.: temperatura de freezer) nem as observações digitadas pelo operador, e a tela de Auditoria não tinha filtro rápido de **Concluídas** nem **Não Conformes**.
+- **Solução Implementada:**
+  - `apps/web/src/pages/admin/PendingTasks.tsx` e `MultistoreDashboard.tsx`:
+    - Exibição de card de **Medição Registrada** (`recordedValue` + unidade + badge `CONFORME`/`NÃO CONFORME` + faixa aceita + `Ação imediata registrada` quando houver não conformidade).
+    - Exibição de bloco de **Observação do operador** (`notes`) e inclusão de `notes`/`nonComplianceAction` na busca.
+    - Adicionados chips rápidos **Concluídas** (em `PendingTasks`) e **Não Conformes** (em ambas as telas), além de badge `NÃO CONFORME` no cabeçalho dos cards afetados.
 
 ---
 

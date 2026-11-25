@@ -24,7 +24,10 @@ interface AuditTask {
   dueDate: string;
   scheduledDate: string;
   completedAt?: string | null;
-  notes?: string;
+  notes?: string | null;
+  recordedValue?: number | null;
+  isCompliant?: boolean | null;
+  nonComplianceAction?: string | null;
   isLate?: boolean;
   delayMinutes?: number;
   scoreP?: number;
@@ -32,7 +35,15 @@ interface AuditTask {
   scoreQ?: number;
   unit: { id: string; name: string; address?: string } | null;
   sector?: { id: string; name: string } | null;
-  item: { title: string; isCritical: boolean; description?: string } | null;
+  item: {
+    title: string;
+    isCritical: boolean;
+    description?: string;
+    itemType?: string;
+    unitOfMeasurement?: string | null;
+    minValue?: number | null;
+    maxValue?: number | null;
+  } | null;
   operator: { id: string; fullName: string; phone?: string } | null;
   alert?: TaskAlert | null;
   evidence?: TaskEvidence | null;
@@ -75,7 +86,7 @@ export function PendingTasks() {
   const [bulkAlerting, setBulkAlerting] = useState(false);
 
   // Filtros rápidos
-  const [quickFilter, setQuickFilter] = useState<'all' | 'critical' | 'late' | 'rejected'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'completed' | 'critical' | 'late' | 'rejected' | 'non_compliant'>('all');
   const [selectedDate, setSelectedDate] = useState(() => getTodayBR());
   const [selectedUnit, setSelectedUnit] = useState<string>('');
   const [unitsList, setUnitsList] = useState<{ id: string; name: string }[]>([]);
@@ -137,13 +148,17 @@ export function PendingTasks() {
         (t.item?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.unit?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.sector?.name || 'geral da loja').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.nonComplianceAction || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       if (!matchSearch) return false;
 
+      if (quickFilter === 'completed') return t.status === 'completed';
       if (quickFilter === 'critical') return t.item?.isCritical;
       if (quickFilter === 'late') return t.isLate || t.status === 'late';
       if (quickFilter === 'rejected') return t.status === 'rejected' || t.evidence?.reviewStatus === 'rejected';
+      if (quickFilter === 'non_compliant') return t.isCompliant === false;
       return true;
     });
   }, [tasks, searchQuery, quickFilter]);
@@ -151,13 +166,15 @@ export function PendingTasks() {
   // Contadores para KPIs
   const metrics = useMemo(() => {
     const total = tasks.length;
+    const completed = tasks.filter((t) => t.status === 'completed').length;
     const late = tasks.filter((t) => t.isLate || t.status === 'late').length;
     const criticalLate = tasks.filter((t) => t.item?.isCritical && (t.isLate || t.status === 'late')).length;
     const alerted = tasks.filter((t) => t.alert).length;
     const pending = tasks.filter((t) => t.status === 'pending' || t.status === 'in_progress').length;
     const rejected = tasks.filter((t) => t.status === 'rejected' || t.evidence?.reviewStatus === 'rejected').length;
+    const nonCompliant = tasks.filter((t) => t.isCompliant === false).length;
 
-    return { total, late, criticalLate, alerted, pending, rejected };
+    return { total, completed, late, criticalLate, alerted, pending, rejected, nonCompliant };
   }, [tasks]);
 
   // Abre seletor rápido de cobrança via WhatsApp
@@ -371,6 +388,13 @@ export function PendingTasks() {
             </button>
             <button
               type="button"
+              className={`incident-chip ${quickFilter === 'completed' ? 'is-active' : ''}`}
+              onClick={() => setQuickFilter('completed')}
+            >
+              Concluídas ({metrics.completed})
+            </button>
+            <button
+              type="button"
               className={`incident-chip ${quickFilter === 'critical' ? 'is-active' : ''}`}
               onClick={() => setQuickFilter('critical')}
             >
@@ -389,6 +413,18 @@ export function PendingTasks() {
               onClick={() => setQuickFilter('rejected')}
             >
               Recusadas IA ({metrics.rejected})
+            </button>
+            <button
+              type="button"
+              className={`incident-chip ${quickFilter === 'non_compliant' ? 'is-active' : ''}`}
+              onClick={() => setQuickFilter('non_compliant')}
+              style={
+                metrics.nonCompliant > 0 && quickFilter !== 'non_compliant'
+                  ? { borderColor: 'rgba(244, 63, 94, 0.45)', color: '#fda4af' }
+                  : undefined
+              }
+            >
+              Não Conformes ({metrics.nonCompliant})
             </button>
           </div>
         </div>
@@ -488,8 +524,9 @@ export function PendingTasks() {
             const isResolvedLate = t.status === 'completed' && t.isLate;
             const isRejected = t.status === 'rejected' || t.evidence?.reviewStatus === 'rejected';
 
+            const isNonCompliant = t.isCompliant === false;
             let cardCls = 'incident-card';
-            if (t.item?.isCritical && (t.isLate || t.status === 'late')) cardCls += ' is-critical';
+            if ((t.item?.isCritical && (t.isLate || t.status === 'late')) || isNonCompliant) cardCls += ' is-critical';
             else if (isRejected) cardCls += ' is-rejected';
             else if (t.isLate) cardCls += ' is-late';
             else if (t.status === 'completed') cardCls += ' is-completed';
@@ -504,6 +541,7 @@ export function PendingTasks() {
                         {STATUS_LABEL[t.status] || t.status}
                       </span>
                       {t.item?.isCritical && <span className="badge badge-critical">CRÍTICO</span>}
+                      {isNonCompliant && <span className="badge badge-critical">NÃO CONFORME</span>}
                       {isResolvedLate && <span className="badge badge-info">Resolvida c/ atraso</span>}
                     </div>
 
@@ -612,6 +650,62 @@ export function PendingTasks() {
                     </span>
                   </div>
                 </div>
+
+                {/* Medição Quantitativa Registrada */}
+                {t.recordedValue != null && (
+                  <div
+                    style={{
+                      background: isNonCompliant ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.1)',
+                      border: `1px solid ${isNonCompliant ? 'rgba(244, 63, 94, 0.35)' : 'rgba(16, 185, 129, 0.3)'}`,
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: 8,
+                      fontSize: '0.84rem',
+                      color: isNonCompliant ? '#fecdd3' : '#a7f3d0',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.3rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <strong>Medição registrada:</strong>
+                      <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#ffffff' }}>
+                        {t.recordedValue} {t.item?.unitOfMeasurement || ''}
+                      </span>
+                      <span
+                        className={`badge ${isNonCompliant ? 'badge-critical' : 'badge-completed'}`}
+                        style={{ fontSize: '0.68rem' }}
+                      >
+                        {isNonCompliant ? 'NÃO CONFORME' : 'CONFORME'}
+                      </span>
+                      {(t.item?.minValue != null || t.item?.maxValue != null) && (
+                        <span style={{ fontSize: '0.76rem', opacity: 0.85 }}>
+                          (Faixa aceita: {t.item?.minValue ?? '—'} a {t.item?.maxValue ?? '—'} {t.item?.unitOfMeasurement || ''})
+                        </span>
+                      )}
+                    </div>
+                    {t.nonComplianceAction && (
+                      <div style={{ fontSize: '0.8rem', color: '#fda4af' }}>
+                        <strong>Ação imediata registrada:</strong> {t.nonComplianceAction}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Observações do Operador */}
+                {t.notes && t.notes.trim() && (
+                  <div
+                    style={{
+                      background: 'rgba(148, 163, 184, 0.08)',
+                      border: '1px solid rgba(148, 163, 184, 0.2)',
+                      padding: '0.55rem 0.85rem',
+                      borderRadius: 8,
+                      fontSize: '0.82rem',
+                      color: '#cbd5e1',
+                    }}
+                  >
+                    <strong>Observação do operador:</strong> {t.notes}
+                  </div>
+                )}
 
                 {/* Parecer Gemini IA */}
                 {t.evidence?.aiReason && (

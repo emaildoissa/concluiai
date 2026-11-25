@@ -54,7 +54,10 @@ interface OperationalTask {
   dueDate: string;
   scheduledDate: string;
   completedAt?: string | null;
-  notes?: string;
+  notes?: string | null;
+  recordedValue?: number | null;
+  isCompliant?: boolean | null;
+  nonComplianceAction?: string | null;
   isLate?: boolean;
   delayMinutes?: number;
   scoreP?: number;
@@ -67,6 +70,10 @@ interface OperationalTask {
     title: string;
     isCritical: boolean;
     description?: string;
+    itemType?: string;
+    unitOfMeasurement?: string | null;
+    minValue?: number | null;
+    maxValue?: number | null;
     dueTime?: string | null;
     checklistId?: string | null;
     shift?: string | null;
@@ -256,7 +263,7 @@ export function MultistoreDashboard() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'evidences' | 'units'>('tasks');
 
   // Filtros de Tarefas
-  const [taskFilter, setTaskFilter] = useState<'all' | 'critical' | 'late' | 'rejected' | 'completed' | 'upcoming'>('all');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'critical' | 'late' | 'rejected' | 'non_compliant' | 'completed' | 'upcoming'>('all');
   const [selectedUnitFilter, setSelectedUnitFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -426,13 +433,16 @@ export function MultistoreDashboard() {
         (t.item?.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.unit?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (t.sector?.name || 'geral da loja').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase());
+        (t.operator?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.notes || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (t.nonComplianceAction || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       if (!matchSearch) return false;
 
       if (taskFilter === 'critical') return t.item?.isCritical;
       if (taskFilter === 'late') return t.isLate || t.status === 'late';
       if (taskFilter === 'rejected') return t.status === 'rejected';
+      if (taskFilter === 'non_compliant') return t.isCompliant === false;
       if (taskFilter === 'completed') return t.status === 'completed';
       if (taskFilter === 'upcoming') return isTaskUpcoming(t);
       return true;
@@ -444,10 +454,11 @@ export function MultistoreDashboard() {
     const late = tasks.filter((t) => t.isLate || t.status === 'late').length;
     const critical = tasks.filter((t) => t.item?.isCritical).length;
     const rejected = tasks.filter((t) => t.status === 'rejected').length;
+    const nonCompliant = tasks.filter((t) => t.isCompliant === false).length;
     const completed = tasks.filter((t) => t.status === 'completed').length;
     const upcoming = tasks.filter(isTaskUpcoming).length;
     const pending = tasks.filter((t) => (t.status === 'pending' || t.status === 'in_progress') && !isTaskUpcoming(t)).length;
-    return { late, critical, rejected, completed, pending, upcoming, total: tasks.length };
+    return { late, critical, rejected, nonCompliant, completed, pending, upcoming, total: tasks.length };
   }, [tasks]);
 
   // Filtragem de Evidências
@@ -1057,6 +1068,18 @@ export function MultistoreDashboard() {
                 </button>
                 <button
                   type="button"
+                  className={`incident-chip ${taskFilter === 'non_compliant' ? 'is-active' : ''}`}
+                  onClick={() => setTaskFilter('non_compliant')}
+                  style={
+                    taskCounts.nonCompliant > 0 && taskFilter !== 'non_compliant'
+                      ? { borderColor: 'rgba(244, 63, 94, 0.45)', color: '#fda4af' }
+                      : undefined
+                  }
+                >
+                  Não Conformes ({taskCounts.nonCompliant})
+                </button>
+                <button
+                  type="button"
                   className={`incident-chip ${taskFilter === 'upcoming' ? 'is-active' : ''}`}
                   onClick={() => setTaskFilter('upcoming')}
                 >
@@ -1170,8 +1193,10 @@ export function MultistoreDashboard() {
                   const isCompletedTask = t.status === 'completed';
                   const isUpcomingTask = isTaskUpcoming(t);
 
+                  const isNonCompliantTask = t.isCompliant === false;
+
                   let cardCls = '';
-                  if (isCriticalItem && isLateTask) cardCls = 'is-critical';
+                  if ((isCriticalItem && isLateTask) || isNonCompliantTask) cardCls = 'is-critical';
                   else if (isRejectedTask) cardCls = 'is-rejected';
                   else if (isLateTask) cardCls = 'is-late';
                   else if (isCompletedTask) cardCls = 'is-completed';
@@ -1207,6 +1232,12 @@ export function MultistoreDashboard() {
                           {isCriticalItem && (
                             <span className="badge badge-critical" style={{ fontSize: '0.68rem' }}>
                               CRÍTICO · ALTO RISCO
+                            </span>
+                          )}
+
+                          {isNonCompliantTask && (
+                            <span className="badge badge-critical" style={{ fontSize: '0.68rem' }}>
+                              NÃO CONFORME
                             </span>
                           )}
 
@@ -1341,6 +1372,62 @@ export function MultistoreDashboard() {
                           </div>
                         )}
                       </div>
+
+                      {/* Medição Quantitativa Registrada */}
+                      {t.recordedValue != null && (
+                        <div
+                          style={{
+                            background: isNonCompliantTask ? 'rgba(244, 63, 94, 0.12)' : 'rgba(16, 185, 129, 0.1)',
+                            border: `1px solid ${isNonCompliantTask ? 'rgba(244, 63, 94, 0.35)' : 'rgba(16, 185, 129, 0.3)'}`,
+                            padding: '0.6rem 0.85rem',
+                            borderRadius: 8,
+                            fontSize: '0.84rem',
+                            color: isNonCompliantTask ? '#fecdd3' : '#a7f3d0',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.3rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <strong>Medição registrada:</strong>
+                            <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#ffffff' }}>
+                              {t.recordedValue} {t.item?.unitOfMeasurement || ''}
+                            </span>
+                            <span
+                              className={`badge ${isNonCompliantTask ? 'badge-critical' : 'badge-completed'}`}
+                              style={{ fontSize: '0.68rem' }}
+                            >
+                              {isNonCompliantTask ? 'NÃO CONFORME' : 'CONFORME'}
+                            </span>
+                            {(t.item?.minValue != null || t.item?.maxValue != null) && (
+                              <span style={{ fontSize: '0.76rem', opacity: 0.85 }}>
+                                (Faixa aceita: {t.item?.minValue ?? '—'} a {t.item?.maxValue ?? '—'} {t.item?.unitOfMeasurement || ''})
+                              </span>
+                            )}
+                          </div>
+                          {t.nonComplianceAction && (
+                            <div style={{ fontSize: '0.8rem', color: '#fda4af' }}>
+                              <strong>Ação imediata registrada:</strong> {t.nonComplianceAction}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Observações do Operador */}
+                      {t.notes && t.notes.trim() && (
+                        <div
+                          style={{
+                            background: 'rgba(148, 163, 184, 0.08)',
+                            border: '1px solid rgba(148, 163, 184, 0.2)',
+                            padding: '0.55rem 0.85rem',
+                            borderRadius: 8,
+                            fontSize: '0.82rem',
+                            color: '#cbd5e1',
+                          }}
+                        >
+                          <strong>Observação do operador:</strong> {t.notes}
+                        </div>
+                      )}
 
                       {/* Parecer da IA se houver reprovação */}
                       {t.evidence?.aiReason && (

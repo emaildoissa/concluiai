@@ -79,6 +79,7 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
       ]);
 
       let scoreTotal = score?.score_total ?? null;
+      let criticalMissed = score?.critical_missed ?? 0;
 
       // Se a tabela daily_scores ainda não foi gerada para hoje, calcula dinamicamente a partir das tarefas existentes
       if (scoreTotal == null) {
@@ -89,6 +90,12 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
           .eq('scheduled_date', today);
 
         if (unitTasks && unitTasks.length > 0) {
+          const nowMs = Date.now();
+          criticalMissed = unitTasks.filter((t) => {
+            const item = Array.isArray(t.checklist_item) ? t.checklist_item[0] : t.checklist_item;
+            if (!item?.is_critical || t.status === 'completed') return false;
+            return t.status === 'late' || new Date(t.due_at).getTime() < nowMs;
+          }).length;
           const comps = unitTasks.map((t) => {
             const item = Array.isArray(t.checklist_item) ? t.checklist_item[0] : t.checklist_item;
             let p = 0;
@@ -126,7 +133,7 @@ dashboardRouter.get('/multistore', requireAuth, async (req, res) => {
         tasks_pending: pending ?? 0,
         tasks_late: late ?? 0,
         tasks_completed: completed ?? 0,
-        critical_missed: score?.critical_missed ?? 0,
+        critical_missed: criticalMissed,
         closed_today: false,
       });
     }

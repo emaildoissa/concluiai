@@ -147,11 +147,19 @@ export async function recalculateDailyScores(params?: {
     });
 
     const agg = aggregateScore(components);
+    const nowMs = Date.now();
+    const isOverdueNotDone = (t: TaskRow) => {
+      if (t.status === 'completed') return false;
+      if (t.status === 'late') return true;
+      const dueMs = new Date(t.due_at).getTime();
+      return Number.isFinite(dueMs) && dueMs < nowMs;
+    };
+
     const tasksCompleted = rows.filter((t) => t.status === 'completed').length;
-    const tasksLate = rows.filter((t) => t.status === 'late').length;
+    const tasksLate = rows.filter(isOverdueNotDone).length;
     const criticalMissed = rows.filter((t) => {
       const item = Array.isArray(t.checklist_item) ? t.checklist_item[0] : t.checklist_item;
-      return item?.is_critical && !['completed'].includes(t.status);
+      return Boolean(item?.is_critical) && isOverdueNotDone(t);
     }).length;
 
     // Score da unidade (user_id null)
@@ -210,8 +218,11 @@ export async function recalculateDailyScores(params?: {
           score_total: uAgg.scoreTotal,
           tasks_total: userTasks.length,
           tasks_completed: userTasks.filter((t) => t.status === 'completed').length,
-          tasks_late: userTasks.filter((t) => t.status === 'late').length,
-          critical_missed: 0,
+          tasks_late: userTasks.filter(isOverdueNotDone).length,
+          critical_missed: userTasks.filter((t) => {
+            const item = Array.isArray(t.checklist_item) ? t.checklist_item[0] : t.checklist_item;
+            return Boolean(item?.is_critical) && isOverdueNotDone(t);
+          }).length,
         },
         { onConflict: 'unit_id,user_id,score_date' }
       );
