@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import type { ChecklistItem, Shift } from '@concluiai/shared';
-import { RECURRENCE_LABELS, SHIFT_LABELS } from '@concluiai/shared';
+import type { ChecklistItem, ChecklistRecurrence, Shift } from '@concluiai/shared';
+import { getNextRecurrenceDates, getTodayBR, RECURRENCE_LABELS, SHIFT_LABELS } from '@concluiai/shared';
 import { apiDelete, apiGet, apiPost } from '../../lib/api';
 import {
   loadDemoChecklists,
@@ -10,8 +10,28 @@ import {
 import { useAuth } from '../../lib/auth';
 
 type Item = ChecklistItem;
-type DemoChecklist = Omit<ReturnType<typeof loadDemoChecklists>[number], 'items'> & { items: Item[] };
-type Checklist = DemoChecklist & { sector_id?: string | null };
+type DemoChecklist = Omit<ReturnType<typeof loadDemoChecklists>[number], 'items' | 'recurrence'> & {
+  items: Item[];
+  recurrence: ChecklistRecurrence;
+};
+type Checklist = DemoChecklist & {
+  sector_id?: string | null;
+  recurrence_anchor_date?: string | null;
+};
+
+function formatPreviewDateBR(ymd: string): string {
+  const dt = new Date(`${ymd}T12:00:00-03:00`);
+  if (isNaN(dt.getTime())) return ymd;
+  const ddmm = dt.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+  const weekday = dt
+    .toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'America/Sao_Paulo' })
+    .replace('.', '');
+  return `${ddmm} (${weekday})`;
+}
 interface UnitRow { id: string; name: string; address?: string }
 
 const emptyItem = (order = 1): Item => ({
@@ -292,6 +312,10 @@ export function ChecklistBuilder() {
     setSaving(true);
     const normalized: Checklist = {
       ...editing,
+      recurrence_anchor_date:
+        editing.recurrence === 'daily'
+          ? null
+          : editing.recurrence_anchor_date || getTodayBR(),
       items: editing.items
         .filter((i) => i.title.trim())
         .map((i, idx) => {
@@ -813,19 +837,77 @@ export function ChecklistBuilder() {
                       <label style={{ fontWeight: 700 }}>Recorrência</label>
                       <select
                         value={editing.recurrence}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const nextRec = e.target.value as ChecklistRecurrence;
                           setEditing({
                             ...editing,
-                            recurrence: e.target.value as Checklist['recurrence'],
-                          })
-                        }
+                            recurrence: nextRec,
+                            recurrence_anchor_date:
+                              nextRec === 'daily'
+                                ? null
+                                : editing.recurrence_anchor_date || getTodayBR(),
+                          });
+                        }}
                       >
                         <option value="daily">Diária</option>
-                        <option value="weekly">Semanal</option>
+                        <option value="weekly">Semanal (7 dias)</option>
+                        <option value="biweekly">Quinzenal (15 dias)</option>
+                        <option value="monthly">Mensal</option>
                         <option value="once">Única / Específica</option>
                       </select>
                     </div>
                   </div>
+
+                  {editing.recurrence !== 'daily' && (
+                    <div
+                      className="field"
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        borderRadius: 10,
+                        padding: '10px 12px',
+                      }}
+                    >
+                      <label style={{ fontWeight: 700, fontSize: '0.82rem', color: '#bae6fd' }}>
+                        {editing.recurrence === 'once'
+                          ? 'Data da Execução Única'
+                          : 'Data de Início / Referência da Frequência'}
+                      </label>
+                      <input
+                        type="date"
+                        value={editing.recurrence_anchor_date || getTodayBR()}
+                        onChange={(e) =>
+                          setEditing({
+                            ...editing,
+                            recurrence_anchor_date: e.target.value || getTodayBR(),
+                          })
+                        }
+                        style={{ marginTop: 4 }}
+                      />
+                      <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginTop: 6 }}>
+                        {(() => {
+                          const anchor = editing.recurrence_anchor_date || getTodayBR();
+                          const nextDates = getNextRecurrenceDates(editing.recurrence, anchor, 3);
+                          if (nextDates.length === 0) return null;
+                          return editing.recurrence === 'once' ? (
+                            <>
+                              Gerada apenas em:{' '}
+                              <strong style={{ color: '#e2e8f0' }}>
+                                {formatPreviewDateBR(nextDates[0])}
+                              </strong>
+                            </>
+                          ) : (
+                            <>
+                              Próximas execuções:{' '}
+                              <strong style={{ color: '#e2e8f0' }}>
+                                {nextDates.map(formatPreviewDateBR).join(' · ')}
+                              </strong>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="field">
                     <label style={{ fontWeight: 700 }}>Setor Responsável (Opcional)</label>

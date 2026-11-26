@@ -1,9 +1,13 @@
+import { getTodayBR, shouldChecklistRunOnDate } from '@concluiai/shared';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 import { isOperationDay } from '../lib/operation-days.js';
 
 interface ChecklistRow {
   id: string;
   shift: string;
+  recurrence?: string | null;
+  recurrence_anchor_date?: string | null;
+  created_at?: string | null;
   is_active: boolean;
   sector_id: string | null;
   items: { id: string; due_time: string | null; title: string }[];
@@ -45,28 +49,55 @@ export async function generateTasksForDate(params?: {
   const date = params?.date || getTodayBrazil();
   const companyId = params?.companyId;
 
-  let checklistQuery = sb
-    .from('checklists')
-    .select(
-      `
-      id, company_id, shift, is_active, sector_id,
-      items:checklist_items ( id, due_time, title ),
-      units:checklist_units ( unit_id )
-    `
-    )
-    .eq('is_active', true);
+  const buildChecklistQuery = (withAnchorCol: boolean) => {
+    let q = withAnchorCol
+      ? sb
+          .from('checklists')
+          .select(
+            `
+            id, company_id, shift, recurrence, recurrence_anchor_date, created_at, is_active, sector_id,
+            items:checklist_items ( id, due_time, title ),
+            units:checklist_units ( unit_id )
+          `
+          )
+          .eq('is_active', true)
+      : sb
+          .from('checklists')
+          .select(
+            `
+            id, company_id, shift, recurrence, created_at, is_active, sector_id,
+            items:checklist_items ( id, due_time, title ),
+            units:checklist_units ( unit_id )
+          `
+          )
+          .eq('is_active', true);
 
-  // Aplica filtro de empresa tolerante para multi-tenant e registros padrão
-  if (companyId && companyId !== '11111111-1111-1111-1111-111111111111') {
-    checklistQuery = checklistQuery.eq('company_id', companyId);
-  } else if (companyId) {
-    checklistQuery = checklistQuery.or(`company_id.eq.${companyId},company_id.is.null`);
+    // Aplica filtro de empresa tolerante para multi-tenant e registros padrão
+    if (companyId && companyId !== '11111111-1111-1111-1111-111111111111') {
+      q = q.eq('company_id', companyId);
+    } else if (companyId) {
+      q = q.or(`company_id.eq.${companyId},company_id.is.null`);
+    }
+    return q;
+  };
+
+  let { data: checklists, error } = await buildChecklistQuery(true);
+  if (error && String(error.message || '').includes('recurrence_anchor_date')) {
+    const retry = await buildChecklistQuery(false);
+    checklists = retry.data;
+    error = retry.error;
   }
-
-  const { data: checklists, error } = await checklistQuery;
   if (error) throw error;
 
-  const clRows = (checklists || []) as ChecklistRow[];
+  // Filtra checklists cuja recorrência (daily, weekly, biweekly/15d, monthly, once) cai nesta data
+  const clRows = ((checklists || []) as unknown as ChecklistRow[]).filter((cl) => {
+    const fallbackAnchor = cl.created_at ? getTodayBR(new Date(cl.created_at)) : date;
+    return shouldChecklistRunOnDate({
+      recurrence: cl.recurrence,
+      anchorDate: cl.recurrence_anchor_date || fallbackAnchor,
+      targetDate: date,
+    });
+  });
   if (clRows.length === 0) return { created: 0 };
 
   // Builda a lista esperada (checklist_item_id, unit_id) em memória e

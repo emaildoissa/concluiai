@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { getTodayBR } from '@concluiai/shared';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { getSupabaseAdmin } from '../lib/supabase.js';
 
@@ -40,29 +41,62 @@ checklistsRouter.post('/', requireAuth, requireRole('admin', 'manager'), async (
   try {
     const sb = getSupabaseAdmin();
     const companyId = req.user?.company_id || '11111111-1111-1111-1111-111111111111';
-    const { id, name, description, shift, recurrence, is_active, unit_ids, items, sector_id } = req.body;
+    const {
+      id,
+      name,
+      description,
+      shift,
+      recurrence,
+      recurrence_anchor_date,
+      is_active,
+      unit_ids,
+      items,
+      sector_id,
+    } = req.body;
 
     const validModes = ['photo', 'check', 'both', 'numeric'];
+    const validRecurrences = ['daily', 'weekly', 'biweekly', 'monthly', 'once'];
+    const normalizedRecurrence = validRecurrences.includes(recurrence) ? recurrence : 'daily';
+    const normalizedAnchorDate =
+      normalizedRecurrence === 'daily'
+        ? null
+        : typeof recurrence_anchor_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(recurrence_anchor_date)
+          ? recurrence_anchor_date
+          : getTodayBR();
 
     if (!name?.trim()) {
       return res.status(400).json({ error: 'Nome é obrigatório' });
     }
 
-    // 1. Upsert no Checklist
-    const { data: cl, error: clErr } = await sb
+    // 1. Upsert no Checklist (com fallback caso a coluna recurrence_anchor_date ainda não tenha sido migrada)
+    const checklistPayload: Record<string, unknown> = {
+      id: id || undefined,
+      company_id: companyId,
+      name: name.trim(),
+      description: description || null,
+      shift: shift || 'all_day',
+      recurrence: normalizedRecurrence,
+      recurrence_anchor_date: normalizedAnchorDate,
+      sector_id: sector_id || null,
+      is_active: is_active ?? true,
+    };
+
+    let { data: cl, error: clErr } = await sb
       .from('checklists')
-      .upsert({
-        id: id || undefined,
-        company_id: companyId,
-        name: name.trim(),
-        description: description || null,
-        shift: shift || 'all_day',
-        recurrence: recurrence || 'daily',
-        sector_id: sector_id || null,
-        is_active: is_active ?? true,
-      })
+      .upsert(checklistPayload)
       .select()
       .single();
+
+    if (clErr && String(clErr.message || '').includes('recurrence_anchor_date')) {
+      delete checklistPayload.recurrence_anchor_date;
+      const retry = await sb
+        .from('checklists')
+        .upsert(checklistPayload)
+        .select()
+        .single();
+      cl = retry.data;
+      clErr = retry.error;
+    }
 
     if (clErr || !cl) throw clErr;
 

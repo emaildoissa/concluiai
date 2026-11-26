@@ -1,7 +1,7 @@
 # Plano de Evolução Contínua: ConcluíAI
 
 > **Documento de Referência:** [`redesign-modal-protocolo-operacional.md`](file:///c:/Users/Marcos%20Issa/Documents/concluiai/docs/redesign-modal-protocolo-operacional.md)  
-> **Última Atualização:** 25/11/2026  
+> **Última Atualização:** 26/11/2026  
 > **Objetivo:** Registro contínuo de diagnósticos, correções e planos organizados nos 3 pilares estratégicos do produto.
 
 ---
@@ -125,6 +125,15 @@
     - Exibição de card de **Medição Registrada** (`recordedValue` + unidade + badge `CONFORME`/`NÃO CONFORME` + faixa aceita + `Ação imediata registrada` quando houver não conformidade).
     - Exibição de bloco de **Observação do operador** (`notes`) e inclusão de `notes`/`nonComplianceAction` na busca.
     - Adicionados chips rápidos **Concluídas** (em `PendingTasks`) e **Não Conformes** (em ambas as telas), além de badge `NÃO CONFORME` no cabeçalho dos cards afetados.
+
+### [26/11/2026] ✅ Resolvido: Recorrência Quinzenal (15 dias), Mensal e Motor Real de Frequência
+- **Demanda da Cliente:** Possibilidade de agendar POPs/checklists de forma **quinzenal** (a cada 15 dias) e **mensal**, além de Diária, Semanal e Única.
+- **Achado Técnico:** O gerador diário (`generateTasksForDate` em `apps/api/src/services/tasks.ts`) não consultava `recurrence`, fazendo até checklists marcados como *Semanal* ou *Única* gerarem todos os dias.
+- **Solução Implementada:**
+  - `supabase/migrations/011_checklist_recurrence.sql`: Adicionados `'biweekly'` e `'monthly'` ao enum `recurrence_type` + coluna `recurrence_anchor_date DATE` em `checklists`.
+  - `packages/shared/src/index.ts`: Criados `ChecklistRecurrence`, `shouldChecklistRunOnDate()` (diária, 7d, 15d, mensal com ajuste de fim de mês e única) e `getNextRecurrenceDates()`.
+  - `apps/api/src/routes/checklists.ts` e `services/tasks.ts`: Persistência de `recurrence_anchor_date` (com fallback seguro) e filtragem real dos checklists por recorrência na geração diária.
+  - `apps/web/src/pages/admin/ChecklistBuilder.tsx`: Opções **Quinzenal (15 dias)** e **Mensal** no seletor de recorrência + campo **Data de Início / Referência** com prévia automática das próximas 3 execuções.
 
 ---
 

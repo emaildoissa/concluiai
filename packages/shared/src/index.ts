@@ -109,6 +109,8 @@ export interface Profile {
   sector_ids?: string[];
 }
 
+export type ChecklistRecurrence = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'once';
+
 export interface Checklist {
   id: string;
   company_id: string;
@@ -116,7 +118,8 @@ export interface Checklist {
   description?: string | null;
   sector_id?: string | null;
   shift: Shift;
-  recurrence: 'daily' | 'weekly' | 'once';
+  recurrence: ChecklistRecurrence;
+  recurrence_anchor_date?: string | null;
   is_active: boolean;
   created_at: string;
   // joins
@@ -263,11 +266,107 @@ export const SHIFT_LABELS: Record<Shift, string> = {
   all_day: 'Dia inteiro',
 };
 
-export const RECURRENCE_LABELS: Record<Checklist['recurrence'], string> = {
+export const RECURRENCE_LABELS: Record<ChecklistRecurrence, string> = {
   daily: 'Diária',
   weekly: 'Semanal',
+  biweekly: 'Quinzenal (15 dias)',
+  monthly: 'Mensal',
   once: 'Única',
 };
+
+const YMD_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function parseYmdUtc(ymd: string): { y: number; m: number; d: number; utcMs: number } | null {
+  const match = YMD_RE.exec(String(ymd || '').trim());
+  if (!match) return null;
+  const y = Number(match[1]);
+  const m = Number(match[2]);
+  const d = Number(match[3]);
+  const utcMs = Date.UTC(y, m - 1, d);
+  return { y, m, d, utcMs };
+}
+
+function formatUtcYmd(utcMs: number): string {
+  const dt = new Date(utcMs);
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Verifica se um checklist com determinada recorrência deve gerar tarefas na data informada (YYYY-MM-DD).
+ * - daily: todos os dias (sujeito a operation_days da unidade)
+ * - weekly: a cada 7 dias a partir da data âncora
+ * - biweekly: a cada 15 dias a partir da data âncora
+ * - monthly: todo mês no mesmo dia da data âncora (ajustado ao último dia do mês quando necessário, ex: 31 -> 28/02)
+ * - once: apenas na data âncora
+ */
+export function shouldChecklistRunOnDate(params: {
+  recurrence?: string | null;
+  anchorDate?: string | null;
+  targetDate: string;
+}): boolean {
+  const rec = (params.recurrence || 'daily') as ChecklistRecurrence;
+  if (rec === 'daily') return true;
+
+  const target = parseYmdUtc(params.targetDate);
+  if (!target) return true;
+
+  const anchor = parseYmdUtc(params.anchorDate || params.targetDate);
+  if (!anchor) return true;
+
+  const diffDays = Math.round((target.utcMs - anchor.utcMs) / 86_400_000);
+  if (diffDays < 0) return false;
+
+  if (rec === 'once') return diffDays === 0;
+  if (rec === 'weekly') return diffDays % 7 === 0;
+  if (rec === 'biweekly') return diffDays % 15 === 0;
+  if (rec === 'monthly') {
+    const lastDayOfTargetMonth = new Date(Date.UTC(target.y, target.m, 0)).getUTCDate();
+    const expectedDay = Math.min(anchor.d, lastDayOfTargetMonth);
+    return target.d === expectedDay;
+  }
+
+  return true;
+}
+
+/**
+ * Calcula as próximas datas (YYYY-MM-DD) de execução de um checklist a partir da data âncora.
+ */
+export function getNextRecurrenceDates(
+  recurrence: ChecklistRecurrence,
+  anchorDate: string,
+  count = 3
+): string[] {
+  if (recurrence === 'daily') return [];
+  const anchor = parseYmdUtc(anchorDate);
+  if (!anchor) return [];
+  if (recurrence === 'once') return [anchorDate];
+
+  const results: string[] = [];
+  if (recurrence === 'weekly' || recurrence === 'biweekly') {
+    const step = recurrence === 'weekly' ? 7 : 15;
+    for (let i = 0; i < count; i++) {
+      results.push(formatUtcYmd(anchor.utcMs + i * step * 86_400_000));
+    }
+    return results;
+  }
+
+  if (recurrence === 'monthly') {
+    for (let i = 0; i < count; i++) {
+      const totalMonths = anchor.y * 12 + (anchor.m - 1) + i;
+      const y = Math.floor(totalMonths / 12);
+      const m = (totalMonths % 12) + 1;
+      const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+      const d = Math.min(anchor.d, lastDay);
+      results.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`);
+    }
+    return results;
+  }
+
+  return results;
+}
 
 /**
  * Retorna a data atual no fuso horário do Brasil (America/Sao_Paulo) no formato YYYY-MM-DD.
